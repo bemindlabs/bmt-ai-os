@@ -22,6 +22,8 @@ services:
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
+    dns:
+      - 127.0.0.11
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
@@ -53,6 +55,10 @@ services:
       - "${CHROMADB_PORT:-8000}:8000"
     volumes:
       - chromadb_data:/chroma/chroma
+    networks:
+      - bmt-ai-net
+    dns:
+      - 127.0.0.11
     environment:
       - IS_PERSISTENT=TRUE
       - PERSIST_DIRECTORY=/chroma/chroma
@@ -69,8 +75,6 @@ services:
       retries: 5
       start_period: 20s
       start_interval: 5s
-    networks:
-      - bmt-ai-net
     labels:
       com.bemind.service: "chromadb"
       com.bemind.component: "ai-stack"
@@ -96,7 +100,16 @@ volumes:
 
 networks:
   bmt-ai-net:
-    driver: bridge
     name: bmt-ai-net
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
     labels:
       com.bemind.network: "ai-stack"
+      com.bemind.component: "networking"
