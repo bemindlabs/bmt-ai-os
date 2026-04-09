@@ -11,7 +11,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/version-2026.4.9-green.svg" alt="Version"></a>
   <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/status-active--development-yellow.svg" alt="Status: Active Development"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-84%25_(41%2F48_stories)-brightgreen.svg" alt="Progress: 84%"></a>
 </p>
 
 ---
@@ -113,16 +113,28 @@ qemu-system-aarch64 \
 ```
 ai-first-os/
 ├── bmt-ai-os/                # Runtime
-│   ├── kernel/defconfig      # Buildroot ARM64 config (37 packages)
-│   ├── ai-stack/             # Ollama + ChromaDB Docker Compose
-│   ├── controller/           # Python container orchestration
-│   └── runtime/              # Boot scripts & init services
+│   ├── kernel/               # Buildroot defconfig, linux.config, uboot.config
+│   ├── ai-stack/             # Docker Compose (Ollama, ChromaDB, vLLM, llama.cpp, Jupyter)
+│   ├── controller/           # FastAPI orchestration (health, providers, RAG, workspaces)
+│   ├── providers/            # LLM provider abstraction (8 providers, fallback router)
+│   ├── rag/                  # RAG pipeline (ingest, chunk, embed, query, stream)
+│   ├── models/               # Model preset manager (lite/standard/full)
+│   ├── training/             # PyTorch LoRA/QLoRA, data prep, export, Jupyter, TensorBoard
+│   ├── workspace/            # Workspace mounting, file watching, ChromaDB indexing
+│   ├── coding-tools/         # CLI installers + configs (Claude Code, Aider, Continue, Tabby)
+│   ├── dashboard/            # Next.js 15 + shadcn/ui web dashboard (6 pages)
+│   ├── tui/                  # Python Textual terminal UI (5 screens)
+│   └── runtime/              # OpenRC init, containerd, networking, security, NPU passthrough
 ├── bmt-ai-os-build/          # Build infrastructure
 │   ├── base-config.toml      # Base distro config (Alpine, aarch64)
+│   ├── buildroot-external/   # Buildroot packages (containerd, docker, ollama, training)
 │   └── layers/               # BitBake/Yocto layers (NPU drivers, etc.)
+├── scripts/                  # Build, QEMU test, CI, benchmarking, boot timing
+├── tests/                    # Unit tests (smoke, integration, unit — ~300 tests)
+├── docs/                     # Architecture, IDE integration, security policy
 ├── .scrum/                   # Backlog (48 stories, 6 epics, 292 pts)
 ├── VISION.md                 # Strategic vision
-├── ROADMAP.md                # 8-phase roadmap
+├── ROADMAP.md                # 8-phase roadmap (Phases 1-5 complete)
 └── CLAUDE.md                 # Claude Code guidance
 ```
 
@@ -157,20 +169,20 @@ ai-first-os/
 
 See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
 
-| Phase | Epic | Points | Focus |
-|-------|------|--------|-------|
-| 1 | OS Foundation | 86 | Bootable ARM64 image, containerd, init, CI |
-| 2 | Multi-Provider | 35 | Provider abstraction, fallback chain |
-| 3 | Coding Tools | 36 | Claude Code, Aider, Continue, Tabby, IDE plugins |
-| 4 | Dashboard | 52 | Next.js + shadcn/ui web UI, Textual TUI |
-| 5 | Training | 36 | PyTorch, LoRA/QLoRA, Jupyter, TensorBoard |
-| 6 | Hardware BSPs | 29 | Apple Silicon, Jetson, RK3588, Pi 5 + Hailo |
-| 7 | Tooling | 26 | CLI, REST API, logging, OTA updates |
-| 8 | Production | TBD | Fleet management, security hardening |
+| Phase | Epic | Points | Status |
+|-------|------|--------|--------|
+| 1 | OS Foundation | 86 | **Complete** |
+| 2 | Multi-Provider | 35 | **Complete** |
+| 3 | Coding Tools | 36 | **Complete** |
+| 4 | Dashboard | 52 | **Complete** |
+| 5 | Training | 36 | **Complete** |
+| 6 | Hardware BSPs | 29 | Planned |
+| 7 | Tooling | 26 | Planned |
+| 8 | Production | TBD | Planned |
 
 ## Limitations
 
-- **Early stage** — project is in active development; no bootable image available yet
+- **Pre-hardware** — Phases 1-5 complete (84%); board support packages and hardware testing remain
 - **ARM64 only** — OS image targets ARM64 boards; x86 supported only via [dev Docker stack](docker-compose.dev.yml)
 - **Small model ceiling** — Tier 1 hardware limited to 7B models for inference, 1.5-3B for training
 - **No GUI desktop** — headless OS with web dashboard and TUI; no windowing system

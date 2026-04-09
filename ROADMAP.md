@@ -2,44 +2,44 @@
 
 **Current Version:** `2026.4.9` | **Version Format:** `YYYY.M.D`
 
-> 48 stories | 292 points | 6 epics | 8 phases
+> 48 stories | 292 points | 6 epics | 8 phases | **41 stories done (245 pts, 84%)**
 
 ## Overview
 
 ```
-Phase 1 ████████████████████████████░░░░░░░░░░░░░░░░░░░░  86 pts  Foundation
-Phase 2 ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  35 pts  Providers
-Phase 3 █████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  36 pts  Coding Tools
-Phase 4 ██████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  52 pts  Dashboard
-Phase 5 █████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  36 pts  Training
-Phase 6 ████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  21 pts  Hardware BSPs
-Phase 7 █████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  26 pts  Tooling
-Phase 8 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   TBD   Production
+Phase 1 ████████████████████████████████████████████████ ✅ 86 pts  Foundation
+Phase 2 ████████████████████████████████████████████████ ✅ 35 pts  Providers
+Phase 3 ████████████████████████████████████████████████ ✅ 36 pts  Coding Tools
+Phase 4 ████████████████████████████████████████████████ ✅ 52 pts  Dashboard
+Phase 5 ████████████████████████████████████████████████ ✅ 36 pts  Training
+Phase 6 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   29 pts  Hardware BSPs
+Phase 7 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   26 pts  Tooling
+Phase 8 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   TBD    Production
 ```
 
 ---
 
 ## Phase 1 — OS Foundation & Infrastructure
 
-**Epic:** BMTOS-EPIC-3 | **Points:** 86 | **Priority:** Critical
+**Epic:** BMTOS-EPIC-3 | **Points:** 86 | **Priority:** Critical | **Status: COMPLETE**
 
 Build the bootable ARM64 base system with containerized AI services.
 
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-1 | Finalize ARM64 Buildroot kernel configuration | 8 | Critical |
-| BMTOS-16 | Build bootable ARM64 image pipeline | 8 | Critical |
-| BMTOS-2a | Set up containerd runtime with boot integration | 5 | High |
-| BMTOS-2b | Configure GPU/NPU device passthrough for containers | 8 | High |
-| BMTOS-3 | Deploy Ollama + ChromaDB AI stack via Docker Compose | 5 | High |
-| BMTOS-4 | Implement controller for AI stack orchestration | 8 | High |
-| BMTOS-5a | Build document ingestion pipeline into ChromaDB | 5 | Medium |
-| BMTOS-5b | Build RAG query and augmented generation pipeline | 8 | Medium |
-| BMTOS-17 | Configure init system and service boot ordering | 8 | High |
-| BMTOS-18 | Set up QEMU testing and CI pipeline | 8 | High |
-| BMTOS-19 | Design filesystem layout and storage partitioning | 5 | High |
-| BMTOS-20 | Implement service discovery and container networking | 5 | High |
-| BMTOS-21 | Configure container security and secrets management | 5 | High |
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-1 | Finalize ARM64 Buildroot kernel configuration | 8 | Done |
+| BMTOS-16 | Build bootable ARM64 image pipeline | 8 | Done |
+| BMTOS-2a | Set up containerd runtime with boot integration | 5 | Done |
+| BMTOS-2b | Configure GPU/NPU device passthrough for containers | 8 | Done |
+| BMTOS-3 | Deploy Ollama + ChromaDB AI stack via Docker Compose | 5 | Done |
+| BMTOS-4 | Implement controller for AI stack orchestration | 8 | Done |
+| BMTOS-5a | Build document ingestion pipeline into ChromaDB | 5 | Done |
+| BMTOS-5b | Build RAG query and augmented generation pipeline | 8 | Done |
+| BMTOS-17 | Configure init system and service boot ordering | 8 | Done |
+| BMTOS-18 | Set up QEMU testing and CI pipeline | 8 | Done |
+| BMTOS-19 | Design filesystem layout and storage partitioning | 5 | Done |
+| BMTOS-20 | Implement service discovery and container networking | 5 | Done |
+| BMTOS-21 | Configure container security and secrets management | 5 | Done |
 
 **Milestone:** Bootable ARM64 image that boots on QEMU, starts containerd, launches Ollama + ChromaDB, and serves inference requests.
 
@@ -47,20 +47,20 @@ Build the bootable ARM64 base system with containerized AI services.
 
 ## Phase 2 — Multi-Provider LLM Support
 
-**Epic:** BMTOS-EPIC-1 | **Points:** 35 | **Priority:** High
+**Epic:** BMTOS-EPIC-1 | **Points:** 35 | **Priority:** High | **Status: COMPLETE**
 
 Abstraction layer for multiple LLM backends with local-first fallback chain.
 
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-6 | Design and implement LLM provider abstraction layer | 8 | High |
-| BMTOS-9 | Implement provider fallback chain and routing logic | 5 | High |
-| BMTOS-7a | Implement local LLM provider: vLLM | 5 | Medium |
-| BMTOS-7b | Implement local LLM provider: llama.cpp server | 5 | Medium |
-| BMTOS-8a | Implement cloud LLM provider: OpenAI | 3 | Medium |
-| BMTOS-8b | Implement cloud LLM provider: Anthropic (Claude) | 3 | Medium |
-| BMTOS-8c | Implement cloud LLM provider: Google Gemini | 3 | Low |
-| BMTOS-8d | Implement cloud LLM providers: Mistral and Groq | 3 | Low |
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-6 | Design and implement LLM provider abstraction layer | 8 | Done |
+| BMTOS-9 | Implement provider fallback chain and routing logic | 5 | Done |
+| BMTOS-7a | Implement local LLM provider: vLLM | 5 | Done |
+| BMTOS-7b | Implement local LLM provider: llama.cpp server | 5 | Done |
+| BMTOS-8a | Implement cloud LLM provider: OpenAI | 3 | Done |
+| BMTOS-8b | Implement cloud LLM provider: Anthropic (Claude) | 3 | Done |
+| BMTOS-8c | Implement cloud LLM provider: Google Gemini | 3 | Done |
+| BMTOS-8d | Implement cloud LLM providers: Mistral and Groq | 3 | Done |
 
 **Milestone:** Any coding tool or RAG query can use any backend (Ollama, vLLM, llama.cpp, or cloud) via a unified interface. Automatic failover when a provider goes down.
 
@@ -68,18 +68,18 @@ Abstraction layer for multiple LLM backends with local-first fallback chain.
 
 ## Phase 3 — AI Coding CLI & Agent Support
 
-**Epic:** BMTOS-EPIC-2 | **Points:** 36 | **Priority:** High
+**Epic:** BMTOS-EPIC-2 | **Points:** 36 | **Priority:** High | **Status: COMPLETE**
 
 Pre-installed, auto-configured AI coding tools for developers.
 
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-10 | Package coding CLIs (Claude Code, Aider, Continue, Tabby) | 8 | High |
-| BMTOS-11 | Auto-configure coding CLIs to use local LLM providers | 5 | High |
-| BMTOS-15 | Create coding model preset manager | 5 | Medium |
-| BMTOS-12 | Add IDE AI plugin support (Cursor, Copilot, Cody) | 5 | Medium |
-| BMTOS-13 | Add code agent support (SWE-agent, Codex CLI, Mentat) | 5 | Medium |
-| BMTOS-14 | Implement workspace and project context management | 8 | Medium |
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-10 | Package coding CLIs (Claude Code, Aider, Continue, Tabby) | 8 | Done |
+| BMTOS-11 | Auto-configure coding CLIs to use local LLM providers | 5 | Done |
+| BMTOS-15 | Create coding model preset manager | 5 | Done |
+| BMTOS-12 | Add IDE AI plugin support (Cursor, Copilot, Cody) | 5 | Done |
+| BMTOS-13 | Add code agent support (SWE-agent, Codex CLI, Mentat) | 5 | Done |
+| BMTOS-14 | Implement workspace and project context management | 8 | Done |
 
 **Milestone:** Boot the OS, plug in a keyboard, run `aider` or `claude` — coding with local AI immediately. IDE plugins connect via `:8080` API.
 
@@ -87,20 +87,20 @@ Pre-installed, auto-configured AI coding tools for developers.
 
 ## Phase 4 — Native Dashboard
 
-**Epic:** BMTOS-EPIC-5 | **Points:** 52 | **Priority:** High
+**Epic:** BMTOS-EPIC-5 | **Points:** 52 | **Priority:** High | **Status: COMPLETE**
 
 Web dashboard (Next.js + shadcn/ui) and terminal UI (Python Textual) for system management.
 
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-29 | Scaffold Next.js dashboard app with shadcn/ui | 8 | High |
-| BMTOS-30 | Build system overview dashboard page | 8 | High |
-| BMTOS-31 | Build model manager dashboard page | 5 | High |
-| BMTOS-32 | Build RAG console dashboard page | 8 | Medium |
-| BMTOS-33 | Build provider configuration dashboard page | 5 | Medium |
-| BMTOS-34 | Build logs viewer dashboard page | 5 | Medium |
-| BMTOS-35 | Build coding tools status dashboard page | 5 | Low |
-| BMTOS-36 | Build terminal UI (TUI) dashboard with Textual | 8 | Medium |
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-29 | Scaffold Next.js dashboard app with shadcn/ui | 8 | Done |
+| BMTOS-30 | Build system overview dashboard page | 8 | Done |
+| BMTOS-31 | Build model manager dashboard page | 5 | Done |
+| BMTOS-32 | Build RAG console dashboard page | 8 | Done |
+| BMTOS-33 | Build provider configuration dashboard page | 5 | Done |
+| BMTOS-34 | Build logs viewer dashboard page | 5 | Done |
+| BMTOS-35 | Build coding tools status dashboard page | 5 | Done |
+| BMTOS-36 | Build terminal UI (TUI) dashboard with Textual | 8 | Done |
 
 **Milestone:** Open `http://device-ip:9090` — see system health, manage models, query RAG, configure providers. Or SSH in and run `bmt-ai-os tui`.
 
@@ -108,18 +108,18 @@ Web dashboard (Next.js + shadcn/ui) and terminal UI (Python Textual) for system 
 
 ## Phase 5 — On-Device AI Training & Fine-Tuning
 
-**Epic:** BMTOS-EPIC-6 | **Points:** 36 | **Priority:** Medium
+**Epic:** BMTOS-EPIC-6 | **Points:** 36 | **Priority:** Medium | **Status: COMPLETE**
 
 LoRA/QLoRA fine-tuning pipeline for edge hardware.
 
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-37 | Install PyTorch and ML training framework for ARM64 | 8 | High |
-| BMTOS-38 | Implement LoRA/QLoRA fine-tuning pipeline | 8 | High |
-| BMTOS-39 | Build training data preparation tools | 5 | Medium |
-| BMTOS-40 | Add Jupyter Notebook server for interactive training | 5 | Medium |
-| BMTOS-41 | Implement training monitoring and TensorBoard integration | 5 | Medium |
-| BMTOS-42 | Build model export and deployment pipeline | 5 | Medium |
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-37 | Install PyTorch and ML training framework for ARM64 | 8 | Done |
+| BMTOS-38 | Implement LoRA/QLoRA fine-tuning pipeline | 8 | Done |
+| BMTOS-39 | Build training data preparation tools | 5 | Done |
+| BMTOS-40 | Add Jupyter Notebook server for interactive training | 5 | Done |
+| BMTOS-41 | Implement training monitoring and TensorBoard integration | 5 | Done |
+| BMTOS-42 | Build model export and deployment pipeline | 5 | Done |
 
 **Milestone:** Prepare data → fine-tune a 1.5B model with LoRA on Jetson → export to GGUF → serve via Ollama. Full loop on one device.
 
