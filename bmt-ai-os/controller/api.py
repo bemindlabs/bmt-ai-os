@@ -13,6 +13,8 @@ if _BMT_ROOT not in sys.path:
 from fastapi import FastAPI  # noqa: E402
 
 from controller.rag_routes import router as rag_router  # noqa: E402
+from controller.openai_compat import router as openai_router  # noqa: E402
+from controller.middleware import apply_middleware  # noqa: E402
 
 app = FastAPI(
     title="BMT AI OS Controller",
@@ -20,6 +22,9 @@ app = FastAPI(
     description="On-device AI stack controller for BMT AI OS.",
 )
 
+# OpenAI-compatible API and middleware for IDE plugin support
+apply_middleware(app)
+app.include_router(openai_router)
 app.include_router(rag_router, prefix="/api/v1")
 
 
