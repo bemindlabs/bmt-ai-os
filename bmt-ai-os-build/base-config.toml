@@ -1,0 +1,4 @@
+base_distro = "Alpine"
+kernel = "linux-lts-arm"
+arch = "aarch64"
+minimal_packages = ["docker", "containerd", "bash", "openrc"]

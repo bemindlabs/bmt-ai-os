@@ -1,0 +1,46 @@
+{
+  "project": {
+    "name": "BMT AI OS",
+    "key": "BMTOS",
+    "type": "service",
+    "description": "AI-first operating system with ARM64 architecture, containerized AI stack, and local RAG capabilities"
+  },
+  "sprint": {
+    "duration_days": 14,
+    "current_sprint": 0,
+    "start_day": "monday"
+  },
+  "workflow": {
+    "statuses": ["backlog", "ready", "in_progress", "review", "testing", "done"],
+    "default_status": "backlog"
+  },
+  "estimation": {
+    "scale": "fibonacci",
+    "values": [1, 2, 3, 5, 8, 13, 21]
+  },
+  "quality_gates": {
+    "lint": null,
+    "type_check": null,
+    "test": "python -m pytest",
+    "build": "docker compose -f bmt-ai-os/ai-stack/docker-compose.yml config"
+  },
+  "tech_stack": {
+    "languages": ["python"],
+    "frameworks": ["docker", "buildroot"],
+    "architecture": "ARM64",
+    "container_runtime": "containerd",
+    "ai_services": ["ollama", "chromadb"]
+  },
+  "integrations": {
+    "jira": {
+      "enabled": false
+    },
+    "ci_cd": null
+  },
+  "team": {
+    "size": 1,
+    "members": []
+  },
+  "created_at": "2026-04-09",
+  "updated_at": "2026-04-09"
+}

@@ -1,0 +1,7 @@
+services:
+  ollama:
+    image: ollama/ollama
+    devices: ["/dev/dri:/dev/dri"]
+  vector-db:
+    image: lancedb/lancedb
+    volumes: ["/var/lib/rag:/data"]
