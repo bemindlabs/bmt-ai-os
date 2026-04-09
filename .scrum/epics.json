@@ -57,17 +57,17 @@
     {
       "id": "BMTOS-EPIC-4",
       "title": "Hardware Board Support Packages",
-      "description": "Board-specific support for Tier 1 hardware targets: Jetson Orin Nano Super (CUDA), RK3588 (RKNN NPU), Raspberry Pi 5 + Hailo-10H. Each BSP includes device tree, drivers, acceleration, and performance validation.",
+      "description": "Board-specific support for Tier 1 hardware targets: Apple Silicon via Asahi Linux (CPU-first), Jetson Orin Nano Super (CUDA), RK3588 (RKNN NPU), Raspberry Pi 5 + Hailo-10H. Each BSP includes drivers, acceleration, and performance validation.",
       "status": "planned",
       "priority": "high",
-      "stories": ["BMTOS-26", "BMTOS-27", "BMTOS-28"],
+      "stories": ["BMTOS-43", "BMTOS-26", "BMTOS-27", "BMTOS-28"],
       "acceptance_criteria": [
-        "BMT AI OS boots on all three Tier 1 targets",
+        "BMT AI OS boots on all four Tier 1 targets",
         "NPU/GPU acceleration functional per board",
         "Performance benchmarks documented per board (tok/s for reference model)",
         "Board-specific quirks documented"
       ],
-      "total_points": 21,
+      "total_points": 29,
       "created_at": "2026-04-09"
     },
     {

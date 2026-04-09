@@ -1050,6 +1050,29 @@
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09"
     }
+    {
+      "id": "BMTOS-43",
+      "title": "Add Apple Silicon board support package (Asahi Linux, CPU-only)",
+      "description": "BSP for Apple Silicon Macs (M1-M4) via Asahi Linux. CPU-only — no GPU acceleration on Linux (Apple GPU driver incomplete). ARM64 CPU with NEON is exceptionally fast for LLM inference via llama.cpp. Highest single-core performance of any Tier 1 target. Unified memory enables large models that don't fit on other boards.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": ["hardware", "bsp", "apple-silicon"],
+      "acceptance_criteria": [
+        "BMT AI OS boots on Apple Silicon via Asahi Linux (M1/M2/M3/M4)",
+        "CPU-only inference via llama.cpp with ARM NEON optimization",
+        "Qwen2.5-Coder-7B Q4 achieves 30-50 tok/s (CPU-only, M1 baseline)",
+        "16GB+ unified RAM enables 13B+ models (not possible on other Tier 1 boards)",
+        "Ollama runs natively, no GPU passthrough needed",
+        "containerd and Docker CLI functional on Asahi Linux",
+        "All coding CLIs and dashboard operational",
+        "Known limitation documented: no Metal/GPU acceleration on Linux"
+      ],
+      "dependencies": ["BMTOS-16", "BMTOS-2a"],
+      "epic_id": "BMTOS-EPIC-4",
+      "created_at": "2026-04-09"
+    }
   ],
-  "next_id": 43
+  "next_id": 44
 }

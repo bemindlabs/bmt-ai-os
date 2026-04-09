@@ -127,17 +127,18 @@ LoRA/QLoRA fine-tuning pipeline for edge hardware.
 
 ## Phase 6 — Hardware Board Support Packages
 
-**Epic:** BMTOS-EPIC-4 | **Points:** 21 | **Priority:** High
+**Epic:** BMTOS-EPIC-4 | **Points:** 29 | **Priority:** High
 
 Board-specific support for Tier 1 hardware targets.
 
 | Story | Title | Pts | Priority |
 |-------|-------|-----|----------|
+| BMTOS-43 | Add Apple Silicon BSP (Asahi Linux, CPU-first) | 8 | High |
 | BMTOS-26 | Add Jetson Orin board support package | 8 | High |
 | BMTOS-27 | Add Rockchip RK3588 board support package | 8 | High |
 | BMTOS-28 | Add Raspberry Pi 5 + Hailo AI HAT+ 2 board support package | 5 | Medium |
 
-**Milestone:** Flash BMT AI OS on any Tier 1 board. NPU/GPU acceleration works out of the box. Performance benchmarks published.
+**Milestone:** Flash BMT AI OS on any Tier 1 board. Apple Silicon leads with fastest CPU inference (30-50 tok/s). NPU/GPU acceleration on other boards. Performance benchmarks published.
 
 ---
 
@@ -173,13 +174,14 @@ Cross-cutting tools used by all epics.
 
 ## Hardware Target Matrix
 
-| Feature | Jetson Orin ($250) | RK3588 ($100-180) | Pi 5 + Hailo ($210) |
-|---------|-------------------|-------------------|---------------------|
-| LLM Inference (7B) | 15-22 tok/s (CUDA) | 4-6 tok/s (CPU) | 9.5 tok/s (1.5B only) |
-| LoRA Training | 1.5B CUDA ~30min | 1.5B CPU ~3hrs | <1B CPU ~6hrs |
-| NPU/GPU | 67 TOPS CUDA | 6 TOPS RKNN | 40 TOPS Hailo-10H |
-| Dashboard | Full | Full | Full |
-| Coding CLIs | All | All | All (lite models) |
+| Feature | Apple Silicon ($800+) | Jetson Orin ($250) | RK3588 ($100-180) | Pi 5 + Hailo ($210) |
+|---------|----------------------|-------------------|-------------------|---------------------|
+| LLM Inference (7B) | 30-50 tok/s (CPU) | 15-22 tok/s (CUDA) | 4-6 tok/s (CPU) | 9.5 tok/s (1.5B only) |
+| LoRA Training | 3B CPU ~20min | 1.5B CUDA ~30min | 1.5B CPU ~3hrs | <1B CPU ~6hrs |
+| Accel | CPU NEON (no GPU) | 67 TOPS CUDA | 6 TOPS RKNN | 40 TOPS Hailo-10H |
+| Max Model (16GB) | 13B Q4 | 7B Q4 | 7B Q4 | 7B Q4 (CPU) |
+| Dashboard | Full | Full | Full | Full |
+| Coding CLIs | All | All | All | All (lite models) |
 
 ---
 

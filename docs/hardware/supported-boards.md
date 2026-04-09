@@ -2,13 +2,21 @@
 
 ## Tier 1 — Primary Targets
 
+### Apple Silicon (M1-M4, Asahi Linux) — $800+
+- **Acceleration:** CPU-only (ARM NEON) — no Metal/GPU on Linux
+- **RAM:** 8-192GB unified memory
+- **Inference:** 7B @ 30-50 tok/s (CPU), 13B @ 15-22 tok/s (16GB+)
+- **Training:** LoRA 3B (~20 min CPU), QLoRA 3B (~30 min CPU)
+- **Best for:** Fastest ARM64 CPU inference, large models (13B+ on 16GB), developer workstations
+- **Limitation:** No GPU acceleration on Asahi Linux (Apple GPU driver incomplete)
+
 ### NVIDIA Jetson Orin Nano Super (~$250)
 - **NPU/GPU:** 67 TOPS CUDA (1024 cores)
 - **RAM:** 8GB unified
 - **Inference:** 7B model @ 15-22 tok/s
 - **Training:** LoRA 1.5B (~30 min), QLoRA 3B (~1 hr)
 - **Acceleration:** CUDA, TensorRT-LLM
-- **Best for:** Full-featured AI development, fastest inference
+- **Best for:** GPU-accelerated training, embedded/edge deployments
 
 ### Rockchip RK3588 Boards (~$100-180)
 *Orange Pi 5, Radxa ROCK 5B, and similar*
@@ -31,7 +39,6 @@
 
 | Board | Notes |
 |-------|-------|
-| Apple Silicon (Asahi Linux) | Best raw performance, closed ecosystem |
 | Raspberry Pi 5 (CPU-only, no Hailo) | Baseline, 1-3B models only |
 
 ## Not Supported
@@ -45,8 +52,9 @@
 
 | Priority | Choose |
 |----------|--------|
-| Best performance | Jetson Orin Nano Super |
+| Fastest inference | Apple Silicon (M1+ via Asahi Linux) |
+| Best GPU training | Jetson Orin Nano Super |
 | Best value | RK3588 (Orange Pi 5 16GB) |
 | Largest community | Raspberry Pi 5 + AI HAT+ 2 |
-| Training capability | Jetson Orin (only CUDA option) |
+| Large models (13B+) | Apple Silicon 16GB+ |
 | Budget under $100 | RK3588 8GB (Orange Pi 5) |

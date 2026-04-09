@@ -32,18 +32,18 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 
 ### Tier 1 — Primary (optimize first)
 
-| Hardware                                      | NPU/GPU           | LLM Performance      | Training              | Price    |
-| --------------------------------------------- | ----------------- | -------------------- | --------------------- | -------- |
-| NVIDIA Jetson Orin Nano Super                 | 67 TOPS CUDA      | 7B @ 15-22 tok/s     | LoRA 1.5B, QLoRA 3B   | ~$250    |
-| Raspberry Pi 5 + AI HAT+ 2                    | 40 TOPS Hailo-10H | 1.5B @ 9.5 tok/s     | LoRA <1B (CPU)        | ~$210    |
-| Rockchip RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN       | 7B @ 4-6 tok/s (CPU) | LoRA 1.5B (CPU, slow) | $100-180 |
+| Hardware                                      | Accel              | LLM Performance      | Training              | Price    |
+| --------------------------------------------- | ------------------ | -------------------- | --------------------- | -------- |
+| Apple Silicon (M1-M4, Asahi Linux)            | CPU (NEON)         | 7B @ 30-50 tok/s     | LoRA 3B ~20min        | $800+    |
+| NVIDIA Jetson Orin Nano Super                 | 67 TOPS CUDA       | 7B @ 15-22 tok/s     | LoRA 1.5B, QLoRA 3B   | ~$250    |
+| Raspberry Pi 5 + AI HAT+ 2                    | 40 TOPS Hailo-10H  | 1.5B @ 9.5 tok/s     | LoRA <1B (CPU)        | ~$210    |
+| Rockchip RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN        | 7B @ 4-6 tok/s (CPU) | LoRA 1.5B (CPU, slow) | $100-180 |
 
 ### Tier 2 — Future
 
-| Hardware                        | Notes                                    |
-| ------------------------------- | ---------------------------------------- |
-| Apple Silicon (via Asahi Linux) | Best raw performance, closed ecosystem   |
-| Raspberry Pi 5 (CPU-only)       | Baseline compatibility, 1-3B models only |
+| Hardware                  | Notes                                    |
+| ------------------------- | ---------------------------------------- |
+| Raspberry Pi 5 (CPU-only) | Baseline compatibility, 1-3B models only |
 
 ### Avoid
 
@@ -126,11 +126,13 @@ bmt-ai-os      bmt-ai-os     bmt-ai-os   ollama
 data prepare   train          model export run
 ```
 
-| Capability     | Jetson Orin (8GB) | RK3588 (16GB) | Pi 5 (8GB)    |
-| -------------- | ----------------- | ------------- | ------------- |
-| LoRA 1.5B      | CUDA, ~30 min     | CPU, ~3 hours | CPU, ~6 hours |
-| QLoRA 3B       | CUDA, ~1 hour     | Not feasible  | Not feasible  |
-| Export to GGUF | ~5 min            | ~5 min        | ~5 min        |
+| Capability     | Apple Silicon (16GB+) | Jetson Orin (8GB) | RK3588 (16GB) | Pi 5 (8GB)    |
+| -------------- | --------------------- | ----------------- | ------------- | ------------- |
+| LoRA 1.5B      | CPU, ~15 min          | CUDA, ~30 min     | CPU, ~3 hours | CPU, ~6 hours |
+| LoRA 3B        | CPU, ~20 min          | CUDA, ~45 min     | Not feasible  | Not feasible  |
+| QLoRA 3B       | CPU, ~30 min          | CUDA, ~1 hour     | Not feasible  | Not feasible  |
+| 13B inference  | 15-22 tok/s (16GB+)   | Not feasible      | Not feasible  | Not feasible  |
+| Export to GGUF | ~5 min                | ~5 min            | ~5 min        | ~5 min        |
 
 ## Default Models
 
@@ -200,9 +202,9 @@ Next.js + shadcn/ui web dashboard, Python Textual TUI, system monitoring
 
 PyTorch ARM64, LoRA/QLoRA fine-tuning, data prep, Jupyter, TensorBoard, model export
 
-### Phase 7 — Hardware (BMTOS-EPIC-4, 21 pts)
+### Phase 7 — Hardware (BMTOS-EPIC-4, 29 pts)
 
-Board support packages: Jetson Orin (CUDA), RK3588 (RKNN), Pi 5 + Hailo
+Board support packages: Apple Silicon (CPU-first), Jetson Orin (CUDA), RK3588 (RKNN), Pi 5 + Hailo
 
 ### Phase 8 — Production
 

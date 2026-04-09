@@ -55,7 +55,7 @@ The `.scrum/` directory tracks backlog, sprints, and ceremonies. Backlog items u
 - BMTOS-EPIC-1: Multi-Provider LLM Support (35 pts)
 - BMTOS-EPIC-2: AI Coding CLI & Agent Support (36 pts)
 - BMTOS-EPIC-3: OS Foundation & Infrastructure (73 pts)
-- BMTOS-EPIC-4: Hardware Board Support Packages (21 pts)
+- BMTOS-EPIC-4: Hardware Board Support Packages (29 pts)
 - BMTOS-EPIC-5: Native Dashboard — Next.js + shadcn/ui + TUI (52 pts)
 - BMTOS-EPIC-6: On-Device AI Training & Fine-Tuning (36 pts)
 
@@ -73,7 +73,8 @@ The `.scrum/` directory tracks backlog, sprints, and ceremonies. Backlog items u
 ## Key Constraints
 
 - Target architecture is ARM64 (aarch64) — all configs must be ARM64-compatible
-- Tier 1 targets: Jetson Orin Nano Super, RK3588 boards, Pi 5 + Hailo AI HAT+ 2
+- Tier 1 targets: Apple Silicon (Asahi Linux, CPU-first), Jetson Orin Nano Super, RK3588 boards, Pi 5 + Hailo AI HAT+ 2
+- Apple Silicon: CPU-only via Asahi Linux (no Metal/GPU on Linux), fastest ARM64 CPU inference
 - NPU passthrough: CUDA (Jetson), RKNN (RK3588), HailoRT (Pi 5) with CPU-only fallback
 - Controller scope is AI-stack services only (defined in docker-compose.yml)
 - RAG latency target: under 3 seconds on Jetson with 7B model and 1K-document corpus

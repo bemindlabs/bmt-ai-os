@@ -59,8 +59,9 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 
 ## Hardware Targets
 
-| Hardware | NPU/GPU | LLM Performance | Training | Price |
-|----------|---------|-----------------|----------|-------|
+| Hardware | Accel | LLM Performance | Training | Price |
+|----------|-------|-----------------|----------|-------|
+| Apple Silicon (M1-M4, Asahi Linux) | CPU (NEON) | 7B @ 30-50 tok/s | LoRA 3B ~20min | $800+ |
 | NVIDIA Jetson Orin Nano Super | 67 TOPS CUDA | 7B @ 15-22 tok/s | LoRA 1.5B ~30min | ~$250 |
 | Raspberry Pi 5 + AI HAT+ 2 | 40 TOPS Hailo-10H | 1.5B @ 9.5 tok/s | LoRA <1B | ~$210 |
 | RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN | 7B @ 4-6 tok/s (CPU) | LoRA 1.5B ~3hrs | $100-180 |
@@ -163,7 +164,7 @@ See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
 | 3 | Coding Tools | 36 | Claude Code, Aider, Continue, Tabby, IDE plugins |
 | 4 | Dashboard | 52 | Next.js + shadcn/ui web UI, Textual TUI |
 | 5 | Training | 36 | PyTorch, LoRA/QLoRA, Jupyter, TensorBoard |
-| 6 | Hardware BSPs | 21 | Jetson, RK3588, Pi 5 + Hailo |
+| 6 | Hardware BSPs | 29 | Apple Silicon, Jetson, RK3588, Pi 5 + Hailo |
 | 7 | Tooling | 26 | CLI, REST API, logging, OTA updates |
 | 8 | Production | TBD | Fleet management, security hardening |
 
