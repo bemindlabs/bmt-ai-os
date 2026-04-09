@@ -1,0 +1,84 @@
+#!/sbin/openrc-run
+# BMT AI OS — Networking OpenRC Service
+# Sets up Docker bridge network, DNS, and firewall for the AI stack.
+# SPDX-License-Identifier: MIT
+
+description="BMT AI OS container networking and service discovery"
+
+depend() {
+    need docker
+    before bmt-ai-stack
+    after net
+}
+
+BMT_RUNTIME_DIR="${BMT_RUNTIME_DIR:-/opt/bmt-ai-os/runtime}"
+NETWORK_SETUP="${BMT_RUNTIME_DIR}/networking/network-setup.sh"
+FIREWALL_SETUP="${BMT_RUNTIME_DIR}/networking/firewall.sh"
+HEALTH_CHECK="${BMT_RUNTIME_DIR}/networking/health-check.sh"
+PIDFILE="/run/bmt-networking.pid"
+
+start() {
+    ebegin "Starting BMT AI OS networking"
+
+    # Network initialisation
+    if [ -x "${NETWORK_SETUP}" ]; then
+        "${NETWORK_SETUP}"
+    else
+        eerror "network-setup.sh not found at ${NETWORK_SETUP}"
+        eend 1
+        return 1
+    fi
+
+    # Firewall rules
+    if [ -x "${FIREWALL_SETUP}" ]; then
+        "${FIREWALL_SETUP}"
+    else
+        ewarn "firewall.sh not found — skipping firewall setup"
+    fi
+
+    # Record PID file so OpenRC can track the service state
+    echo $$ > "${PIDFILE}"
+
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping BMT AI OS networking"
+
+    # Flush BMT-specific iptables chain
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -D FORWARD -j BMT-AI-STACK 2>/dev/null || true
+        iptables -F BMT-AI-STACK 2>/dev/null || true
+        iptables -X BMT-AI-STACK 2>/dev/null || true
+    fi
+
+    rm -f "${PIDFILE}"
+    eend 0
+}
+
+status() {
+    ebegin "BMT AI OS networking status"
+
+    # Check if the Docker network exists
+    if docker network inspect bmt-ai-net >/dev/null 2>&1; then
+        einfo "Network 'bmt-ai-net' is active"
+    else
+        eerror "Network 'bmt-ai-net' not found"
+        eend 1
+        return 1
+    fi
+
+    # Show connected containers
+    einfo "Connected containers:"
+    docker network inspect bmt-ai-net \
+        --format '{{range .Containers}}  - {{.Name}} ({{.IPv4Address}}){{"\n"}}{{end}}' \
+        2>/dev/null || einfo "  (none)"
+
+    # Run health check if available
+    if [ -x "${HEALTH_CHECK}" ]; then
+        einfo "Running health check..."
+        "${HEALTH_CHECK}"
+    fi
+
+    eend 0
+}

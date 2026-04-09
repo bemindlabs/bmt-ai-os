@@ -9,6 +9,10 @@ services:
       - "11434:11434"
     volumes:
       - ollama_models:/root/.ollama
+    networks:
+      - bmt-ai-net
+    dns:
+      - 127.0.0.11
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
@@ -23,6 +27,10 @@ services:
       - "8000:8000"
     volumes:
       - chromadb_data:/chroma/chroma
+    networks:
+      - bmt-ai-net
+    dns:
+      - 127.0.0.11
     environment:
       - ANONYMIZED_TELEMETRY=false
     restart: always
@@ -35,3 +43,19 @@ services:
 volumes:
   ollama_models:
   chromadb_data:
+
+networks:
+  bmt-ai-net:
+    name: bmt-ai-net
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    labels:
+      ai.bemind.component: networking
+      ai.bemind.story: BMTOS-20

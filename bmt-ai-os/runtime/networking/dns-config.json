@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "BMT AI OS — DNS and service-discovery configuration (BMTOS-20)",
+
+  "docker_embedded_dns": "127.0.0.11",
+
+  "external_dns": [
+    "1.1.1.1",
+    "8.8.8.8"
+  ],
+
+  "search_domains": [
+    "bmt-ai-net",
+    "local"
+  ],
+
+  "service_discovery": {
+    "ollama": {
+      "container_name": "bmt-ollama",
+      "network": "bmt-ai-net",
+      "port": 11434,
+      "protocol": "http",
+      "healthcheck": "/api/tags"
+    },
+    "chromadb": {
+      "container_name": "bmt-chromadb",
+      "network": "bmt-ai-net",
+      "port": 8000,
+      "protocol": "http",
+      "healthcheck": "/api/v1/heartbeat"
+    },
+    "dashboard": {
+      "container_name": "bmt-dashboard",
+      "network": "bmt-ai-net",
+      "port": 9090,
+      "protocol": "http",
+      "healthcheck": "/"
+    },
+    "api": {
+      "container_name": "bmt-api",
+      "network": "bmt-ai-net",
+      "port": 8080,
+      "protocol": "http",
+      "healthcheck": "/health"
+    },
+    "tensorboard": {
+      "container_name": "bmt-tensorboard",
+      "network": "bmt-ai-net",
+      "port": 6006,
+      "protocol": "http",
+      "healthcheck": "/"
+    },
+    "jupyter": {
+      "container_name": "bmt-jupyter",
+      "network": "bmt-ai-net",
+      "port": 8888,
+      "protocol": "http",
+      "healthcheck": "/api"
+    }
+  },
+
+  "network": {
+    "name": "bmt-ai-net",
+    "subnet": "172.20.0.0/16",
+    "gateway": "172.20.0.1",
+    "driver": "bridge",
+    "ipv6": false
+  }
+}
