@@ -1,0 +1,45 @@
+# BMT AI OS — Provider configuration
+# Fallback chain: local-first, cloud fallback.
+
+fallback_chain:
+  - ollama
+  - vllm
+  - llama-cpp
+  - openai
+  - anthropic
+
+providers:
+  ollama:
+    enabled: true
+    base_url: "http://localhost:11434"
+    default_model: "qwen3:8b"
+    timeout: 30
+
+  vllm:
+    enabled: true
+    base_url: "http://localhost:8000"
+    default_model: "qwen3:8b"
+    timeout: 30
+
+  llama-cpp:
+    enabled: true
+    base_url: "http://localhost:8080"
+    default_model: "qwen3:8b"
+    timeout: 30
+
+  openai:
+    enabled: false
+    # api_key: set via OPENAI_API_KEY env var
+    default_model: "gpt-4o"
+    timeout: 15
+
+  anthropic:
+    enabled: false
+    # api_key: set via ANTHROPIC_API_KEY env var
+    default_model: "claude-sonnet-4-20250514"
+    timeout: 15
+
+circuit_breaker:
+  failure_threshold: 3
+  cooldown_seconds: 60
+  half_open_max_requests: 1
