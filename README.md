@@ -1,8 +1,34 @@
-# ai-first-os
+<p align="center">
+  <h1 align="center">BMT AI OS</h1>
+  <p align="center">
+    An open-source, AI-first operating system for ARM64
+    <br />
+    <a href="VISION.md"><strong>Vision</strong></a> · <a href="ROADMAP.md"><strong>Roadmap</strong></a> · <a href="CONTRIBUTING.md"><strong>Contributing</strong></a> · <a href="CHANGELOG.md"><strong>Changelog</strong></a>
+  </p>
+</p>
 
-**BMT AI OS** `v2026.4.9` — an open-source, AI-first operating system for ARM64 with containerized LLM inference, local RAG, AI coding tools, and on-device model training.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/version-2026.4.9-green.svg" alt="Version"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/status-active--development-yellow.svg" alt="Status: Active Development"></a>
+</p>
+
+---
+
+Containerized LLM inference, local RAG, AI coding tools, and on-device model training — all on a $100 ARM64 board. Fully offline after initial setup.
 
 Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
+
+## Key Features
+
+- **Boot to AI** — LLM inference + RAG start as system services on boot
+- **Multi-provider** — Ollama, vLLM, llama.cpp locally; OpenAI, Anthropic, Gemini as cloud fallback
+- **Coding tools** — Claude Code, Aider, Continue, Tabby pre-installed and auto-configured
+- **On-device training** — LoRA/QLoRA fine-tuning with PyTorch on edge hardware
+- **Native dashboard** — Next.js + shadcn/ui web UI (:9090) and Python Textual TUI
+- **Hardware abstraction** — same experience on Jetson, Pi, or RK3588
+- **Fully offline** — operates without cloud after initial setup
 
 ## Architecture
 
@@ -31,25 +57,13 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 └───────────────────────────────────────────────────┘
 ```
 
-## Repository Structure
+## Hardware Targets
 
-```
-ai-first-os/
-├── bmt-ai-os/                # Runtime components
-│   ├── SPECIFICATION.md      # Architecture & requirements
-│   ├── kernel/defconfig      # Buildroot ARM64 config (37 packages)
-│   ├── runtime/              # Boot scripts & init services
-│   ├── ai-stack/             # Ollama + ChromaDB Docker Compose
-│   ├── controller/           # Python container orchestration
-│   └── dashboard/            # Next.js + shadcn/ui web dashboard
-├── bmt-ai-os-build/          # Build infrastructure
-│   ├── base-config.toml      # Base distro config (Alpine, aarch64)
-│   ├── layers/               # BitBake/Yocto layers
-│   └── services/             # Service definitions
-├── VISION.md                 # Strategic vision & roadmap
-├── CLAUDE.md                 # Claude Code guidance
-└── .scrum/                   # Sprint & backlog tracking (42 stories)
-```
+| Hardware | NPU/GPU | LLM Performance | Training | Price |
+|----------|---------|-----------------|----------|-------|
+| NVIDIA Jetson Orin Nano Super | 67 TOPS CUDA | 7B @ 15-22 tok/s | LoRA 1.5B ~30min | ~$250 |
+| Raspberry Pi 5 + AI HAT+ 2 | 40 TOPS Hailo-10H | 1.5B @ 9.5 tok/s | LoRA <1B | ~$210 |
+| RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN | 7B @ 4-6 tok/s (CPU) | LoRA 1.5B ~3hrs | $100-180 |
 
 ## Quick Start
 
@@ -62,10 +76,11 @@ ai-first-os/
 ### Run the AI Stack
 
 ```bash
+# Start Ollama + ChromaDB
 cd bmt-ai-os/ai-stack
 docker compose up -d
 
-# Verify
+# Verify services
 curl http://localhost:11434/api/tags        # Ollama
 curl http://localhost:8000/api/v1/heartbeat  # ChromaDB
 ```
@@ -77,11 +92,10 @@ pip install docker
 python bmt-ai-os/controller/main.py
 ```
 
-## Building the OS Image
-
-Full ARM64 image is built with Buildroot using `kernel/defconfig` and BitBake layers from `bmt-ai-os-build/`.
+### Build the OS Image
 
 ```bash
+# Cross-compile for ARM64 (requires Buildroot toolchain)
 make O=output defconfig BR2_DEFCONFIG=bmt-ai-os/kernel/defconfig
 make
 
@@ -93,13 +107,23 @@ qemu-system-aarch64 \
   -nographic
 ```
 
-## Hardware Targets
+## Repository Structure
 
-| Hardware | NPU/GPU | LLM Performance | Price |
-|----------|---------|-----------------|-------|
-| NVIDIA Jetson Orin Nano Super | 67 TOPS CUDA | 7B @ 15-22 tok/s | ~$250 |
-| Raspberry Pi 5 + AI HAT+ 2 | 40 TOPS Hailo-10H | 1.5B @ 9.5 tok/s | ~$210 |
-| RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN | 7B @ 4-6 tok/s (CPU) | $100-180 |
+```
+ai-first-os/
+├── bmt-ai-os/                # Runtime
+│   ├── kernel/defconfig      # Buildroot ARM64 config (37 packages)
+│   ├── ai-stack/             # Ollama + ChromaDB Docker Compose
+│   ├── controller/           # Python container orchestration
+│   └── runtime/              # Boot scripts & init services
+├── bmt-ai-os-build/          # Build infrastructure
+│   ├── base-config.toml      # Base distro config (Alpine, aarch64)
+│   └── layers/               # BitBake/Yocto layers (NPU drivers, etc.)
+├── .scrum/                   # Backlog (48 stories, 6 epics, 292 pts)
+├── VISION.md                 # Strategic vision
+├── ROADMAP.md                # 8-phase roadmap
+└── CLAUDE.md                 # Claude Code guidance
+```
 
 ## Port Map
 
@@ -122,22 +146,36 @@ qemu-system-aarch64 \
 | Container Runtime | containerd + Docker CLI |
 | LLM Inference | Ollama, vLLM, llama.cpp |
 | Vector Database | ChromaDB |
-| Training | PyTorch + HF Transformers + LoRA/QLoRA |
-| Dashboard | Next.js + shadcn/ui + Tailwind CSS |
+| Training | PyTorch + HF Transformers + PEFT (LoRA/QLoRA) |
+| Dashboard | Next.js 15 + shadcn/ui + Tailwind CSS |
 | TUI | Python Textual |
-| Controller | Python + docker-py |
-| Hardware Accel | CUDA (Jetson), RKNN (RK3588), Hailo (Pi 5) |
+| Controller | Python + FastAPI + docker-py |
+| Hardware Accel | CUDA (Jetson), RKNN (RK3588), HailoRT (Pi 5) |
 
-## Key Features
+## Roadmap
 
-- **Boot to AI** — LLM inference + RAG as system services, not apps
-- **Multi-provider** — Ollama, vLLM, llama.cpp locally; OpenAI, Anthropic, Gemini as cloud fallback
-- **Coding tools** — Claude Code, Aider, Continue, Tabby pre-installed and auto-configured
-- **On-device training** — LoRA/QLoRA fine-tuning with PyTorch on edge hardware
-- **Native dashboard** — Next.js + shadcn/ui web UI and Textual TUI
-- **Hardware abstraction** — same experience on Jetson, Pi, or RK3588
-- **Fully offline** — operates without cloud after initial setup
+See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
+
+| Phase | Epic | Points | Focus |
+|-------|------|--------|-------|
+| 1 | OS Foundation | 86 | Bootable ARM64 image, containerd, init, CI |
+| 2 | Multi-Provider | 35 | Provider abstraction, fallback chain |
+| 3 | Coding Tools | 36 | Claude Code, Aider, Continue, Tabby, IDE plugins |
+| 4 | Dashboard | 52 | Next.js + shadcn/ui web UI, Textual TUI |
+| 5 | Training | 36 | PyTorch, LoRA/QLoRA, Jupyter, TensorBoard |
+| 6 | Hardware BSPs | 21 | Jetson, RK3588, Pi 5 + Hailo |
+| 7 | Tooling | 26 | CLI, REST API, logging, OTA updates |
+| 8 | Production | TBD | Fleet management, security hardening |
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+- [Report a Bug](.github/ISSUE_TEMPLATE/bug_report.md)
+- [Request a Feature](.github/ISSUE_TEMPLATE/feature_request.md)
+- [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## License
 
-MIT License — Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
+[MIT License](LICENSE) — Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
