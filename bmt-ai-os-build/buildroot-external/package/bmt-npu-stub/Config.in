@@ -1,0 +1,16 @@
+config BR2_PACKAGE_BMT_NPU_STUB
+	bool "bmt-npu-stub (hardware acceleration placeholder)"
+	depends on BR2_aarch64
+	help
+	  Placeholder package for NPU/GPU hardware acceleration.
+
+	  At runtime the controller auto-detects the available accelerator
+	  and loads the appropriate backend:
+
+	    Jetson Orin Nano Super  — CUDA / TensorRT (NVIDIA JetPack BSP)
+	    RK3588                  — RKNN runtime / RKLLM
+	    Pi 5 + Hailo AI HAT+ 2  — HailoRT
+	    QEMU / Apple Silicon    — CPU-only fallback (llama.cpp)
+
+	  Replace this stub with the real BSP package recipe for each target.
+	  Do NOT enable CUDA, RKNN, or HailoRT on QEMU targets.
