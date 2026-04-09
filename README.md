@@ -36,7 +36,7 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)       │
+│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)        │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│
 │  Claude Code, Aider │  Cursor       │  SWE-agent  │
