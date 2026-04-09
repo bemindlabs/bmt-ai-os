@@ -1,0 +1,72 @@
+# BMT AI OS — Development Stack (x86/ARM64)
+# Run the full AI stack locally without building the OS image.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml logs -f
+#   docker compose -f docker-compose.dev.yml down
+
+services:
+  # === LLM Inference ===
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bmt-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Remove 'deploy.resources.reservations.devices' if no NVIDIA GPU
+
+  # === Vector Database ===
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: bmt-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+    restart: unless-stopped
+
+  # === Jupyter Lab (Training) ===
+  jupyter:
+    image: jupyter/pytorch-notebook:latest
+    container_name: bmt-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - jupyter_notebooks:/home/jovyan/work
+      - training_runs:/home/jovyan/runs
+    environment:
+      - JUPYTER_TOKEN=bmtaios
+    restart: unless-stopped
+
+  # === TensorBoard (Training Monitoring) ===
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: bmt-tensorboard
+    ports:
+      - "6006:6006"
+    volumes:
+      - training_runs:/runs
+    command: tensorboard --logdir=/runs --host=0.0.0.0 --port=6006
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
+    name: bmt-ollama-models
+  chromadb_data:
+    name: bmt-chromadb-data
+  jupyter_notebooks:
+    name: bmt-jupyter-notebooks
+  training_runs:
+    name: bmt-training-runs

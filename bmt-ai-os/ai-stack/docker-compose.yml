@@ -1,9 +1,37 @@
+# BMT AI OS — Production AI Stack (ARM64)
+# Runs on-device as system services managed by the controller.
+
 services:
   ollama:
     image: ollama/ollama:latest
+    container_name: bmt-ollama
     ports:
       - "11434:11434"
-  vectordb:
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  chromadb:
     image: chromadb/chroma:latest
+    container_name: bmt-chromadb
     ports:
       - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  ollama_models:
+  chromadb_data:
