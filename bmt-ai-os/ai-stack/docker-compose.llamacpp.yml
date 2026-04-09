@@ -1,0 +1,74 @@
+# BMT AI OS — llama.cpp Server (ARM64 optimized)
+# Overlay compose file for llama-server — lightweight GGUF inference backend.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.llamacpp.yml up -d
+#
+# llama-server loads a single GGUF model at startup.  Set LLAMACPP_MODEL
+# in .env to point to the desired file inside the models volume.
+#
+# ARM64 acceleration:
+#   NEON  — always enabled on ARM64 builds (automatic)
+#   SVE   — enabled when host CPU supports it (e.g. Graviton3+)
+#   RKNN  — requires custom build with RKNN delegation; not in default image
+#
+# Memory footprint (Q4_K_M, 7B model):
+#   llama-server: ~4.2 GB RSS (model mmap + KV cache)
+#   Ollama:       ~5.0 GB RSS (Go runtime + model, same quant)
+#   Saving:       ~15-20% lower memory for equivalent inference
+
+services:
+  llama-server:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: bmt-llama-server
+    platform: linux/arm64
+    ports:
+      - "${LLAMACPP_PORT:-8002}:8002"
+    volumes:
+      - llamacpp_models:/models
+    environment:
+      # Model path inside the container (relative to /models volume).
+      LLAMA_ARG_MODEL: "/models/${LLAMACPP_MODEL:-qwen2.5-coder-7b-instruct-q4_k_m.gguf}"
+      # Context window size.
+      LLAMA_ARG_CTX_SIZE: "${LLAMACPP_CTX_SIZE:-4096}"
+      # Number of CPU threads for inference.
+      LLAMA_ARG_THREADS: "${LLAMACPP_THREADS:-4}"
+      # Batch size — higher uses more memory but faster prompt processing.
+      LLAMA_ARG_BATCH_SIZE: "${LLAMACPP_BATCH_SIZE:-512}"
+      # Listen address and port.
+      LLAMA_ARG_HOST: "0.0.0.0"
+      LLAMA_ARG_PORT: "8002"
+      # Enable embeddings endpoint.
+      LLAMA_ARG_EMBEDDINGS: "true"
+      # Parallel request slots (keep low on constrained devices).
+      LLAMA_ARG_PARALLEL: "${LLAMACPP_PARALLEL:-1}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+      start_interval: 10s
+    networks:
+      - bmt-ai-net
+    dns:
+      - 127.0.0.11
+    labels:
+      com.bemind.service: "llama-server"
+      com.bemind.component: "ai-stack"
+      com.bemind.tier: "${BMT_DEVICE_TIER:-standard}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${LLAMACPP_CPU_LIMIT:-4.0}"
+          memory: "${LLAMACPP_MEM_LIMIT:-6g}"
+        reservations:
+          cpus: "1.0"
+          memory: "2g"
+
+volumes:
+  llamacpp_models:
+    driver: local
+    labels:
+      com.bemind.volume: "llamacpp-models"
