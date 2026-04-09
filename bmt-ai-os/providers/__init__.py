@@ -17,6 +17,7 @@ from providers.base import (
     TokenUsage,
 )
 from providers.registry import ProviderRegistry, get_registry
+from providers.vllm import VLLMProvider
 
 __all__ = [
     "ChatMessage",
@@ -29,5 +30,6 @@ __all__ = [
     "ProviderTimeoutError",
     "TokenUsage",
     "ProviderRegistry",
+    "VLLMProvider",
     "get_registry",
 ]
