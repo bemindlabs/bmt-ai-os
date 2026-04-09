@@ -1,35 +1,15 @@
-"""BMT AI OS — LLM Provider Abstraction Layer.
+# BMT AI OS -- Provider Layer
+# Multi-provider LLM abstraction for local and cloud inference.
 
-Provides a unified interface for multiple LLM backends (Ollama, vLLM,
-llama.cpp, OpenAI, Anthropic, etc.) with runtime switching and fallback
-chain support.
-"""
-
-from providers.base import (
-    ChatMessage,
-    ChatResponse,
-    LLMProvider,
-    ModelInfo,
-    ModelNotFoundError,
-    ProviderError,
-    ProviderHealth,
-    ProviderTimeoutError,
-    TokenUsage,
-)
-from providers.registry import ProviderRegistry, get_registry
-from providers.vllm import VLLMProvider
+from bmt_ai_os.providers.base import LLMProvider
+from bmt_ai_os.providers.openai_provider import OpenAICompatibleProvider, OpenAIProvider
+from bmt_ai_os.providers.groq_provider import GroqProvider
+from bmt_ai_os.providers.mistral_provider import MistralProvider
 
 __all__ = [
-    "ChatMessage",
-    "ChatResponse",
     "LLMProvider",
-    "ModelInfo",
-    "ModelNotFoundError",
-    "ProviderError",
-    "ProviderHealth",
-    "ProviderTimeoutError",
-    "TokenUsage",
-    "ProviderRegistry",
-    "VLLMProvider",
-    "get_registry",
+    "OpenAICompatibleProvider",
+    "OpenAIProvider",
+    "GroqProvider",
+    "MistralProvider",
 ]
