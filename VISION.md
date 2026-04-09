@@ -10,13 +10,13 @@ There is no vendor-neutral, bootable OS that ships containerized LLM inference +
 
 The closest alternatives all fall short:
 
-| Project | Gap |
-|---------|-----|
-| RHEL AI bootc | AI OS as container image, but x86/enterprise, $$$$ |
-| NVIDIA JetPack | ARM64 AI, but locked to NVIDIA hardware ($250-2000) |
-| Balena OS | Container OS for IoT fleets, zero AI integration |
-| Umbrel OS | Self-hosted apps with Ollama, but x86-focused, AI is an afterthought |
-| Ollama / LM Studio | Great inference tools, but not an operating system |
+| Project            | Gap                                                                  |
+| ------------------ | -------------------------------------------------------------------- |
+| RHEL AI bootc      | AI OS as container image, but x86/enterprise, $$$$                   |
+| NVIDIA JetPack     | ARM64 AI, but locked to NVIDIA hardware ($250-2000)                  |
+| Balena OS          | Container OS for IoT fleets, zero AI integration                     |
+| Umbrel OS          | Self-hosted apps with Ollama, but x86-focused, AI is an afterthought |
+| Ollama / LM Studio | Great inference tools, but not an operating system                   |
 
 BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 
@@ -32,18 +32,18 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 
 ### Tier 1 — Primary (optimize first)
 
-| Hardware | NPU/GPU | LLM Performance | Training | Price |
-|----------|---------|-----------------|----------|-------|
-| NVIDIA Jetson Orin Nano Super | 67 TOPS CUDA | 7B @ 15-22 tok/s | LoRA 1.5B, QLoRA 3B | ~$250 |
-| Raspberry Pi 5 + AI HAT+ 2 | 40 TOPS Hailo-10H | 1.5B @ 9.5 tok/s | LoRA <1B (CPU) | ~$210 |
-| Rockchip RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN | 7B @ 4-6 tok/s (CPU) | LoRA 1.5B (CPU, slow) | $100-180 |
+| Hardware                                      | NPU/GPU           | LLM Performance      | Training              | Price    |
+| --------------------------------------------- | ----------------- | -------------------- | --------------------- | -------- |
+| NVIDIA Jetson Orin Nano Super                 | 67 TOPS CUDA      | 7B @ 15-22 tok/s     | LoRA 1.5B, QLoRA 3B   | ~$250    |
+| Raspberry Pi 5 + AI HAT+ 2                    | 40 TOPS Hailo-10H | 1.5B @ 9.5 tok/s     | LoRA <1B (CPU)        | ~$210    |
+| Rockchip RK3588 boards (Orange Pi 5, ROCK 5B) | 6 TOPS RKNN       | 7B @ 4-6 tok/s (CPU) | LoRA 1.5B (CPU, slow) | $100-180 |
 
 ### Tier 2 — Future
 
-| Hardware | Notes |
-|----------|-------|
-| Apple Silicon (via Asahi Linux) | Best raw performance, closed ecosystem |
-| Raspberry Pi 5 (CPU-only) | Baseline compatibility, 1-3B models only |
+| Hardware                        | Notes                                    |
+| ------------------------------- | ---------------------------------------- |
+| Apple Silicon (via Asahi Linux) | Best raw performance, closed ecosystem   |
+| Raspberry Pi 5 (CPU-only)       | Baseline compatibility, 1-3B models only |
 
 ### Avoid
 
@@ -56,7 +56,7 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)       │
+│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)        │
 │  Next.js+shadcn/ui  │  Python Textual             │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│
@@ -80,7 +80,7 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 │                   │     Mistral / Groq            │
 ├───────────────────┴───────────────────────────────┤
 │  Container Runtime (containerd) + Docker CLI      │
-│  NPU/GPU passthrough (CUDA, RKNN, HailoRT)       │
+│  NPU/GPU passthrough (CUDA, RKNN, HailoRT)        │
 ├───────────────────────────────────────────────────┤
 │  Linux Kernel (Buildroot, ARM64/aarch64, OpenRC)  │
 │  37 packages: Python, Node.js, PyTorch, Git, GCC  │
@@ -89,18 +89,19 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 
 ## Port Map
 
-| Port | Service |
-|------|---------|
-| 6006 | TensorBoard (training visualization) |
-| 8000 | ChromaDB (vector database) |
-| 8080 | OpenAI-compatible API (IDE plugins) |
-| 8888 | Jupyter Lab (interactive training) |
-| 9090 | Dashboard (Next.js + shadcn/ui) |
-| 11434 | Ollama (LLM inference) |
+| Port  | Service                              |
+| ----- | ------------------------------------ |
+| 6006  | TensorBoard (training visualization) |
+| 8000  | ChromaDB (vector database)           |
+| 8080  | OpenAI-compatible API (IDE plugins)  |
+| 8888  | Jupyter Lab (interactive training)   |
+| 9090  | Dashboard (Next.js + shadcn/ui)      |
+| 11434 | Ollama (LLM inference)               |
 
 ## Coding Tools (pre-installed, auto-configured)
 
 ### AI Coding CLIs
+
 - **Claude Code** — via Ollama Anthropic-compatible API (v0.14+)
 - **Aider** — best CLI coding assistant (72.4% SWE-bench with Qwen3.5-27B)
 - **Continue.dev** — best IDE extension, native Ollama support
@@ -108,9 +109,11 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 - **Open Interpreter** — natural language system interaction
 
 ### IDE Plugin Support
+
 - **Cursor / Copilot / Cody** — via OpenAI-compatible API endpoint at :8080
 
 ### Code Agents
+
 - **SWE-agent / Codex CLI / Mentat** — sandboxed autonomous coding agents
 
 ## On-Device Training
@@ -123,21 +126,21 @@ bmt-ai-os      bmt-ai-os     bmt-ai-os   ollama
 data prepare   train          model export run
 ```
 
-| Capability | Jetson Orin (8GB) | RK3588 (16GB) | Pi 5 (8GB) |
-|-----------|-------------------|---------------|------------|
-| LoRA 1.5B | CUDA, ~30 min | CPU, ~3 hours | CPU, ~6 hours |
-| QLoRA 3B | CUDA, ~1 hour | Not feasible | Not feasible |
-| Export to GGUF | ~5 min | ~5 min | ~5 min |
+| Capability     | Jetson Orin (8GB) | RK3588 (16GB) | Pi 5 (8GB)    |
+| -------------- | ----------------- | ------------- | ------------- |
+| LoRA 1.5B      | CUDA, ~30 min     | CPU, ~3 hours | CPU, ~6 hours |
+| QLoRA 3B       | CUDA, ~1 hour     | Not feasible  | Not feasible  |
+| Export to GGUF | ~5 min            | ~5 min        | ~5 min        |
 
 ## Default Models
 
 Ship coding-optimized models, auto-selected by device capability:
 
-| Preset | Model | RAM | Target |
-|--------|-------|-----|--------|
-| `lite` | Qwen3.5-9B Q4 | ~6 GB | Pi 5, RK3588 (8GB) |
-| `standard` | Qwen2.5-Coder-7B Q4 + Qwen3-Embedding-8B | ~8 GB | RK3588 (16GB), Jetson |
-| `full` | Qwen3.5-27B Q4 + Qwen3-Embedding-8B | ~18 GB | Jetson, RK3588 (32GB) |
+| Preset     | Model                                    | RAM    | Target                |
+| ---------- | ---------------------------------------- | ------ | --------------------- |
+| `lite`     | Qwen3.5-9B Q4                            | ~6 GB  | Pi 5, RK3588 (8GB)    |
+| `standard` | Qwen2.5-Coder-7B Q4 + Qwen3-Embedding-8B | ~8 GB  | RK3588 (16GB), Jetson |
+| `full`     | Qwen3.5-27B Q4 + Qwen3-Embedding-8B      | ~18 GB | Jetson, RK3588 (32GB) |
 
 ## Key Principles
 
@@ -174,27 +177,35 @@ The combination that no one else offers:
 ## Roadmap
 
 ### Phase 1 — Foundation (BMTOS-EPIC-3, 73 pts)
+
 Bootable ARM64 image, OpenRC init, containerd, networking, security, CI/CD, filesystem layout
 
 ### Phase 2 — AI Stack (26 pts)
+
 Ollama + ChromaDB as system services, controller orchestration, RAG pipeline
 
 ### Phase 3 — Provider Layer (BMTOS-EPIC-1, 35 pts)
+
 Multi-provider abstraction (Ollama, vLLM, llama.cpp), cloud fallback chain, NPU passthrough
 
 ### Phase 4 — Developer Experience (BMTOS-EPIC-2, 36 pts)
+
 Pre-installed coding CLIs, IDE plugin API, codebase RAG, model presets
 
 ### Phase 5 — Dashboard (BMTOS-EPIC-5, 52 pts)
+
 Next.js + shadcn/ui web dashboard, Python Textual TUI, system monitoring
 
 ### Phase 6 — Training (BMTOS-EPIC-6, 36 pts)
+
 PyTorch ARM64, LoRA/QLoRA fine-tuning, data prep, Jupyter, TensorBoard, model export
 
 ### Phase 7 — Hardware (BMTOS-EPIC-4, 21 pts)
+
 Board support packages: Jetson Orin (CUDA), RK3588 (RKNN), Pi 5 + Hailo
 
 ### Phase 8 — Production
+
 OTA updates with rollback, fleet management, security hardening
 
 ## License
