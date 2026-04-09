@@ -1,0 +1,74 @@
+# BMT AI OS — Provider Configuration
+# Copy to /etc/bmt-ai-os/providers.yml for system-wide settings.
+# Override path via BMT_PROVIDERS_CONFIG environment variable.
+
+active_provider: ollama
+
+fallback_chain:
+  - ollama
+  - vllm
+  - llama-cpp
+  - openai
+  - anthropic
+  - gemini
+  - groq
+  - mistral
+
+providers:
+
+  # --- Local providers ---------------------------------------------------
+
+  ollama:
+    enabled: true
+    base_url: http://localhost:11434
+    default_model: qwen2.5-coder:7b-instruct-q4_K_M
+    timeout: 30
+
+  vllm:
+    enabled: false
+    base_url: http://localhost:8000
+    default_model: qwen2.5-coder-7b-instruct
+    timeout: 60
+
+  llama-cpp:
+    enabled: false
+    base_url: http://localhost:8080
+    default_model: qwen2.5-coder-7b-instruct-q4_k_m.gguf
+    timeout: 30
+
+  # --- Cloud providers (disabled by default — offline-first) -------------
+
+  openai:
+    enabled: false
+    base_url: https://api.openai.com/v1
+    api_key: ""
+    default_model: gpt-4o
+    timeout: 60
+
+  anthropic:
+    enabled: false
+    base_url: https://api.anthropic.com
+    api_key: ""
+    default_model: claude-sonnet-4-20250514
+    timeout: 60
+
+  gemini:
+    enabled: false
+    base_url: https://generativelanguage.googleapis.com/v1beta
+    api_key: ""
+    default_model: gemini-2.0-flash
+    timeout: 60
+
+  groq:
+    enabled: false
+    base_url: https://api.groq.com/openai/v1
+    api_key: ""
+    default_model: llama-3.3-70b-versatile
+    timeout: 30
+
+  mistral:
+    enabled: false
+    base_url: https://api.mistral.ai/v1
+    api_key: ""
+    default_model: mistral-large-latest
+    timeout: 60
