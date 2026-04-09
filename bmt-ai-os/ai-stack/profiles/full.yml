@@ -1,0 +1,21 @@
+# BMT AI OS — Full Device Tier
+# Target: Apple Silicon (Asahi Linux), Jetson Orin with 32GB+ RAM
+#
+# Usage:
+#   cp profiles/full.yml .env.local
+#   # or source values into .env
+
+# Device tier
+BMT_DEVICE_TIER=full
+
+# Ollama: generous for 32GB+ devices
+OLLAMA_CPU_LIMIT=8.0
+OLLAMA_MEM_LIMIT=16g
+OLLAMA_NUM_PARALLEL=4
+OLLAMA_MAX_LOADED_MODELS=2
+OLLAMA_KEEP_ALIVE=10m
+OLLAMA_DEFAULT_MODEL=qwen2.5-coder:14b-instruct-q4_K_M
+
+# ChromaDB: expanded for larger corpora
+CHROMADB_CPU_LIMIT=4.0
+CHROMADB_MEM_LIMIT=2g
