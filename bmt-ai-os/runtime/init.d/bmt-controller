@@ -1,0 +1,47 @@
+#!/sbin/openrc-run
+# BMT AI OS — Controller Service (OpenRC)
+# Runs the Python controller that orchestrates AI-stack containers via docker-py.
+#
+# BMTOS-17 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+
+description="BMT AI OS controller"
+
+CONTROLLER_BIN="${CONTROLLER_BIN:-/usr/lib/bmt-ai-os/controller/main.py}"
+CONTROLLER_LOG="${CONTROLLER_LOG:-/var/log/bmt-controller.log}"
+CONTROLLER_PIDFILE="${CONTROLLER_PIDFILE:-/run/bmt-controller.pid}"
+CONTROLLER_USER="${CONTROLLER_USER:-root}"
+
+command="/usr/bin/python3"
+command_args="${CONTROLLER_BIN}"
+command_background=true
+pidfile="${CONTROLLER_PIDFILE}"
+output_log="${CONTROLLER_LOG}"
+error_log="${CONTROLLER_LOG}"
+start_stop_daemon_args="--user ${CONTROLLER_USER}"
+
+depend() {
+    need ai-stack
+    after ai-stack
+}
+
+start_pre() {
+    # Record timestamp for boot timing
+    date +%s%N > /run/bmt-controller-start.ts 2>/dev/null
+
+    # Ensure log directory exists
+    checkpath --directory --owner "${CONTROLLER_USER}" /var/log/bmt-ai-os
+
+    # Verify the controller script exists
+    if [ ! -f "${CONTROLLER_BIN}" ]; then
+        eerror "Controller not found: ${CONTROLLER_BIN}"
+        return 1
+    fi
+}
+
+start_post() {
+    date +%s%N > /run/bmt-controller-ready.ts 2>/dev/null
+}
+
+stop_pre() {
+    einfo "Shutting down BMT AI OS controller"
+}
