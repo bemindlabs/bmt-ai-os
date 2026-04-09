@@ -1,5 +1,7 @@
 # BMT AI OS Roadmap
 
+**Current Version:** `2026.4.9` | **Version Format:** `YYYY.M.D`
+
 > 48 stories | 292 points | 6 epics | 8 phases
 
 ## Overview

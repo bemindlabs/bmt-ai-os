@@ -1,6 +1,6 @@
 # ai-first-os
 
-Monorepo for **BMT AI OS** — an open-source, AI-first operating system for ARM64 with containerized LLM inference, local RAG, AI coding tools, and on-device model training.
+**BMT AI OS** `v2026.4.9` — an open-source, AI-first operating system for ARM64 with containerized LLM inference, local RAG, AI coding tools, and on-device model training.
 
 Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 
