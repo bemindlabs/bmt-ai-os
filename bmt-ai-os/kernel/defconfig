@@ -5,13 +5,16 @@
 BR2_aarch64=y
 BR2_KERNEL_HEADERS_LATEST=y
 
-# Kernel features for containers
-# CONFIG_OVERLAY_FS=y
-# CONFIG_CGROUPS=y
-# CONFIG_NAMESPACES=y
-# CONFIG_BRIDGE=y
-# CONFIG_VETH=y
-# CONFIG_NETFILTER=y
+# Kernel features for containers (set via linux.config fragment)
+# CONFIG_OVERLAY_FS=y              — OverlayFS for container image layers
+# CONFIG_CGROUPS=y                 — Control Groups v2: cpu, memory, io, pids, devices
+# CONFIG_NAMESPACES=y              — All namespaces: pid, net, mnt, uts, ipc, user
+# CONFIG_BRIDGE=y                  — Kernel bridge driver (docker0 / cni0)
+# CONFIG_VETH=y                    — Virtual Ethernet pairs for container networking
+# CONFIG_NETFILTER=y               — Netfilter core + iptables for NAT / port-forward
+# CONFIG_DEVPTS_FS=y               — devpts (required by container TTY allocation)
+# CONFIG_SECCOMP=y                 — Seccomp syscall filtering (container security)
+# CONFIG_KEYS=y                    — Kernel keyring (containerd image verification)
 
 # === Init System ===
 BR2_INIT_OPENRC=y
@@ -52,6 +55,7 @@ BR2_PACKAGE_OPENSSH=y
 BR2_PACKAGE_AVAHI=y
 BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_OPENSSL=y
+BR2_PACKAGE_IPROUTE2=y
 
 # === Storage & Filesystem ===
 BR2_PACKAGE_E2FSPROGS=y
