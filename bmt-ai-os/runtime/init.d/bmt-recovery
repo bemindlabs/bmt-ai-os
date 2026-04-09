@@ -1,0 +1,133 @@
+#!/sbin/openrc-run
+# BMT AI OS — Crash Recovery Service (OpenRC)
+# Runs early in boot to detect and recover from unclean shutdowns.
+# Validates data partition, cleans stale state, and logs recovery actions.
+#
+# BMTOS-17 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+
+description="BMT AI OS crash recovery"
+
+CLEAN_SHUTDOWN_FLAG="/data/.bmt-clean-shutdown"
+RECOVERY_LOG="/var/log/bmt-ai-os/recovery.log"
+
+depend() {
+    need localmount
+    after localmount
+    before containerd docker ai-stack bmt-firstboot
+}
+
+start() {
+    # Ensure log directory exists
+    mkdir -p /var/log/bmt-ai-os
+
+    if [ -f "${CLEAN_SHUTDOWN_FLAG}" ]; then
+        einfo "Clean shutdown detected — no recovery needed"
+        rm -f "${CLEAN_SHUTDOWN_FLAG}"
+        return 0
+    fi
+
+    ewarn "Unclean shutdown detected — running recovery"
+    ebegin "BMT AI OS crash recovery"
+
+    _log "=== Recovery started at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+    _check_data_partition
+    _clean_stale_containers
+    _clean_stale_pidfiles
+    _clean_docker_state
+
+    _log "=== Recovery completed at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+    eend 0
+}
+
+# ---------------------------------------------------------------------------
+# Check data partition integrity
+# ---------------------------------------------------------------------------
+_check_data_partition() {
+    einfo "Checking /data partition integrity"
+
+    # Only run fsck if /data is not mounted (fsck on mounted fs is dangerous)
+    if ! mountpoint -q /data 2>/dev/null; then
+        local data_dev
+        data_dev=$(findfs LABEL=BMT_DATA 2>/dev/null)
+        if [ -n "${data_dev}" ]; then
+            _log "Running fsck on ${data_dev}"
+            fsck -y "${data_dev}" >> "${RECOVERY_LOG}" 2>&1
+            local rc=$?
+            if [ ${rc} -gt 1 ]; then
+                ewarn "fsck reported errors (exit ${rc}) — see ${RECOVERY_LOG}"
+                _log "fsck exit code: ${rc}"
+            else
+                _log "fsck clean (exit ${rc})"
+            fi
+        fi
+    else
+        _log "/data already mounted — skipping fsck"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Remove stale containers from a previous unclean shutdown
+# ---------------------------------------------------------------------------
+_clean_stale_containers() {
+    einfo "Cleaning stale containers"
+
+    # If Docker socket is not available yet, skip
+    if [ ! -S /var/run/docker.sock ]; then
+        _log "Docker socket not available — skipping container cleanup"
+        return 0
+    fi
+
+    # Remove dead/exited bmt-* containers
+    local stale
+    stale=$(docker ps -a --filter "name=bmt-" --filter "status=dead" \
+        --filter "status=exited" --format '{{.Names}}' 2>/dev/null)
+
+    if [ -n "${stale}" ]; then
+        _log "Removing stale containers: ${stale}"
+        echo "${stale}" | xargs docker rm -f 2>>"${RECOVERY_LOG}"
+    else
+        _log "No stale containers found"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Clean stale PID files
+# ---------------------------------------------------------------------------
+_clean_stale_pidfiles() {
+    einfo "Cleaning stale PID files"
+
+    local pidfiles="/run/bmt-controller.pid"
+    local pf
+    for pf in ${pidfiles}; do
+        if [ -f "${pf}" ]; then
+            local pid
+            pid=$(cat "${pf}" 2>/dev/null)
+            if [ -n "${pid}" ] && ! kill -0 "${pid}" 2>/dev/null; then
+                _log "Removing stale PID file: ${pf} (pid ${pid})"
+                rm -f "${pf}"
+            fi
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Clean Docker runtime state that may cause issues after crash
+# ---------------------------------------------------------------------------
+_clean_docker_state() {
+    if [ ! -S /var/run/docker.sock ]; then
+        return 0
+    fi
+
+    einfo "Pruning dangling Docker resources"
+    docker system prune -f --volumes=false >>"${RECOVERY_LOG}" 2>&1
+    _log "Docker prune completed"
+}
+
+# ---------------------------------------------------------------------------
+# Logging helper
+# ---------------------------------------------------------------------------
+_log() {
+    echo "[$(date -u +%H:%M:%S)] $*" >> "${RECOVERY_LOG}"
+}

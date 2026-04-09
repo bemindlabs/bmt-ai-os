@@ -1,0 +1,99 @@
+#!/sbin/openrc-run
+# BMT AI OS — AI Stack Service (OpenRC)
+# Starts the containerized AI stack (Ollama + ChromaDB) via Docker Compose.
+#
+# BMTOS-17 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+
+description="BMT AI OS AI stack (Ollama + ChromaDB)"
+
+COMPOSE_FILE="${COMPOSE_FILE:-/etc/bmt-ai-os/ai-stack/docker-compose.yml}"
+COMPOSE_PROJECT="${COMPOSE_PROJECT:-bmt-ai-os}"
+HEALTHCHECK_TIMEOUT="${HEALTHCHECK_TIMEOUT:-120}"
+
+depend() {
+    need docker
+    need net
+    after containerd docker bmt-recovery bmt-firstboot
+}
+
+start() {
+    ebegin "Starting BMT AI OS AI stack"
+
+    if [ ! -f "${COMPOSE_FILE}" ]; then
+        eerror "Compose file not found: ${COMPOSE_FILE}"
+        eend 1
+        return 1
+    fi
+
+    # Record timestamp for boot timing
+    date +%s%N > /run/bmt-ai-stack-start.ts 2>/dev/null
+
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d \
+        >>/var/log/bmt-ai-os/ai-stack.log 2>&1
+    local rc=$?
+
+    if [ ${rc} -ne 0 ]; then
+        eerror "docker compose up failed (exit ${rc})"
+        eend ${rc}
+        return ${rc}
+    fi
+
+    # Wait for healthchecks
+    einfo "Waiting for AI stack healthchecks (timeout ${HEALTHCHECK_TIMEOUT}s)..."
+    local elapsed=0
+    while [ ${elapsed} -lt ${HEALTHCHECK_TIMEOUT} ]; do
+        if _all_healthy; then
+            date +%s%N > /run/bmt-ai-stack-ready.ts 2>/dev/null
+            einfo "AI stack healthy after ${elapsed}s"
+            eend 0
+            return 0
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+
+    ewarn "AI stack did not become healthy within ${HEALTHCHECK_TIMEOUT}s"
+    eend 1
+    return 1
+}
+
+stop() {
+    ebegin "Stopping BMT AI OS AI stack"
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" down \
+        --timeout 30 >>/var/log/bmt-ai-os/ai-stack.log 2>&1
+    eend $?
+}
+
+status() {
+    if _all_healthy; then
+        einfo "AI stack: all containers healthy"
+        return 0
+    else
+        local running
+        running=$(docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" \
+            ps --format '{{.Name}} {{.Status}}' 2>/dev/null)
+        if [ -n "${running}" ]; then
+            ewarn "AI stack: some containers not healthy"
+            echo "${running}"
+            return 1
+        else
+            eerror "AI stack: not running"
+            return 3
+        fi
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+_all_healthy() {
+    local unhealthy
+    unhealthy=$(docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" \
+        ps --format '{{.Health}}' 2>/dev/null | grep -cv "healthy" || true)
+    local total
+    total=$(docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" \
+        ps --format '{{.Health}}' 2>/dev/null | wc -l | tr -d ' ')
+    # At least one container running and all healthy
+    [ "${total}" -gt 0 ] 2>/dev/null && [ "${unhealthy}" -eq 0 ] 2>/dev/null
+}

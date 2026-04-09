@@ -1,0 +1,62 @@
+#!/sbin/openrc-run
+# BMT AI OS — Clean Shutdown Handler (OpenRC)
+# Creates a flag file on graceful shutdown/reboot so the recovery service
+# knows the previous shutdown was clean.
+#
+# BMTOS-17 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+
+description="BMT AI OS clean shutdown handler"
+
+CLEAN_SHUTDOWN_FLAG="/data/.bmt-clean-shutdown"
+COMPOSE_FILE="${COMPOSE_FILE:-/etc/bmt-ai-os/ai-stack/docker-compose.yml}"
+COMPOSE_PROJECT="${COMPOSE_PROJECT:-bmt-ai-os}"
+
+depend() {
+    need localmount
+    # We want to run on shutdown, before containerd/docker stop
+    before containerd docker
+    keyword -stop
+}
+
+start() {
+    # On boot, remove any stale flag (recovery handles the logic)
+    rm -f "${CLEAN_SHUTDOWN_FLAG}"
+    return 0
+}
+
+stop() {
+    ebegin "Recording clean shutdown"
+
+    # Gracefully stop AI stack before Docker/containerd stops
+    if [ -f "${COMPOSE_FILE}" ]; then
+        einfo "Stopping AI stack gracefully"
+        docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" down \
+            --timeout 30 >>/var/log/bmt-ai-os/shutdown.log 2>&1
+    fi
+
+    # Stop the controller if still running
+    if [ -f /run/bmt-controller.pid ]; then
+        local pid
+        pid=$(cat /run/bmt-controller.pid 2>/dev/null)
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            einfo "Stopping controller (pid ${pid})"
+            kill -TERM "${pid}" 2>/dev/null
+            # Wait up to 10 seconds
+            local wait=0
+            while [ ${wait} -lt 10 ] && kill -0 "${pid}" 2>/dev/null; do
+                sleep 1
+                wait=$((wait + 1))
+            done
+        fi
+    fi
+
+    # Write clean-shutdown flag to /data
+    if mountpoint -q /data 2>/dev/null; then
+        touch "${CLEAN_SHUTDOWN_FLAG}"
+        einfo "Clean shutdown flag written"
+    else
+        ewarn "/data not mounted — cannot write shutdown flag"
+    fi
+
+    eend 0
+}
