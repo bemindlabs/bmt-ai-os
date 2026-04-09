@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2026.4.9] — 2026-04-09
+
 ### Added
 - Project structure: `bmt-ai-os/` (runtime) and `bmt-ai-os-build/` (build infrastructure)
 - ARM64 Buildroot kernel defconfig with 37 packages
