@@ -1,0 +1,85 @@
+#!/sbin/openrc-run
+# /etc/init.d/containerd — OpenRC service for containerd (ARM64)
+#
+# BMTOS-2a | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+#
+# Starts containerd as the container runtime for the BMT AI OS platform.
+# Must start after networking and storage mounts are available, and before
+# Docker and the AI stack services.
+#
+# Dependencies:
+#   need  net localmount  — containerd needs network interfaces and the
+#                           /data partition mounted (bind mounts for
+#                           /var/lib/containerd).
+#   before docker         — Docker daemon connects to the containerd socket.
+
+description="containerd — open container runtime"
+
+# Paths
+command="/usr/bin/containerd"
+command_args="--config /etc/containerd/config.toml"
+command_background=true
+pidfile="/run/containerd/containerd.pid"
+
+# Logging — direct stdout/stderr to log files for debugging.
+output_log="/var/log/containerd.log"
+error_log="/var/log/containerd.log"
+
+# Resource limits
+rc_ulimit="-n 1048576 -u unlimited"
+
+depend() {
+    # Networking is required for pulling container images.
+    need net
+
+    # localmount ensures /data and its bind mounts (including
+    # /var/lib/containerd) are available before containerd starts.
+    need localmount
+
+    # cgroups must be mounted for container resource isolation.
+    need cgroups
+
+    # Docker and ai-stack depend on containerd — declare ordering.
+    before docker
+}
+
+start_pre() {
+    # Ensure the runtime state directory exists (on tmpfs).
+    checkpath --directory --mode 0711 /run/containerd
+
+    # Ensure the persistent data directory exists.
+    # This path is bind-mounted from /data/containerd via fstab.
+    checkpath --directory --mode 0711 /var/lib/containerd
+
+    # Verify that the containerd binary is present.
+    if [ ! -x "$command" ]; then
+        eerror "containerd binary not found at $command"
+        return 1
+    fi
+
+    # Verify that the config file exists.
+    if [ ! -f /etc/containerd/config.toml ]; then
+        eerror "containerd config not found at /etc/containerd/config.toml"
+        return 1
+    fi
+}
+
+stop() {
+    # Graceful shutdown: send SIGTERM and wait for containerd to drain.
+    # Containerd handles SIGTERM by stopping shims cleanly.
+    ebegin "Stopping containerd"
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --signal TERM \
+        --retry "TERM/30/KILL/5"
+    eend $?
+}
+
+stop_post() {
+    # Clean up the PID file if it was left behind.
+    rm -f "$pidfile"
+
+    # The socket will be removed when containerd exits, but clean up
+    # defensively in case of a crash.
+    rm -f /run/containerd/containerd.sock
+}

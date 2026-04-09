@@ -39,7 +39,10 @@ LABEL=BMT_DATA                    /data                 ext4    defaults,noatime
 # ChromaDB: vector segments and SQLite metadata
 /data/chromadb                    /var/lib/chromadb     none    bind,defaults,noatime            0      0
 
-# Docker / containerd data root (image layers, named volumes)
+# containerd: container runtime metadata and snapshots
+/data/containerd                  /var/lib/containerd   none    bind,defaults,noatime            0      0
+
+# Docker: image layers, named volumes, build cache
 /data/docker                      /var/lib/docker       none    bind,defaults,noatime            0      0
 
 # BMT AI OS controller state: metadata DB, RAG queue, inference cache

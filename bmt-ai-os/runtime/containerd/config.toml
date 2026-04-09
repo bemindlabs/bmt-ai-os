@@ -1,0 +1,94 @@
+# /etc/containerd/config.toml — BMT AI OS containerd configuration (ARM64)
+#
+# BMTOS-2a | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+#
+# This configuration sets up containerd as the container runtime for the
+# BMT AI OS ARM64 platform. It is optimized for on-device AI workloads:
+#   - overlayfs snapshotter on ext4 (fast layer management)
+#   - CRI plugin enabled for Kubernetes compatibility
+#   - Reasonable defaults for memory-constrained ARM64 boards
+#
+# Data directory: /var/lib/containerd (bind-mounted from /data/containerd
+# via fstab, ensuring persistence across rootfs updates).
+#
+# Runtime state: /run/containerd (tmpfs, cleared on boot).
+
+version = 2
+
+# Root directory for persistent containerd metadata (content store, snapshots).
+# Lives on the ext4 /data partition via bind mount for durability.
+root = "/var/lib/containerd"
+
+# State directory for ephemeral runtime state (PID files, sockets, bundles).
+# Lives on tmpfs (/run) — cleared on every boot, which is expected.
+state = "/run/containerd"
+
+# OCI spec file (default location)
+oom_score = -999
+
+# GRPC server configuration — the main containerd API socket.
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  # Limit concurrent streams to prevent resource exhaustion on ARM64 boards.
+  max_recv_message_size = 16777216    # 16 MiB
+  max_send_message_size = 16777216    # 16 MiB
+
+# Debug/metrics socket (disabled by default; enable for troubleshooting).
+[debug]
+  address = ""
+  level = "info"
+
+# Metrics endpoint (Prometheus format, disabled by default).
+[metrics]
+  address = ""
+
+# ---------------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------------
+
+# CRI plugin — enables the Container Runtime Interface for Kubernetes
+# compatibility. Even when running Docker/Compose only, keeping CRI enabled
+# costs nothing and allows future k3s/k8s integration.
+[plugins."io.containerd.grpc.v1.cri"]
+  # Sandbox (pause) image for CRI pods — use ARM64-native image.
+  sandbox_image = "registry.k8s.io/pause:3.10"
+  # Tolerate missing CNI on pure-Docker setups.
+  tolerate_missing_hugetlb_controller = true
+
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    # Default snapshotter: overlayfs on ext4 — the standard performant choice.
+    snapshotter = "overlayfs"
+    # Default runtime is runc (OCI-compliant).
+    default_runtime_name = "runc"
+
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+        # Use the host cgroup namespace.
+        SystemdCgroup = false
+
+  # CRI image configuration
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    # Mirror configuration is handled by /etc/containerd/certs.d/ if needed.
+
+# Snapshotter plugin — overlayfs is default and best for ext4.
+[plugins."io.containerd.snapshotter.v1.overlayfs"]
+  # root_path defaults to {root}/io.containerd.snapshotter.v1.overlayfs
+  # which resolves to /var/lib/containerd/... on the /data partition.
+  # sync_remove deletes snapshot directories synchronously — safer on
+  # power-loss-prone embedded boards.
+  sync_remove = true
+
+# Content store — transfer service for pulling/pushing images.
+[plugins."io.containerd.transfer.v1.local"]
+  # Max concurrent downloads — keep low on constrained boards.
+  max_concurrent_downloads = 3
+  max_concurrent_uploaded_layers = 3
+
+# Timeouts
+[timeouts]
+  "io.containerd.timeout.bolt.open" = "0s"
+  "io.containerd.timeout.shim.cleanup" = "5s"
+  "io.containerd.timeout.shim.load" = "5s"
+  "io.containerd.timeout.shim.shutdown" = "3s"
+  "io.containerd.timeout.task.state" = "2s"

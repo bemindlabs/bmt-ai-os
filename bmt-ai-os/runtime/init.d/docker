@@ -1,0 +1,92 @@
+#!/sbin/openrc-run
+# /etc/init.d/docker — OpenRC service for Docker daemon (ARM64)
+#
+# BMTOS-2a | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+#
+# Starts the Docker daemon (dockerd) which connects to containerd as its
+# runtime backend. Docker provides the high-level API used by Docker Compose
+# to run the BMT AI OS AI stack (Ollama, ChromaDB, etc.).
+#
+# Dependencies:
+#   need  containerd net  — Docker requires containerd socket and networking.
+#   before ai-stack       — The AI stack (docker-compose) depends on dockerd.
+
+description="Docker daemon — container management for AI stack"
+
+# Paths
+command="/usr/bin/dockerd"
+command_args="--config-file /etc/docker/daemon.json"
+command_background=true
+pidfile="/run/docker.pid"
+
+# Logging — direct stdout/stderr to log files for debugging.
+output_log="/var/log/docker.log"
+error_log="/var/log/docker.log"
+
+# Resource limits — Docker needs high file descriptor limits for containers.
+rc_ulimit="-n 1048576 -u unlimited"
+
+depend() {
+    # containerd must be running — Docker uses it as the container runtime.
+    need containerd
+
+    # Networking is required for bridge networking and image pulls.
+    need net
+
+    # Firewall/iptables should be loaded before Docker creates chains.
+    after iptables ip6tables
+
+    # AI stack services (docker-compose) depend on dockerd.
+    before ai-stack
+}
+
+start_pre() {
+    # Ensure the Docker runtime directory exists.
+    checkpath --directory --mode 0710 /run/docker
+
+    # Ensure the Docker data root exists.
+    # This path is bind-mounted from /data/docker via fstab.
+    checkpath --directory --mode 0710 /var/lib/docker
+
+    # Verify that dockerd binary is present.
+    if [ ! -x "$command" ]; then
+        eerror "Docker daemon binary not found at $command"
+        return 1
+    fi
+
+    # Verify that daemon.json exists.
+    if [ ! -f /etc/docker/daemon.json ]; then
+        eerror "Docker daemon config not found at /etc/docker/daemon.json"
+        return 1
+    fi
+
+    # Wait for the containerd socket to be available (up to 10 seconds).
+    local i=0
+    while [ ! -S /run/containerd/containerd.sock ] && [ "$i" -lt 20 ]; do
+        sleep 0.5
+        i=$((i + 1))
+    done
+
+    if [ ! -S /run/containerd/containerd.sock ]; then
+        eerror "containerd socket not available at /run/containerd/containerd.sock"
+        return 1
+    fi
+}
+
+stop() {
+    # Graceful shutdown: send SIGTERM to dockerd.
+    # With live-restore enabled in daemon.json, running containers survive
+    # daemon restarts — no data loss.
+    ebegin "Stopping Docker daemon"
+    start-stop-daemon --stop \
+        --pidfile "$pidfile" \
+        --signal TERM \
+        --retry "TERM/30/KILL/5"
+    eend $?
+}
+
+stop_post() {
+    # Clean up PID file and socket if left behind after a crash.
+    rm -f "$pidfile"
+    rm -f /run/docker.sock
+}

@@ -1,0 +1,38 @@
+config BR2_PACKAGE_CONTAINERD
+	bool "containerd"
+	depends on BR2_aarch64
+	depends on BR2_PACKAGE_HOST_GO
+	select BR2_PACKAGE_RUNC
+	help
+	  containerd — an industry-standard container runtime focused on
+	  simplicity, robustness, and portability.
+
+	  Provides the core container execution layer for BMT AI OS. Docker
+	  connects to containerd via a gRPC socket to manage container
+	  lifecycle, image pulls, snapshots, and networking.
+
+	  Includes CRI plugin for optional Kubernetes (k3s) compatibility.
+
+	  Requires runc as the low-level OCI runtime.
+
+	  https://containerd.io
+
+config BR2_PACKAGE_CONTAINERD_VERSION
+	string "containerd version"
+	default "2.0.4"
+	depends on BR2_PACKAGE_CONTAINERD
+	help
+	  Version of containerd to build. Must match a release tag from
+	  https://github.com/containerd/containerd/releases
+
+config BR2_PACKAGE_RUNC
+	bool "runc"
+	depends on BR2_aarch64
+	depends on BR2_PACKAGE_HOST_GO
+	help
+	  runc — OCI-compliant container runtime.
+
+	  Low-level runtime used by containerd to create and manage
+	  containers according to the OCI specification.
+
+	  https://github.com/opencontainers/runc

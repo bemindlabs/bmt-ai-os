@@ -1,0 +1,25 @@
+config BR2_PACKAGE_DOCKER_CLI
+	bool "docker-cli"
+	depends on BR2_aarch64
+	depends on BR2_PACKAGE_HOST_GO
+	select BR2_PACKAGE_CONTAINERD
+	help
+	  Docker CLI and daemon — container management tools for BMT AI OS.
+
+	  Provides:
+	    - dockerd: daemon that connects to containerd for container lifecycle
+	    - docker: CLI client for building, running, and managing containers
+	    - docker compose: built-in plugin for multi-container applications
+
+	  The Docker daemon uses containerd as its runtime backend and overlay2
+	  as the storage driver on the ext4 /data partition.
+
+	  https://docs.docker.com/engine/
+
+config BR2_PACKAGE_DOCKER_CLI_VERSION
+	string "Docker Engine version"
+	default "28.1.1"
+	depends on BR2_PACKAGE_DOCKER_CLI
+	help
+	  Version of Docker Engine (Moby) to build. Must match a release tag
+	  from https://github.com/moby/moby/releases
