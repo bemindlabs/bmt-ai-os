@@ -26,7 +26,7 @@ providers:
 
   vllm:
     enabled: false
-    base_url: http://localhost:8000
+    base_url: http://localhost:8001
     default_model: qwen2.5-coder-7b-instruct
     timeout: 60
 

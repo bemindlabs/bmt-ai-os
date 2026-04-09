@@ -1,0 +1,46 @@
+# BMT AI OS — vLLM Inference Service (ARM64)
+# Separate compose file for vLLM-based inference.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d
+#
+# Requires a GPU-capable host (CUDA for Jetson, CPU-only fallback on
+# Apple Silicon / Asahi Linux).
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: bmt-vllm
+    ports:
+      - "8001:8000"
+    volumes:
+      - vllm_models:/root/.cache/vllm
+    environment:
+      - VLLM_MODEL=${VLLM_MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      - VLLM_DTYPE=${VLLM_DTYPE:-auto}
+      - VLLM_MAX_MODEL_LEN=${VLLM_MAX_MODEL_LEN:-4096}
+      - VLLM_GPU_MEMORY_UTILIZATION=${VLLM_GPU_MEMORY_UTILIZATION:-0.90}
+    command: >
+      --model ${VLLM_MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      --dtype ${VLLM_DTYPE:-auto}
+      --max-model-len ${VLLM_MAX_MODEL_LEN:-4096}
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.90}
+      --host 0.0.0.0
+      --port 8000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  vllm_models:
