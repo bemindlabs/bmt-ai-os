@@ -1,10 +1,11 @@
-"""BMT AI OS — RAG Document Ingestion Pipeline.
-
-Reads documents, chunks them, generates embeddings via Ollama,
-and stores them in ChromaDB for retrieval-augmented generation.
-"""
+"""BMT AI OS — Retrieval-Augmented Generation pipeline."""
 
 from .config import RAGConfig
-from .ingest import DocumentIngester
+from .query import RAGQueryEngine, RAGResponse, SourceAttribution
 
-__all__ = ["RAGConfig", "DocumentIngester"]
+__all__ = [
+    "RAGConfig",
+    "RAGQueryEngine",
+    "RAGResponse",
+    "SourceAttribution",
+]

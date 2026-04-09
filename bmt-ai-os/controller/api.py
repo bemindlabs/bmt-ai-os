@@ -1,86 +1,28 @@
-"""HTTP API for BMT AI OS Controller.
-
-Provides endpoints for service status, health, and stack management.
-Serves on the configured API port (default 8080).
-"""
+"""BMT AI OS Controller — FastAPI application."""
 
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING
+import sys
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+# Ensure the bmt-ai-os directory is on sys.path so that ``rag`` is importable.
+_BMT_ROOT = str(Path(__file__).resolve().parent.parent)
+if _BMT_ROOT not in sys.path:
+    sys.path.insert(0, _BMT_ROOT)
 
-if TYPE_CHECKING:
-    from .main import BMTAIOSController
+from fastapi import FastAPI  # noqa: E402
 
-logger = logging.getLogger("bmt-controller.api")
+from controller.rag_routes import router as rag_router  # noqa: E402
 
 app = FastAPI(
     title="BMT AI OS Controller",
     version="0.1.0",
-    description="AI stack orchestration API for BMT AI OS",
+    description="On-device AI stack controller for BMT AI OS.",
 )
 
-# The controller instance is attached at startup by main.py.
-_controller: BMTAIOSController | None = None
+app.include_router(rag_router, prefix="/api/v1")
 
 
-def set_controller(controller: BMTAIOSController) -> None:
-    """Attach the controller instance so endpoints can use it."""
-    global _controller
-    _controller = controller
-
-
-def _get_controller() -> BMTAIOSController:
-    if _controller is None:
-        raise HTTPException(status_code=503, detail="Controller not initialized")
-    return _controller
-
-
-# --- Endpoints ---
-
-
-@app.get("/health")
-async def health() -> dict:
-    """Controller own health check."""
-    return {"status": "ok", "service": "bmt-controller"}
-
-
-@app.get("/api/v1/status")
-async def stack_status() -> dict:
-    """Return status of all managed AI stack services."""
-    ctrl = _get_controller()
-    return {"services": ctrl.get_status()}
-
-
-@app.post("/api/v1/services/{name}/restart")
-async def restart_service(name: str) -> dict:
-    """Restart a specific AI stack service by name."""
-    ctrl = _get_controller()
-    known = {svc.name for svc in ctrl.config.services}
-    if name not in known:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown service '{name}'. Known: {sorted(known)}",
-        )
-    success = ctrl.restart_service(name)
-    if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to restart {name}")
-    return {"status": "restarted", "service": name}
-
-
-@app.post("/api/v1/stack/start")
-async def start_stack() -> dict:
-    """Start the entire AI stack."""
-    ctrl = _get_controller()
-    ctrl.start_stack()
-    return {"status": "started"}
-
-
-@app.post("/api/v1/stack/stop")
-async def stop_stack() -> dict:
-    """Stop the entire AI stack."""
-    ctrl = _get_controller()
-    ctrl.stop_stack()
-    return {"status": "stopped"}
+@app.get("/healthz")
+async def healthz() -> dict:
+    return {"status": "ok"}

@@ -1,130 +1,99 @@
-"""ChromaDB storage interface for RAG chunks.
-
-Provides collection management, batch upsert, and a query interface
-for retrieval-augmented generation.
-"""
+"""ChromaDB storage interface for the RAG pipeline."""
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import chromadb
-from chromadb.config import Settings
+import requests
+
+from .config import RAGConfig
+from .embeddings import OllamaEmbeddings
 
 logger = logging.getLogger(__name__)
 
 
 class ChromaStorage:
-    """Thin wrapper around the ChromaDB HTTP client."""
+    """Interact with a ChromaDB instance over its REST API.
 
-    def __init__(
-        self,
-        url: str = "http://localhost:8000",
-        collection_name: str = "bmt_documents",
-    ) -> None:
-        host, port = self._parse_url(url)
-        self._client = chromadb.HttpClient(
-            host=host,
-            port=port,
-            settings=Settings(anonymized_telemetry=False),
-        )
-        self._collection_name = collection_name
-        self._collection = self._client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"},
-        )
+    Uses the v1 REST API so that no heavy native client library is needed on
+    ARM64 targets.
+    """
+
+    def __init__(self, config: RAGConfig) -> None:
+        self.config = config
+        self.base_url = config.chromadb_url.rstrip("/")
+        self.embeddings = OllamaEmbeddings(config)
 
     # ------------------------------------------------------------------
     # Collection management
     # ------------------------------------------------------------------
 
-    def list_collections(self) -> List[str]:
-        """Return names of all collections."""
-        return [c.name for c in self._client.list_collections()]
+    def list_collections(self) -> list[dict[str, Any]]:
+        """Return metadata for all collections."""
+        resp = requests.get(
+            f"{self.base_url}/api/v1/collections", timeout=10
+        )
+        resp.raise_for_status()
+        return resp.json()
 
-    def delete_collection(self, name: str | None = None) -> None:
-        """Delete a collection by name (defaults to current)."""
-        target = name or self._collection_name
-        self._client.delete_collection(target)
-        if target == self._collection_name:
-            self._collection = self._client.get_or_create_collection(
-                name=self._collection_name,
-                metadata={"hnsw:space": "cosine"},
-            )
-
-    @property
-    def count(self) -> int:
-        """Number of documents in the active collection."""
-        return self._collection.count()
+    def get_or_create_collection(self, name: str) -> str:
+        """Ensure a collection exists and return its id."""
+        url = f"{self.base_url}/api/v1/collections"
+        payload = {"name": name, "get_or_create": True}
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        return resp.json()["id"]
 
     # ------------------------------------------------------------------
-    # Storage
+    # Upsert
     # ------------------------------------------------------------------
 
     def upsert(
         self,
-        ids: List[str],
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[Dict[str, Any]],
+        collection: str,
+        ids: list[str],
+        documents: list[str],
+        metadatas: list[dict] | None = None,
     ) -> None:
-        """Batch upsert chunks into the collection."""
-        self._collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas,
-        )
-
-    def upsert_batch(
-        self,
-        ids: List[str],
-        embeddings: List[List[float]],
-        documents: List[str],
-        metadatas: List[Dict[str, Any]],
-        batch_size: int = 64,
-    ) -> None:
-        """Upsert in fixed-size batches for memory-constrained devices."""
-        for start in range(0, len(ids), batch_size):
-            end = start + batch_size
-            self.upsert(
-                ids=ids[start:end],
-                embeddings=embeddings[start:end],
-                documents=documents[start:end],
-                metadatas=metadatas[start:end],
-            )
+        """Batch-upsert documents with their embeddings."""
+        col_id = self.get_or_create_collection(collection)
+        vectors = self.embeddings.embed_batch(documents)
+        url = f"{self.base_url}/api/v1/collections/{col_id}/upsert"
+        payload: dict[str, Any] = {
+            "ids": ids,
+            "documents": documents,
+            "embeddings": vectors,
+        }
+        if metadatas:
+            payload["metadatas"] = metadatas
+        resp = requests.post(url, json=payload, timeout=30)
+        resp.raise_for_status()
+        logger.info("Upserted %d chunks into collection %s", len(ids), collection)
 
     # ------------------------------------------------------------------
-    # Query (for BMTOS-5b and beyond)
+    # Query
     # ------------------------------------------------------------------
 
     def query(
         self,
-        query_embeddings: List[List[float]],
-        n_results: int = 5,
-        where: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Query the collection by embedding similarity."""
-        kwargs: Dict[str, Any] = {
-            "query_embeddings": query_embeddings,
-            "n_results": n_results,
+        collection: str,
+        query_text: str,
+        top_k: int = 5,
+    ) -> dict[str, Any]:
+        """Query a collection and return top-k results.
+
+        Returns the raw ChromaDB response dict with keys ``ids``,
+        ``documents``, ``metadatas``, ``distances``.
+        """
+        col_id = self.get_or_create_collection(collection)
+        query_embedding = self.embeddings.embed(query_text)
+        url = f"{self.base_url}/api/v1/collections/{col_id}/query"
+        payload = {
+            "query_embeddings": [query_embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"],
         }
-        if where:
-            kwargs["where"] = where
-        return self._collection.query(**kwargs)
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _parse_url(url: str) -> tuple:
-        """Extract host and port from an HTTP URL."""
-        url = url.rstrip("/")
-        if "://" in url:
-            url = url.split("://", 1)[1]
-        if ":" in url:
-            host, port_str = url.rsplit(":", 1)
-            return host, int(port_str)
-        return url, 8000
+        resp = requests.post(url, json=payload, timeout=self.config.embed_timeout)
+        resp.raise_for_status()
+        return resp.json()
