@@ -1,14 +1,29 @@
+<<<<<<< HEAD
 """Provider configuration — load settings from YAML."""
+=======
+"""BMT AI OS — Provider configuration loader.
+
+Configuration priority (highest wins):
+  1. Explicit kwargs passed to the provider constructor
+  2. Environment variables (e.g. OPENAI_API_KEY)
+  3. Secrets file (/etc/bmt-ai-os/secrets/<KEY_NAME>)
+  4. providers.yml defaults
+"""
+>>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
 
 from __future__ import annotations
 
 import os
+<<<<<<< HEAD
 from dataclasses import dataclass, field
+=======
+>>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+<<<<<<< HEAD
 # Default search paths (highest priority first).
 _CONFIG_SEARCH_PATHS = [
     Path("/etc/bmt-ai-os/providers.yml"),
@@ -99,3 +114,52 @@ def load_config(path: str | Path | None = None) -> ProvidersConfig:
         data = yaml.safe_load(fh) or {}
 
     return ProvidersConfig.from_dict(data)
+=======
+_SECRETS_DIR = Path("/etc/bmt-ai-os/secrets")
+_CONFIG_PATH = Path(__file__).parent / "providers.yml"
+
+
+def load_providers_config() -> dict[str, Any]:
+    """Load providers.yml and return the full config dict."""
+    if _CONFIG_PATH.exists():
+        with open(_CONFIG_PATH) as fh:
+            return yaml.safe_load(fh) or {}
+    return {}
+
+
+def get_provider_config(provider_name: str) -> dict[str, Any]:
+    """Return the config section for *provider_name*."""
+    cfg = load_providers_config()
+    return cfg.get("providers", {}).get(provider_name, {})
+
+
+def resolve_api_key(
+    *,
+    key_name: str,
+    env_var: str | None = None,
+    explicit: str | None = None,
+) -> str | None:
+    """Resolve an API key using the priority chain.
+
+    1. *explicit* value (passed directly)
+    2. Environment variable (*env_var* or *key_name*)
+    3. Secrets file at ``/etc/bmt-ai-os/secrets/<key_name>``
+    4. providers.yml ``api_key`` field
+    """
+    # 1. Explicit
+    if explicit:
+        return explicit
+
+    # 2. Environment variable
+    env_name = env_var or key_name
+    value = os.environ.get(env_name)
+    if value:
+        return value
+
+    # 3. Secrets file
+    secrets_file = _SECRETS_DIR / key_name
+    if secrets_file.exists():
+        return secrets_file.read_text().strip()
+
+    return None
+>>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)

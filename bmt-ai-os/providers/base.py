@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """Abstract base classes and data models for the LLM provider layer."""
 
 from __future__ import annotations
@@ -104,12 +105,65 @@ class LLMProvider(ABC):
         """Unique provider identifier (e.g. ``'ollama'``, ``'vllm'``)."""
 
     @abstractmethod
+=======
+"""BMT AI OS — LLM Provider abstract base class.
+
+Every provider (Ollama, OpenAI, Groq, vLLM, ...) implements this interface
+so the controller and RAG pipeline can swap backends transparently.
+"""
+
+from __future__ import annotations
+
+import abc
+import dataclasses
+import time
+from typing import Any, AsyncIterator
+
+
+@dataclasses.dataclass
+class ChatMessage:
+    """Single message in a conversation."""
+
+    role: str  # "system" | "user" | "assistant"
+    content: str
+
+
+@dataclasses.dataclass
+class ChatResponse:
+    """Result returned by provider.chat()."""
+
+    content: str
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: float = 0.0
+    raw: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass
+class EmbedResponse:
+    """Result returned by provider.embed()."""
+
+    embedding: list[float]
+    model: str
+    input_tokens: int = 0
+    latency_ms: float = 0.0
+
+
+class LLMProvider(abc.ABC):
+    """Abstract base for all LLM providers."""
+
+    name: str = "base"
+
+    @abc.abstractmethod
+>>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
     async def chat(
         self,
         messages: list[ChatMessage],
         *,
         model: str | None = None,
         temperature: float = 0.7,
+<<<<<<< HEAD
         max_tokens: int = 2048,
         stream: bool = False,
     ) -> ChatResponse | AsyncGenerator[str, None]:
@@ -143,3 +197,36 @@ class LLMProvider(ABC):
     def _elapsed_ms(start: float) -> float:
         """Milliseconds elapsed since *start* (``time.perf_counter``)."""
         return round((time.perf_counter() - start) * 1000, 2)
+=======
+        max_tokens: int = 4096,
+        stream: bool = False,
+    ) -> ChatResponse | AsyncIterator[str]:
+        """Send a chat completion request.
+
+        When *stream* is True, returns an async iterator yielding content
+        deltas (strings).  When False, returns a single ChatResponse.
+        """
+
+    @abc.abstractmethod
+    async def embed(
+        self,
+        text: str | list[str],
+        *,
+        model: str | None = None,
+    ) -> EmbedResponse | list[EmbedResponse]:
+        """Generate embeddings for one or more texts."""
+
+    @abc.abstractmethod
+    async def list_models(self) -> list[dict[str, Any]]:
+        """Return available models from the provider."""
+
+    @abc.abstractmethod
+    async def health_check(self) -> bool:
+        """Return True if the provider endpoint is reachable."""
+
+    # Utility ----------------------------------------------------------------
+
+    @staticmethod
+    def _now_ms() -> float:
+        return time.monotonic() * 1000
+>>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
