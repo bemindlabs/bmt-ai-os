@@ -1,7 +1,10 @@
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:0.6.2
     devices: ["/dev/dri:/dev/dri"]
   vector-db:
-    image: lancedb/lancedb
-    volumes: ["/var/lib/rag:/data"]
+    image: chromadb/chroma:0.6.3
+    volumes: ["/var/lib/chromadb:/chroma/chroma"]
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE

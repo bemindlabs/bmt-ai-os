@@ -1,37 +1,102 @@
 # BMT AI OS — Production AI Stack (ARM64)
 # Runs on-device as system services managed by the controller.
+#
+# Usage:
+#   docker compose up -d                          # standard tier (default)
+#   docker compose --profile lite up -d           # Pi 5 / RK3588 8GB
+#   docker compose --profile full up -d           # Apple Silicon / Jetson 32GB
+#
+# Device tiers are controlled via BMT_DEVICE_TIER in .env
 
 services:
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.6.2
     container_name: bmt-ollama
+    platform: linux/arm64
     ports:
-      - "11434:11434"
+      - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_models:/root/.ollama
-    restart: always
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
       interval: 30s
-      timeout: 5s
-      retries: 3
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+      start_interval: 5s
+    networks:
+      - bmt-ai-net
+    labels:
+      com.bemind.service: "ollama"
+      com.bemind.component: "ai-stack"
+      com.bemind.tier: "${BMT_DEVICE_TIER:-standard}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${OLLAMA_CPU_LIMIT:-4.0}"
+          memory: "${OLLAMA_MEM_LIMIT:-8g}"
+        reservations:
+          cpus: "1.0"
+          memory: "2g"
 
   chromadb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.6.3
     container_name: bmt-chromadb
+    platform: linux/arm64
     ports:
-      - "8000:8000"
+      - "${CHROMADB_PORT:-8000}:8000"
     volumes:
       - chromadb_data:/chroma/chroma
     environment:
-      - ANONYMIZED_TELEMETRY=false
-    restart: always
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_SERVER_AUTHN_PROVIDER=${CHROMA_AUTH_PROVIDER:-}
+      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_AUTH_CREDENTIALS:-}
+      - CHROMA_HOST_ADDR=${CHROMADB_HOST:-0.0.0.0}
+      - CHROMA_HOST_PORT=8000
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/heartbeat"]
       interval: 30s
-      timeout: 5s
-      retries: 3
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+      start_interval: 5s
+    networks:
+      - bmt-ai-net
+    labels:
+      com.bemind.service: "chromadb"
+      com.bemind.component: "ai-stack"
+      com.bemind.tier: "${BMT_DEVICE_TIER:-standard}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${CHROMADB_CPU_LIMIT:-2.0}"
+          memory: "${CHROMADB_MEM_LIMIT:-1g}"
+        reservations:
+          cpus: "0.5"
+          memory: "256m"
 
 volumes:
   ollama_models:
+    driver: local
+    labels:
+      com.bemind.volume: "ollama-models"
   chromadb_data:
+    driver: local
+    labels:
+      com.bemind.volume: "chromadb-data"
+
+networks:
+  bmt-ai-net:
+    driver: bridge
+    name: bmt-ai-net
+    labels:
+      com.bemind.network: "ai-stack"

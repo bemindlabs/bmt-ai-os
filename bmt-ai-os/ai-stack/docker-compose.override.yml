@@ -1,0 +1,33 @@
+# BMT AI OS — Development Overrides
+# Automatically loaded by `docker compose up` in dev environments.
+# For production, use: docker compose -f docker-compose.yml up -d
+
+services:
+  ollama:
+    environment:
+      - OLLAMA_DEBUG=1
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: "16g"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  chromadb:
+    environment:
+      - CHROMA_LOG_CONFIG=chromadb.log_config.dev
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: "2g"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
