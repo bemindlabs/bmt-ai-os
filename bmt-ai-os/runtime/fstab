@@ -1,0 +1,65 @@
+# /etc/fstab — BMT AI OS default mount table
+#
+# Partition labels are used so this file works regardless of the device node
+# name (/dev/mmcblk0, /dev/nvme0n1, /dev/sda, etc.).
+#
+# The active rootfs slot (A or B) is mounted at / by U-Boot + initramfs before
+# this fstab is processed, so the rootfs entry below is a no-op reminder only.
+#
+# BMTOS-19 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+#
+# <device>                        <mount>               <type>  <options>                        <dump> <pass>
+
+# ---------------------------------------------------------------------------
+# Boot partition (FAT32 — U-Boot env, kernel image, DTBs)
+# ---------------------------------------------------------------------------
+LABEL=BMT_BOOT                    /boot                 vfat    defaults,noatime,ro              0      2
+
+# ---------------------------------------------------------------------------
+# Root filesystem — active slot (mounted by initramfs before fstab runs)
+# Kept here for documentation and fsck ordering.
+# ---------------------------------------------------------------------------
+# LABEL=BMT_ROOTFS_A              /                     ext4    defaults,noatime,errors=remount-ro 0    1
+
+# ---------------------------------------------------------------------------
+# Persistent data partition (models, vectors, training, secrets, logs)
+# Mounted early in OpenRC sysinit via the bmt-storage service.
+# errors=remount-ro prevents data corruption if the partition encounters errors.
+# ---------------------------------------------------------------------------
+LABEL=BMT_DATA                    /data                 ext4    defaults,noatime,errors=remount-ro 0    2
+
+# ---------------------------------------------------------------------------
+# Bind mounts: /data sub-trees → standard Linux paths expected by containers.
+# The bind mounts are mounted after /data is available (OpenRC: bmt-storage).
+# ---------------------------------------------------------------------------
+
+# Ollama: model blobs and manifests
+/data/ollama                      /var/lib/ollama       none    bind,defaults,noatime            0      0
+
+# ChromaDB: vector segments and SQLite metadata
+/data/chromadb                    /var/lib/chromadb     none    bind,defaults,noatime            0      0
+
+# Docker / containerd data root (image layers, named volumes)
+/data/docker                      /var/lib/docker       none    bind,defaults,noatime            0      0
+
+# BMT AI OS controller state: metadata DB, RAG queue, inference cache
+/data/bmt-ai-os                   /var/lib/bmt-ai-os    none    bind,defaults,noatime            0      0
+
+# Persistent structured logs
+/data/logs/bmt-ai-os              /var/log/bmt-ai-os    none    bind,defaults,noatime            0      0
+
+# ---------------------------------------------------------------------------
+# Standby OTA rootfs slot (not active; mounted read-only for OTA writes).
+# Commented out by default; the OTA updater mounts it temporarily as needed.
+# ---------------------------------------------------------------------------
+# LABEL=BMT_ROOTFS_B              /rootfs-b             ext4    defaults,noatime,ro              0      0
+
+# ---------------------------------------------------------------------------
+# tmpfs — ephemeral storage cleared on every boot
+# ---------------------------------------------------------------------------
+
+# /tmp: general temporary files (512 MB cap prevents runaway writes)
+tmpfs                             /tmp                  tmpfs   mode=1777,nosuid,nodev,noexec,size=512m 0 0
+
+# /run: PID files, Unix sockets, service runtime state (256 MB cap)
+tmpfs                             /run                  tmpfs   mode=0755,nosuid,nodev,size=256m 0      0
