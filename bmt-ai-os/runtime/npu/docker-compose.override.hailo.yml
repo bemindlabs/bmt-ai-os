@@ -1,0 +1,25 @@
+# BMT AI OS — Raspberry Pi 5 + Hailo AI HAT+ 2 (Hailo-10H) override
+# Generated/copied by passthrough.sh — do not edit manually.
+#
+# Binds the Hailo PCIe device node and mounts HailoRT libraries so the
+# inference container can offload compute to the Hailo-10H accelerator.
+#
+# BMTOS-2b | Epic: BMTOS-EPIC-4
+
+services:
+  ollama:
+    devices:
+      - /dev/hailo0:/dev/hailo0
+    volumes:
+      - /usr/lib/libhailort.so:/usr/lib/libhailort.so:ro
+      - /usr/lib/libhailort.so.4:/usr/lib/libhailort.so.4:ro
+      - /etc/hailort:/etc/hailort:ro
+    environment:
+      - BMT_ACCEL=hailo
+      - BMT_NPU_BACKEND=hailo
+      - HAILO_MONITOR=1
+    group_add:
+      - video
+    privileged: false
+    security_opt:
+      - no-new-privileges:true

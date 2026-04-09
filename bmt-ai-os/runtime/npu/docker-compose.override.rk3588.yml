@@ -1,0 +1,27 @@
+# BMT AI OS — RK3588 (RKNN NPU) override
+# Generated/copied by passthrough.sh — do not edit manually.
+#
+# Binds Rockchip NPU, DMA heap, and multimedia processor device nodes into
+# the Ollama container so RKLLM toolkit can access the NPU for inference.
+#
+# BMTOS-2b | Epic: BMTOS-EPIC-4
+
+services:
+  ollama:
+    devices:
+      - /dev/rknpu:/dev/rknpu
+      - /dev/dma_heap:/dev/dma_heap
+      - /dev/mpp_service:/dev/mpp_service
+    volumes:
+      - /usr/lib/librknnrt.so:/usr/lib/librknnrt.so:ro
+      - /usr/lib/librknn_api.so:/usr/lib/librknn_api.so:ro
+      - /usr/include/rknn:/usr/include/rknn:ro
+    environment:
+      - BMT_ACCEL=rknn
+      - BMT_NPU_BACKEND=rknn
+      - RKNN_LOG_LEVEL=1
+    group_add:
+      - video
+    privileged: false
+    security_opt:
+      - no-new-privileges:true
