@@ -1,0 +1,16 @@
+# BMT AI OS — CPU-only fallback override
+# Generated/copied by passthrough.sh — do not edit manually.
+#
+# Used when no GPU/NPU accelerator is detected (generic ARM64, Apple Silicon
+# under Asahi Linux, QEMU, etc.). Ollama / llama.cpp will use NEON/SVE SIMD
+# for best available CPU performance.
+#
+# BMTOS-2b | Epic: BMTOS-EPIC-4
+
+services:
+  ollama:
+    environment:
+      - BMT_ACCEL=cpu
+      - BMT_NPU_BACKEND=cpu
+      - OLLAMA_NUM_THREADS=${OLLAMA_NUM_THREADS:-0}
+      - OLLAMA_NUM_GPU=0
