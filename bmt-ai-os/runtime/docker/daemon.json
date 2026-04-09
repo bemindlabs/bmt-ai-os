@@ -1,0 +1,55 @@
+{
+    "_comment": [
+        "/etc/docker/daemon.json — BMT AI OS Docker daemon configuration (ARM64)",
+        "",
+        "BMTOS-2a | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)",
+        "",
+        "Key design decisions:",
+        "  - overlay2 storage driver on ext4 (/var/lib/docker bind-mounted from /data/docker)",
+        "  - live-restore: containers survive daemon restarts (critical for AI workloads)",
+        "  - json-file log driver with rotation to prevent disk exhaustion",
+        "  - containerd socket at /run/containerd/containerd.sock (managed by OpenRC)",
+        "  - Bridge networking with RFC 1918 address pools"
+    ],
+
+    "storage-driver": "overlay2",
+    "data-root": "/var/lib/docker",
+
+    "containerd": "/run/containerd/containerd.sock",
+
+    "live-restore": true,
+
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "100m",
+        "max-file": "7"
+    },
+
+    "default-address-pools": [
+        {
+            "base": "172.17.0.0/16",
+            "size": 24
+        },
+        {
+            "base": "172.18.0.0/16",
+            "size": 24
+        }
+    ],
+
+    "bridge": "docker0",
+    "iptables": true,
+    "ip-forward": true,
+    "ip-masq": true,
+
+    "max-concurrent-downloads": 3,
+    "max-concurrent-uploads": 3,
+    "max-download-attempts": 5,
+
+    "default-runtime": "runc",
+
+    "features": {
+        "buildkit": true
+    },
+
+    "debug": false
+}
