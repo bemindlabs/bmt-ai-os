@@ -332,7 +332,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dev-tools", "coding-cli"],
       "acceptance_criteria": [
         "Claude Code installed and functional (uses Ollama Anthropic-compatible API since v0.14)",
@@ -346,7 +346,7 @@
       "dependencies": ["BMTOS-1", "BMTOS-3"],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-11",
@@ -355,7 +355,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dev-tools", "coding-cli", "providers"],
       "acceptance_criteria": [
         "Claude Code configured via ANTHROPIC_BASE_URL=http://localhost:11434",
@@ -369,7 +369,7 @@
       "dependencies": ["BMTOS-6", "BMTOS-10"],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-12",
@@ -378,7 +378,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dev-tools", "ide-plugins", "api"],
       "acceptance_criteria": [
         "OpenAI-compatible API served on configurable port (default 8080)",
@@ -390,7 +390,8 @@
       ],
       "dependencies": ["BMTOS-6", "BMTOS-9"],
       "epic_id": "BMTOS-EPIC-2",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-13",
@@ -399,7 +400,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dev-tools", "code-agents"],
       "acceptance_criteria": [
         "SWE-agent installed and runnable against local repos",
@@ -411,7 +412,8 @@
       ],
       "dependencies": ["BMTOS-6", "BMTOS-10"],
       "epic_id": "BMTOS-EPIC-2",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-14",
@@ -420,7 +422,7 @@
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dev-tools", "rag", "workspace"],
       "acceptance_criteria": [
         "Project directories mountable into tool containers via controller CLI",
@@ -432,7 +434,8 @@
       ],
       "dependencies": ["BMTOS-5a", "BMTOS-5b", "BMTOS-10"],
       "epic_id": "BMTOS-EPIC-2",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-15",
@@ -441,7 +444,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dev-tools", "models"],
       "acceptance_criteria": [
         "Preset 'lite': Qwen3.5-9B Q4 (~6GB RAM) for Pi 5 / RK3588 8GB",
@@ -454,7 +457,7 @@
       "dependencies": ["BMTOS-6", "BMTOS-3"],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-16",
@@ -738,7 +741,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "frontend", "setup"],
       "acceptance_criteria": [
         "Next.js 15+ app created at bmt-ai-os/dashboard/ with App Router",
@@ -756,7 +759,7 @@
       "dependencies": ["BMTOS-4"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-30",
@@ -765,7 +768,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "frontend"],
       "acceptance_criteria": [
         "Service health Cards: Badge (green/yellow/red) for Ollama, ChromaDB, Controller",
@@ -780,7 +783,7 @@
       "dependencies": ["BMTOS-29"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-31",
@@ -789,7 +792,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "models", "frontend"],
       "acceptance_criteria": [
         "Installed models Table: name, size, quantization, last used, disk usage",
@@ -804,7 +807,7 @@
       "dependencies": ["BMTOS-29", "BMTOS-15"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-32",
@@ -813,7 +816,7 @@
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "rag", "frontend"],
       "acceptance_criteria": [
         "Document upload: drag-and-drop zone using Input file + custom dropzone",
@@ -828,7 +831,7 @@
       "dependencies": ["BMTOS-29", "BMTOS-5a", "BMTOS-5b"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-33",
@@ -837,7 +840,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "providers", "frontend"],
       "acceptance_criteria": [
         "Provider list: Cards with Switch toggle (enable/disable) per provider",
@@ -852,7 +855,7 @@
       "dependencies": ["BMTOS-29", "BMTOS-6", "BMTOS-9"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-34",
@@ -861,7 +864,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "observability", "frontend"],
       "acceptance_criteria": [
         "Live-tail logs via WebSocket in virtualized ScrollArea (react-virtual)",
@@ -876,7 +879,7 @@
       "dependencies": ["BMTOS-29", "BMTOS-24"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-35",
@@ -885,7 +888,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "dev-tools", "frontend"],
       "acceptance_criteria": [
         "Tool Cards: Claude Code, Aider, Continue, Tabby with version and Badge status",
@@ -899,7 +902,7 @@
       "dependencies": ["BMTOS-29", "BMTOS-10", "BMTOS-14"],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
-      "updated_at": "2026-04-09"
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-36",
@@ -908,7 +911,7 @@
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["dashboard", "tui", "cli"],
       "acceptance_criteria": [
         "TUI launches via 'bmt-ai-os tui' command",
@@ -924,7 +927,8 @@
       ],
       "dependencies": ["BMTOS-4", "BMTOS-22"],
       "epic_id": "BMTOS-EPIC-5",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-37",
@@ -933,7 +937,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["training", "ml", "python"],
       "acceptance_criteria": [
         "PyTorch installed with ARM64 NEON/SVE optimizations (pip install torch)",
@@ -946,7 +950,8 @@
       ],
       "dependencies": ["BMTOS-1", "BMTOS-3"],
       "epic_id": "BMTOS-EPIC-6",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-38",
@@ -955,7 +960,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": ["training", "fine-tuning", "lora"],
       "acceptance_criteria": [
         "PEFT library installed with LoRA and QLoRA support",
@@ -969,7 +974,8 @@
       ],
       "dependencies": ["BMTOS-37"],
       "epic_id": "BMTOS-EPIC-6",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-39",
@@ -978,7 +984,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["training", "data", "cli"],
       "acceptance_criteria": [
         "bmt-ai-os data prepare --input /docs --format alpaca — convert docs to training format",
@@ -991,7 +997,8 @@
       ],
       "dependencies": ["BMTOS-22", "BMTOS-5b"],
       "epic_id": "BMTOS-EPIC-6",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-40",
@@ -1000,7 +1007,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["training", "jupyter", "developer-experience"],
       "acceptance_criteria": [
         "JupyterLab installed and launchable via bmt-ai-os jupyter",
@@ -1013,7 +1020,8 @@
       ],
       "dependencies": ["BMTOS-37"],
       "epic_id": "BMTOS-EPIC-6",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-41",
@@ -1022,7 +1030,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["training", "monitoring", "dashboard"],
       "acceptance_criteria": [
         "TensorBoard installed, launchable via bmt-ai-os tensorboard",
@@ -1035,7 +1043,8 @@
       ],
       "dependencies": ["BMTOS-38", "BMTOS-29"],
       "epic_id": "BMTOS-EPIC-6",
-      "created_at": "2026-04-09"
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
     },
     {
       "id": "BMTOS-42",
@@ -1044,7 +1053,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": ["training", "deployment", "models"],
       "acceptance_criteria": [
         "bmt-ai-os model merge --base qwen2.5:1.5b --adapter /path/to/lora — merge LoRA weights",
@@ -1056,8 +1065,9 @@
       ],
       "dependencies": ["BMTOS-38", "BMTOS-6"],
       "epic_id": "BMTOS-EPIC-6",
-      "created_at": "2026-04-09"
-    }
+      "created_at": "2026-04-09",
+      "completed_at": "2026-04-09"
+    },
     {
       "id": "BMTOS-43",
       "title": "Add Apple Silicon board support package (Asahi Linux, CPU-only)",
