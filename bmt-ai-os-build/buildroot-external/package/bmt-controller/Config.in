@@ -1,0 +1,12 @@
+config BR2_PACKAGE_BMT_CONTROLLER
+	bool "bmt-controller"
+	depends on BR2_PACKAGE_PYTHON3
+	depends on BR2_PACKAGE_OLLAMA || BR2_PACKAGE_CHROMADB
+	help
+	  BMT AI OS controller — Python + FastAPI orchestration service.
+
+	  Manages the AI stack containers (Ollama, ChromaDB, training jobs)
+	  via docker-py. Exposes an OpenAI-compatible API on port 8080 and
+	  telemetry for the Next.js dashboard on port 9090.
+
+	  Source: bmt-ai-os/controller/main.py

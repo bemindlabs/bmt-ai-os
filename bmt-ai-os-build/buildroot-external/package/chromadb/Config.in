@@ -1,0 +1,13 @@
+config BR2_PACKAGE_CHROMADB
+	bool "chromadb"
+	depends on BR2_PACKAGE_PYTHON3
+	depends on BR2_aarch64
+	help
+	  ChromaDB — open-source vector database for AI embeddings.
+
+	  Installed as a Python package and launched as an OpenRC service
+	  on port 8000. Persistent data is stored under /var/lib/chromadb.
+
+	  RAG latency target: < 3s on Jetson Orin with 7B model + 1K docs.
+
+	  https://www.trychroma.com

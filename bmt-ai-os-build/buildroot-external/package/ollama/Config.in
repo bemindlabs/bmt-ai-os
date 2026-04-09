@@ -1,0 +1,12 @@
+config BR2_PACKAGE_OLLAMA
+	bool "ollama"
+	depends on BR2_aarch64
+	help
+	  Ollama — run Qwen and other LLMs locally via a REST API on port 11434.
+
+	  This package installs the Ollama binary. Models are downloaded at
+	  first boot and stored in /var/lib/ollama/models.
+
+	  Default model: qwen2.5-coder:7b (configurable via /etc/ollama/config)
+
+	  https://ollama.com
