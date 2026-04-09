@@ -167,6 +167,19 @@ See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
 | 7 | Tooling | 26 | CLI, REST API, logging, OTA updates |
 | 8 | Production | TBD | Fleet management, security hardening |
 
+## Limitations
+
+- **Early stage** — project is in active development; no bootable image available yet
+- **ARM64 only** — OS image targets ARM64 boards; x86 supported only via [dev Docker stack](docker-compose.dev.yml)
+- **Small model ceiling** — Tier 1 hardware limited to 7B models for inference, 1.5-3B for training
+- **No GUI desktop** — headless OS with web dashboard and TUI; no windowing system
+- **NPU support fragmented** — RKNN and HailoRT drivers are not mainlined in upstream Linux kernel
+- **Training is constrained** — LoRA/QLoRA on edge hardware is slow; full fine-tuning not feasible on 8GB devices
+- **Single-user** — no multi-user accounts or access control yet
+- **No OTA updates** — update mechanism planned (BMTOS-25) but not implemented
+- **Qualcomm NPU blocked** — Snapdragon X Linux NPU support dead (DSP headers not open-sourced)
+- **Cloud providers require internet** — fallback to OpenAI/Anthropic/Gemini only works when online
+
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
