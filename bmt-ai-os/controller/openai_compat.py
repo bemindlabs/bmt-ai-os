@@ -217,7 +217,7 @@ def _make_chat_message(role: str, content: str) -> Any:
     """Create a ChatMessage using the provider base class if available,
     falling back to a local dataclass."""
     try:
-        from providers.base import ChatMessage
+        from bmt_ai_os.providers.base import ChatMessage
 
         return ChatMessage(role=role, content=content)
     except Exception:
@@ -230,7 +230,7 @@ def _get_provider_router():
     Falls back to the provider registry when the router is not initialised.
     """
     try:
-        from providers.registry import get_registry
+        from bmt_ai_os.providers.registry import get_registry
 
         return get_registry()
     except Exception:

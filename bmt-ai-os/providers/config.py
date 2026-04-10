@@ -160,7 +160,6 @@ def resolve_api_key(
     1. *explicit* value (passed directly)
     2. Environment variable (*env_var* or *key_name*)
     3. Secrets file at ``/etc/bmt-ai-os/secrets/<key_name>``
-    4. providers.yml ``api_key`` field
     """
     if explicit:
         return explicit
