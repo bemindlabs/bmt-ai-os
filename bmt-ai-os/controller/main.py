@@ -194,6 +194,34 @@ class BMTAIOSController:
         if self._health_thread and self._health_thread.is_alive():
             self._health_thread.join(timeout=10)
 
+    # --- Provider registration ---
+
+    def _register_providers(self) -> None:
+        """Auto-register LLM providers based on running AI-stack services."""
+        try:
+            from bmt_ai_os.providers.ollama import OllamaProvider
+            from bmt_ai_os.providers.registry import get_registry
+
+            registry = get_registry()
+
+            for svc in self.config.services:
+                if svc.name == "ollama":
+                    base_url = f"http://localhost:{svc.port}"
+                    provider = OllamaProvider(base_url=base_url)
+                    registry.register("ollama", provider)
+                    logger.info(
+                        "Registered provider 'ollama' at %s",
+                        base_url,
+                    )
+
+            logger.info(
+                "Provider registry: %s (active: %s)",
+                registry.list(),
+                registry.active_name,
+            )
+        except Exception as exc:
+            logger.warning("Provider registration failed: %s", exc)
+
     # --- Signal handling & main loop ---
 
     def _handle_signal(self, signum: int, _frame) -> None:
@@ -219,6 +247,9 @@ class BMTAIOSController:
 
         # Start the AI stack
         self.start_stack()
+
+        # Register LLM providers from running services
+        self._register_providers()
 
         # Start background health checks
         self.start_health_checks()

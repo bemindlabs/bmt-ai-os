@@ -15,6 +15,20 @@ from controller.openai_compat import router as openai_router  # noqa: E402
 from controller.rag_routes import router as rag_router  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 
+_controller = None
+
+
+def set_controller(ctrl) -> None:
+    """Store a reference to the AIController for use by API routes."""
+    global _controller
+    _controller = ctrl
+
+
+def get_controller():
+    """Return the current AIController instance."""
+    return _controller
+
+
 app = FastAPI(
     title="BMT AI OS Controller",
     version="0.1.0",
