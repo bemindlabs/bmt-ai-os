@@ -53,7 +53,7 @@ repos:
     hooks:
       - id: smoke-tests
         name: Smoke Tests
-        entry: python -m pytest tests/smoke/ -x -q --tb=short -m smoke
+        entry: python3 -m pytest tests/smoke/ -x -q --tb=short -m smoke
         language: system
         pass_filenames: false
         always_run: true
@@ -61,7 +61,7 @@ repos:
 
       - id: unit-tests
         name: Unit Tests
-        entry: python -m pytest tests/unit/ -x -q --tb=short
+        entry: python3 -m pytest tests/unit/ -x -q --tb=short
         language: system
         pass_filenames: false
         always_run: true
