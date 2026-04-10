@@ -6,6 +6,7 @@ circuit breakers, and an HTTP API for status and control.
 """
 
 import argparse
+import importlib
 import logging
 import signal
 import subprocess
@@ -23,6 +24,12 @@ from .config import ControllerConfig, ServiceDef, load_config
 from .health import HealthChecker, HealthStatus
 
 logger = logging.getLogger("bmt-controller")
+
+# Maps docker-compose service names to (module_path, class_name) for dynamic import.
+# To add a new provider, add an entry here — no other changes required.
+_PROVIDER_MAP: dict[str, tuple[str, str]] = {
+    "ollama": ("bmt_ai_os.providers.ollama", "OllamaProvider"),
+}
 
 
 class BMTAIOSController:
@@ -197,22 +204,37 @@ class BMTAIOSController:
     # --- Provider registration ---
 
     def _register_providers(self) -> None:
-        """Auto-register LLM providers based on running AI-stack services."""
+        """Auto-register LLM providers based on running AI-stack services.
+
+        Each service whose name appears in _PROVIDER_MAP is imported and
+        registered dynamically.  Adding a new provider only requires an entry
+        in that map — no code changes here are needed.
+        """
         try:
-            from bmt_ai_os.providers.ollama import OllamaProvider
             from bmt_ai_os.providers.registry import get_registry
 
             registry = get_registry()
 
             for svc in self.config.services:
-                if svc.name == "ollama":
+                mapping = _PROVIDER_MAP.get(svc.name)
+                if mapping is None:
+                    continue
+
+                module_path, class_name = mapping
+                try:
+                    module = importlib.import_module(module_path)
+                    provider_cls = getattr(module, class_name)
                     base_url = f"http://localhost:{svc.port}"
-                    provider = OllamaProvider(base_url=base_url)
-                    registry.register("ollama", provider)
+                    provider = provider_cls(base_url=base_url)
+                    registry.register(svc.name, provider)
                     logger.info(
-                        "Registered provider 'ollama' at %s",
+                        "Registered provider '%s' (%s) at %s",
+                        svc.name,
+                        class_name,
                         base_url,
                     )
+                except Exception as exc:
+                    logger.warning("Failed to register provider '%s': %s", svc.name, exc)
 
             logger.info(
                 "Provider registry: %s (active: %s)",
