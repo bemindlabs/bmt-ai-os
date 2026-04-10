@@ -28,11 +28,11 @@
 
 ```bash
 # Download image for your board
-wget https://releases.bmtaios.dev/2026.4.9/bmt-ai-os-jetson-orin-2026.4.9.img.gz
+wget https://releases.bmtaios.dev/2026.4.9/bmt_ai_os-jetson-orin-2026.4.9.img.gz
 
 # Flash to SD card / eMMC
-gunzip bmt-ai-os-jetson-orin-2026.4.9.img.gz
-sudo dd if=bmt-ai-os-jetson-orin-2026.4.9.img of=/dev/sdX bs=4M status=progress
+gunzip bmt_ai_os-jetson-orin-2026.4.9.img.gz
+sudo dd if=bmt_ai_os-jetson-orin-2026.4.9.img of=/dev/sdX bs=4M status=progress
 
 # Boot the board
 # Dashboard available at http://<device-ip>:9090
@@ -41,11 +41,11 @@ sudo dd if=bmt-ai-os-jetson-orin-2026.4.9.img of=/dev/sdX bs=4M status=progress
 ## Build from Source
 
 ```bash
-git clone https://github.com/bemindlabs/bmt-ai-os.git
-cd bmt-ai-os
+git clone https://github.com/bemindlabs/bmt_ai_os.git
+cd bmt_ai_os
 
 # Build ARM64 image
-make O=output defconfig BR2_DEFCONFIG=bmt-ai-os/kernel/defconfig
+make O=output defconfig BR2_DEFCONFIG=bmt_ai_os/kernel/defconfig
 make
 
 # Test with QEMU
@@ -62,7 +62,7 @@ qemu-system-aarch64 \
 2. The OS auto-starts: containerd → Ollama → ChromaDB → Controller
 3. First-boot script pulls the default model preset based on detected hardware
 4. Dashboard available at `http://<device-ip>:9090`
-5. TUI available via SSH: `ssh user@<device-ip>` then `bmt-ai-os tui`
+5. TUI available via SSH: `ssh user@<device-ip>` then `bmt_ai_os tui`
 
 ## Next Steps
 

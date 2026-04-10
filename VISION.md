@@ -56,7 +56,7 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)        │
+│  Dashboard (:9090)  │  TUI (bmt_ai_os tui)        │
 │  Next.js+shadcn/ui  │  Python Textual             │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│
@@ -122,7 +122,7 @@ LoRA/QLoRA fine-tuning pipeline for edge hardware:
 
 ```
 Prepare Data → Train (LoRA) → Export → Serve
-bmt-ai-os      bmt-ai-os     bmt-ai-os   ollama
+bmt_ai_os      bmt_ai_os     bmt_ai_os   ollama
 data prepare   train          model export run
 ```
 

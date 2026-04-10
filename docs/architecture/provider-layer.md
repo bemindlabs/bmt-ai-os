@@ -36,18 +36,18 @@ class LLMProvider:
 ## Fallback Chain
 
 ```yaml
-# /etc/bmt-ai-os/providers.yml
+# /etc/bmt_ai_os/providers.yml
 providers:
   chain:
     - ollama          # Try first (local)
     - llama-cpp       # Try second (lighter)
     - openai          # Cloud fallback
     - anthropic       # Cloud fallback
-  
+
   timeouts:
     local: 30s
     cloud: 15s
-  
+
   circuit_breaker:
     cooldown: 60s     # Skip unhealthy provider for 60s
 ```
@@ -56,13 +56,13 @@ providers:
 
 ```bash
 # Switch active provider
-bmt-ai-os provider set ollama
+bmt_ai_os provider set ollama
 
 # List providers and status
-bmt-ai-os provider list
+bmt_ai_os provider list
 
 # Test a provider
-bmt-ai-os provider test openai
+bmt_ai_os provider test openai
 ```
 
-Cloud API keys are stored in `/etc/bmt-ai-os/secrets/` with `0600` permissions.
+Cloud API keys are stored in `/etc/bmt_ai_os/secrets/` with `0600` permissions.

@@ -11,8 +11,8 @@ Run the full BMT AI OS stack on any machine using Docker — no ARM64 hardware r
 ## Start the Dev Stack
 
 ```bash
-git clone https://github.com/bemindlabs/bmt-ai-os.git
-cd bmt-ai-os
+git clone https://github.com/bemindlabs/bmt_ai_os.git
+cd bmt_ai_os
 
 # Start all services
 docker compose -f docker-compose.dev.yml up -d
@@ -45,7 +45,7 @@ docker exec -it bmt-ollama ollama run qwen2.5-coder:7b
 
 ```bash
 pip install docker
-python bmt-ai-os/controller/main.py
+python bmt_ai_os/controller/main.py
 ```
 
 ## GPU Support

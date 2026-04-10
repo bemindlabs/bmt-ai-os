@@ -12,7 +12,7 @@ Current release: **v2026.4.10**
 
 ```
 ai-first-os/
-├── bmt-ai-os/                  # Runtime
+├── bmt_ai_os/                  # Runtime
 │   ├── ai-stack/               #   Docker Compose (Ollama + ChromaDB)
 │   │   ├── docker-compose.yml
 │   │   ├── profiles/           #   Device tier profiles (lite/full)
@@ -56,7 +56,7 @@ ai-first-os/
 │       ├── docker/             #     Docker daemon config
 │       ├── npu/                #     NPU passthrough stubs
 │       └── security/           #     Security hardening
-├── bmt-ai-os-build/            # Build-time
+├── bmt_ai_os-build/            # Build-time
 │   ├── buildroot-external/     #   Buildroot external tree
 │   │   ├── Config.in           #     Package menu (BR2_EXTERNAL)
 │   │   ├── external.mk         #     Package includes
@@ -88,11 +88,11 @@ ai-first-os/
 
 ## Architecture
 
-The controller (`bmt-ai-os/controller/main.py`) orchestrates AI-stack containers via docker-py, registers LLM providers, and exposes an OpenAI-compatible API.
+The controller (`bmt_ai_os/controller/main.py`) orchestrates AI-stack containers via docker-py, registers LLM providers, and exposes an OpenAI-compatible API.
 
 **Dependency chain:** Kernel (defconfig) → OpenRC → Containerd → AI Stack (Compose) → Controller → Provider Layer → RAG + Training + Dashboard
 
-**Import convention:** All Python imports use the canonical `bmt_ai_os.providers.*` path. A `bmt_ai_os` symlink to `bmt-ai-os/` is required for local development (or `pip install -e .`).
+**Import convention:** All Python imports use the canonical `bmt_ai_os.providers.*` path. A `bmt_ai_os` symlink to `bmt_ai_os/` is required for local development (or `pip install -e .`).
 
 ## Port Map
 
@@ -106,19 +106,19 @@ The controller (`bmt-ai-os/controller/main.py`) orchestrates AI-stack containers
 
 ```bash
 # Run AI stack
-docker compose -f bmt-ai-os/ai-stack/docker-compose.yml up -d
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml up -d
 
 # Run controller
-ln -sf bmt-ai-os bmt_ai_os  # one-time symlink
-BMT_COMPOSE_FILE=$(pwd)/bmt-ai-os/ai-stack/docker-compose.yml \
-  PYTHONPATH=$(pwd):bmt-ai-os python3 -m controller.main
+ln -sf bmt_ai_os bmt_ai_os  # one-time symlink
+BMT_COMPOSE_FILE=$(pwd)/bmt_ai_os/ai-stack/docker-compose.yml \
+  PYTHONPATH=$(pwd):bmt_ai_os python3 -m controller.main
 
 # Run tests
 python3 -m pytest tests/smoke/ tests/unit/ -q
 
 # Lint + format
-uvx ruff check bmt-ai-os/ tests/
-uvx ruff format --check bmt-ai-os/ tests/
+uvx ruff check bmt_ai_os/ tests/
+uvx ruff format --check bmt_ai_os/ tests/
 
 # Build OS image (requires Linux host)
 ./scripts/build.sh --target qemu

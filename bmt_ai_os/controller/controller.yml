@@ -1,0 +1,42 @@
+# BMT AI OS Controller — Default Configuration
+# Copy to /etc/bmt_ai_os/controller.yml on target device.
+
+compose_file: /opt/bmt_ai_os/ai-stack/docker-compose.yml
+
+# Health check polling interval in seconds
+health_interval: 30
+
+# Consecutive failures before auto-restart
+max_restarts: 3
+
+# Circuit breaker: stop restarting after this many failed restart attempts
+circuit_breaker_threshold: 5
+
+# Circuit breaker reset timeout in seconds
+circuit_breaker_reset: 300
+
+# HTTP health check timeout in seconds
+health_timeout: 5
+
+# Number of health results to keep per service
+health_history_size: 10
+
+# API server settings
+api_port: 8080
+api_host: 0.0.0.0
+
+# Logging
+log_level: INFO
+log_file: /var/log/bmt-controller.log
+
+# Managed services (must match docker-compose.yml)
+services:
+  - name: ollama
+    container_name: bmt-ollama
+    health_url: http://localhost:11434/api/tags
+    port: 11434
+
+  - name: chromadb
+    container_name: bmt-chromadb
+    health_url: http://localhost:8000/api/v1/heartbeat
+    port: 8000

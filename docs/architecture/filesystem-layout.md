@@ -58,7 +58,7 @@ All persistent AI data is stored under `/data` and bind-mounted into the expecte
 │   └── dtb/                     # Device tree blobs per board
 │
 ├── etc/
-│   ├── bmt-ai-os/               # BMT AI OS system configuration
+│   ├── bmt_ai_os/               # BMT AI OS system configuration
 │   │   ├── config.toml          # Main system config (preset, hardware, ports)
 │   │   ├── hardware.toml        # Detected hardware profile (written at first boot)
 │   │   ├── providers.toml       # LLM provider order and API key refs
@@ -67,7 +67,7 @@ All persistent AI data is stored under `/data` and bind-mounted into the expecte
 │   │       ├── api-keys.env     # Provider API keys (symlink → /data/secrets/api-keys.env)
 │   │       └── .gitkeep
 │   ├── fstab                    # Mount table (see fstab section below)
-│   ├── hostname                 # Default: bmt-ai-os
+│   ├── hostname                 # Default: bmt_ai_os
 │   ├── init.d/                  # OpenRC service scripts
 │   │   ├── bmt-storage          # Mounts /data and bind mounts (runlevel: sysinit)
 │   │   ├── bmt-containerd       # Starts containerd (runlevel: default)
@@ -78,7 +78,7 @@ All persistent AI data is stored under `/data` and bind-mounted into the expecte
 │       └── daemon.json          # containerd/dockerd config (data-root → /data/docker)
 │
 ├── opt/
-│   └── bmt-ai-os/               # BMT AI OS application files (read-only after install)
+│   └── bmt_ai_os/               # BMT AI OS application files (read-only after install)
 │       ├── controller/          # Python controller source
 │       │   └── main.py
 │       ├── ai-stack/            # Docker Compose definitions
@@ -98,9 +98,9 @@ All persistent AI data is stored under `/data` and bind-mounted into the expecte
 │   │   ├── ollama/              # → bind mount from /data/ollama
 │   │   ├── chromadb/            # → bind mount from /data/chromadb
 │   │   ├── docker/              # → bind mount from /data/docker
-│   │   └── bmt-ai-os/           # → bind mount from /data/bmt-ai-os
+│   │   └── bmt_ai_os/           # → bind mount from /data/bmt_ai_os
 │   └── log/
-│       └── bmt-ai-os/           # → bind mount from /data/logs/bmt-ai-os
+│       └── bmt_ai_os/           # → bind mount from /data/logs/bmt_ai_os
 │
 ├── tmp/                         # tmpfs (cleared on every boot)
 ├── run/                         # tmpfs (PID files, sockets)
@@ -152,7 +152,7 @@ state, training artefacts, notebooks, and user configuration.
 │   │   └── chromadb_data/       # Named volume for ChromaDB container
 │   └── overlay2/                # Container image layers
 │
-├── bmt-ai-os/                   # Runtime state for controller and services
+├── bmt_ai_os/                   # Runtime state for controller and services
 │   ├── db/
 │   │   └── metadata.sqlite3     # Service registry, model catalogue, RAG metadata
 │   ├── rag/
@@ -164,7 +164,7 @@ state, training artefacts, notebooks, and user configuration.
 │   └── tls/                     # TLS certificates if HTTPS dashboard is enabled
 │
 └── logs/
-    └── bmt-ai-os/               # Persistent structured logs (JSON)
+    └── bmt_ai_os/               # Persistent structured logs (JSON)
         ├── controller.log
         ├── ai-stack.log
         └── ota.log
@@ -184,8 +184,8 @@ state, training artefacts, notebooks, and user configuration.
 | /data/ollama              | /var/lib/ollama      | bind   | Ollama model dir             |
 | /data/chromadb            | /var/lib/chromadb    | bind   | ChromaDB data dir            |
 | /data/docker              | /var/lib/docker      | bind   | Docker/containerd data root  |
-| /data/bmt-ai-os           | /var/lib/bmt-ai-os   | bind   | Controller state and cache   |
-| /data/logs/bmt-ai-os      | /var/log/bmt-ai-os   | bind   | Persistent log storage       |
+| /data/bmt_ai_os           | /var/lib/bmt_ai_os   | bind   | Controller state and cache   |
+| /data/logs/bmt_ai_os      | /var/log/bmt_ai_os   | bind   | Persistent log storage       |
 | tmpfs                     | /tmp                 | tmpfs  | 512 MB max, cleared on boot  |
 | tmpfs                     | /run                 | tmpfs  | 256 MB max, PID files        |
 
@@ -217,7 +217,7 @@ Default model: `qwen2.5-coder:3b` (2.0 GB)
 | /data/docker           | 5.0 GB         | Container images (ollama, chroma, base)   |
 | /data/training         | 500 MB         | No pre-loaded datasets                    |
 | /data/notebooks        | 100 MB         | Example notebooks only                    |
-| /data/bmt-ai-os        | 100 MB         | Metadata DB, cache                        |
+| /data/bmt_ai_os        | 100 MB         | Metadata DB, cache                        |
 | /data/logs             | 100 MB         | Log rotation at 50 MB                     |
 | **Total**              | **~8 GB**      | Recommended minimum disk: 32 GB           |
 
@@ -233,7 +233,7 @@ Default model: `qwen2.5-coder:7b` (4.7 GB)
 | /data/docker           | 5.0 GB         | Container images                          |
 | /data/training         | 1.0 GB         | Example datasets, one checkpoint          |
 | /data/notebooks        | 200 MB         | Examples + starter workspace              |
-| /data/bmt-ai-os        | 300 MB         | Metadata DB, RAG ingest queue, cache      |
+| /data/bmt_ai_os        | 300 MB         | Metadata DB, RAG ingest queue, cache      |
 | /data/logs             | 200 MB         | Log rotation at 100 MB                    |
 | **Total**              | **~14 GB**     | Recommended minimum disk: 64 GB           |
 
@@ -249,7 +249,7 @@ Default model: `qwen2.5-coder:14b` (9.0 GB)
 | /data/docker           | 6.0 GB         | Container images + training image         |
 | /data/training         | 2.0 GB         | Datasets, multiple checkpoints, adapters  |
 | /data/notebooks        | 500 MB         | Full workspace with sample projects       |
-| /data/bmt-ai-os        | 500 MB         | Extended cache for RAG                    |
+| /data/bmt_ai_os        | 500 MB         | Extended cache for RAG                    |
 | /data/logs             | 500 MB         | Log rotation at 200 MB                    |
 | **Total**              | **~25.5 GB**   | Recommended minimum disk: 128 GB          |
 
@@ -269,30 +269,30 @@ Quick-reference table for all paths used by services and scripts.
 | Named adapters        | /data/training/adapters/          | bmt         | 0755 |
 | Jupyter notebooks     | /data/notebooks/workspace/        | bmt         | 0755 |
 | Docker data root      | /data/docker/                     | root        | 0710 |
-| Controller state DB   | /data/bmt-ai-os/db/               | bmt         | 0755 |
-| RAG ingest queue      | /data/bmt-ai-os/rag/ingest-queue/ | bmt         | 0755 |
-| Inference cache       | /data/bmt-ai-os/cache/            | bmt         | 0755 |
+| Controller state DB   | /data/bmt_ai_os/db/               | bmt         | 0755 |
+| RAG ingest queue      | /data/bmt_ai_os/rag/ingest-queue/ | bmt         | 0755 |
+| Inference cache       | /data/bmt_ai_os/cache/            | bmt         | 0755 |
 | API keys / secrets    | /data/secrets/api-keys.env        | root        | 0600 |
 | TLS certificates      | /data/secrets/tls/                | root        | 0700 |
-| Controller logs       | /data/logs/bmt-ai-os/             | bmt         | 0755 |
-| System config         | /etc/bmt-ai-os/config.toml        | root        | 0644 |
-| Hardware profile      | /etc/bmt-ai-os/hardware.toml      | root        | 0644 |
-| Provider config       | /etc/bmt-ai-os/providers.toml     | root        | 0644 |
+| Controller logs       | /data/logs/bmt_ai_os/             | bmt         | 0755 |
+| System config         | /etc/bmt_ai_os/config.toml        | root        | 0644 |
+| Hardware profile      | /etc/bmt_ai_os/hardware.toml      | root        | 0644 |
+| Provider config       | /etc/bmt_ai_os/providers.toml     | root        | 0644 |
 
 ---
 
 ## First-Boot Initialisation
 
-On first boot, `/opt/bmt-ai-os/scripts/first-boot.sh` runs before any AI service starts:
+On first boot, `/opt/bmt_ai_os/scripts/first-boot.sh` runs before any AI service starts:
 
-1. Detect total RAM and available storage; write `/etc/bmt-ai-os/hardware.toml`.
+1. Detect total RAM and available storage; write `/etc/bmt_ai_os/hardware.toml`.
 2. Select preset (lite / standard / full) based on RAM: <8 GB → lite, 8–12 GB → standard, >12 GB → full.
 3. Create all `/data/*` subdirectories with correct ownership and permissions.
 4. Write Docker daemon config pointing data root at `/data/docker`.
 5. Pull default Qwen model via Ollama.
 6. Initialise ChromaDB default collection.
 7. Generate coding tool configs (Claude Code, Aider, Continue) pointing at `:8080`.
-8. Mark first boot complete via `/data/bmt-ai-os/.first-boot-done`.
+8. Mark first boot complete via `/data/bmt_ai_os/.first-boot-done`.
 
 ---
 
@@ -308,8 +308,8 @@ On first boot, `/opt/bmt-ai-os/scripts/first-boot.sh` runs before any AI service
 
 ## Related Files
 
-- `bmt-ai-os/runtime/partition-table.sh` — Script to partition a block device
-- `bmt-ai-os/runtime/fstab` — Default fstab template
-- `bmt-ai-os/ai-stack/docker-compose.yml` — Defines named volumes
+- `bmt_ai_os/runtime/partition-table.sh` — Script to partition a block device
+- `bmt_ai_os/runtime/fstab` — Default fstab template
+- `bmt_ai_os/ai-stack/docker-compose.yml` — Defines named volumes
 - `docs/architecture/boot-sequence.md` — OpenRC service start order
 - `docs/architecture/system-overview.md` — Full system layer diagram

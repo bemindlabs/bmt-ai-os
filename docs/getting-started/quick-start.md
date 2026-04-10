@@ -6,7 +6,7 @@ Get up and running with BMT AI OS in minutes.
 
 ```bash
 # Check all services are running
-bmt-ai-os status
+bmt_ai_os status
 
 # Or manually check endpoints
 curl http://localhost:11434/api/tags        # Ollama
@@ -17,12 +17,12 @@ curl http://localhost:8000/api/v1/heartbeat  # ChromaDB
 
 ```bash
 # Auto-detect hardware and install recommended preset
-bmt-ai-os models install auto
+bmt_ai_os models install auto
 
 # Or manually choose a preset
-bmt-ai-os models install lite       # Qwen3.5-9B Q4 (~6GB)
-bmt-ai-os models install standard   # Qwen2.5-Coder-7B Q4 + embedding (~8GB)
-bmt-ai-os models install full       # Qwen3.5-27B Q4 + embedding (~18GB)
+bmt_ai_os models install lite       # Qwen3.5-9B Q4 (~6GB)
+bmt_ai_os models install standard   # Qwen2.5-Coder-7B Q4 + embedding (~8GB)
+bmt_ai_os models install full       # Qwen3.5-27B Q4 + embedding (~18GB)
 
 # Or pull any Ollama model
 ollama pull qwen2.5-coder:7b
@@ -35,17 +35,17 @@ ollama pull qwen2.5-coder:7b
 ollama run qwen2.5-coder:7b
 
 # Or use the RAG-augmented query
-bmt-ai-os query "How do I configure containerd on ARM64?"
+bmt_ai_os query "How do I configure containerd on ARM64?"
 ```
 
 ## 4. Index a Codebase
 
 ```bash
 # Ingest documents for RAG
-bmt-ai-os ingest /path/to/your/project
+bmt_ai_os ingest /path/to/your/project
 
 # Query with context
-bmt-ai-os query "What does the main function do?"
+bmt_ai_os query "What does the main function do?"
 ```
 
 ## 5. Start Coding with AI

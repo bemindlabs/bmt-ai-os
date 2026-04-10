@@ -11,7 +11,7 @@ import aiohttp
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_BMT_PKG = _REPO_ROOT / "bmt-ai-os"
+_BMT_PKG = _REPO_ROOT / "bmt_ai_os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 

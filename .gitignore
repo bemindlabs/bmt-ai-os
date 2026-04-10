@@ -35,9 +35,6 @@ buildroot-*
 releases/
 *.img
 
-# Package symlink (bmt-ai-os -> bmt_ai_os for Python imports)
-bmt_ai_os
-
 # Models (large files)
 *.gguf
 *.bin

@@ -233,7 +233,7 @@ class TestListModels:
         assert len(data["data"]) == 2
         assert data["data"][0]["object"] == "model"
         assert data["data"][0]["id"] == "qwen2.5-coder:7b"
-        assert data["data"][0]["owned_by"] == "bmt-ai-os"
+        assert data["data"][0]["owned_by"] == "bmt_ai_os"
 
 
 # ---------------------------------------------------------------------------

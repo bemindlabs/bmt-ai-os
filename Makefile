@@ -16,7 +16,7 @@ TARGET ?= qemu
 BUILDROOT_VERSION ?= 2024.02.9
 
 # Path to the built image
-IMAGE ?= output/images/bmt-ai-os-arm64.img
+IMAGE ?= output/images/bmt_ai_os-arm64.img
 
 # Boot timeout for QEMU test (seconds)
 QEMU_TIMEOUT ?= 60

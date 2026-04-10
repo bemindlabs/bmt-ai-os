@@ -22,7 +22,7 @@
     "lint": null,
     "type_check": null,
     "test": "python -m pytest",
-    "build": "docker compose -f bmt-ai-os/ai-stack/docker-compose.yml config"
+    "build": "docker compose -f bmt_ai_os/ai-stack/docker-compose.yml config"
   },
   "tech_stack": {
     "languages": ["python"],

@@ -32,8 +32,8 @@ Default port: **8080** (configurable via `BMT_API_PORT` or `controller.yml`).
 1. Start the BMT AI OS stack:
 
 ```bash
-docker compose -f bmt-ai-os/ai-stack/docker-compose.yml up -d
-python bmt-ai-os/controller/main.py
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml up -d
+python bmt_ai_os/controller/main.py
 ```
 
 2. Verify the API is running:

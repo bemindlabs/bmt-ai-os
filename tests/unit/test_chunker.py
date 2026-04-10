@@ -10,7 +10,7 @@ import pytest
 
 # Import chunker directly to avoid pulling in heavy dependencies
 # (chromadb, requests) that __init__.py would trigger.
-_chunker_path = Path(__file__).resolve().parents[2] / "bmt-ai-os" / "rag" / "chunker.py"
+_chunker_path = Path(__file__).resolve().parents[2] / "bmt_ai_os" / "rag" / "chunker.py"
 _spec = importlib.util.spec_from_file_location("rag_chunker", _chunker_path)
 _mod = importlib.util.module_from_spec(_spec)
 sys.modules["rag_chunker"] = _mod

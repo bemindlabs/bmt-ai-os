@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 QEMU_BOOT_SCRIPT = PROJECT_ROOT / "scripts" / "ci-qemu-boot.sh"
-DEFAULT_IMAGE = PROJECT_ROOT / "output" / "images" / "bmt-ai-os-arm64.img"
+DEFAULT_IMAGE = PROJECT_ROOT / "output" / "images" / "bmt_ai_os-arm64.img"
 
 # ---------------------------------------------------------------------------
 # Port map — forwarded from QEMU guest to localhost

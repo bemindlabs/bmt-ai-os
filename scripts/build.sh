@@ -25,13 +25,13 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILDROOT_DIR="${PROJECT_ROOT}/buildroot-${BUILDROOT_VERSION}"
 BUILDROOT_ARCHIVE="${PROJECT_ROOT}/buildroot-${BUILDROOT_VERSION}.tar.gz"
 
-DEFCONFIG_SRC="${PROJECT_ROOT}/bmt-ai-os/kernel/defconfig"
-KERNEL_CONFIG_FRAGMENT="${PROJECT_ROOT}/bmt-ai-os/kernel/linux.config"
-EXTERNAL_TREE="${PROJECT_ROOT}/bmt-ai-os-build/buildroot-external"
+DEFCONFIG_SRC="${PROJECT_ROOT}/bmt_ai_os/kernel/defconfig"
+KERNEL_CONFIG_FRAGMENT="${PROJECT_ROOT}/bmt_ai_os/kernel/linux.config"
+EXTERNAL_TREE="${PROJECT_ROOT}/bmt_ai_os-build/buildroot-external"
 
 OUTPUT_DIR="${PROJECT_ROOT}/output"
 OUTPUT_IMAGES_DIR="${OUTPUT_DIR}/images"
-OUTPUT_IMAGE="${OUTPUT_IMAGES_DIR}/bmt-ai-os-arm64.img"
+OUTPUT_IMAGE="${OUTPUT_IMAGES_DIR}/bmt_ai_os-arm64.img"
 BR2_OUTPUT_DIR="${OUTPUT_DIR}/buildroot"
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ download_buildroot() {
 
 # Returns the path to a target-specific config fragment (may not exist)
 target_config_fragment() {
-    echo "${PROJECT_ROOT}/bmt-ai-os/kernel/targets/${TARGET}.config"
+    echo "${PROJECT_ROOT}/bmt_ai_os/kernel/targets/${TARGET}.config"
 }
 
 # Writes target-specific Buildroot config overrides to a temp fragment

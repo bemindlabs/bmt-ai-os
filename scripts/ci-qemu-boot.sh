@@ -10,7 +10,7 @@
 #   ./scripts/ci-qemu-boot.sh [OPTIONS]
 #
 # Options:
-#   --image <path>       Path to the disk image (default: output/images/bmt-ai-os-arm64.img)
+#   --image <path>       Path to the disk image (default: output/images/bmt_ai_os-arm64.img)
 #   --timeout <sec>      Boot timeout in seconds (default: 120)
 #   --serial-log <path>  Path for serial console log (default: /tmp/bmt-qemu-ci-serial.log)
 #   --background         Daemonize after confirming boot (for CI test steps)
@@ -36,7 +36,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-DEFAULT_IMAGE="${PROJECT_ROOT}/output/images/bmt-ai-os-arm64.img"
+DEFAULT_IMAGE="${PROJECT_ROOT}/output/images/bmt_ai_os-arm64.img"
 QEMU_PID_FILE="/tmp/bmt-qemu-ci.pid"
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ Usage:
   $(basename "$0") [OPTIONS]
 
 Options:
-  --image <path>       Path to disk image (default: output/images/bmt-ai-os-arm64.img)
+  --image <path>       Path to disk image (default: output/images/bmt_ai_os-arm64.img)
   --timeout <sec>      Boot timeout in seconds (default: 120)
   --serial-log <path>  Serial console log path (default: /tmp/bmt-qemu-ci-serial.log)
   --background         Run QEMU in background after boot confirmation
