@@ -143,7 +143,11 @@ def ssh_port() -> int:
 
     Override with the QEMU_SSH_PORT environment variable (default: 2222).
     """
-    return int(os.environ.get("QEMU_SSH_PORT", "2222"))
+    raw = os.environ.get("QEMU_SSH_PORT", "2222")
+    try:
+        return int(raw)
+    except ValueError:
+        pytest.skip(f"QEMU_SSH_PORT={raw!r} is not a valid integer")
 
 
 @pytest.fixture(scope="session")
@@ -153,7 +157,11 @@ def boot_timeout() -> int:
 
     Override with the BOOT_TIMEOUT environment variable (default: 120).
     """
-    return int(os.environ.get("BOOT_TIMEOUT", "120"))
+    raw = os.environ.get("BOOT_TIMEOUT", "120")
+    try:
+        return int(raw)
+    except ValueError:
+        pytest.skip(f"BOOT_TIMEOUT={raw!r} is not a valid integer")
 
 
 @pytest.fixture(scope="session")
@@ -164,7 +172,11 @@ def service_timeout() -> int:
 
     Override with the SERVICE_TIMEOUT environment variable (default: 180).
     """
-    return int(os.environ.get("SERVICE_TIMEOUT", "180"))
+    raw = os.environ.get("SERVICE_TIMEOUT", "180")
+    try:
+        return int(raw)
+    except ValueError:
+        pytest.skip(f"SERVICE_TIMEOUT={raw!r} is not a valid integer")
 
 
 # ---------------------------------------------------------------------------
