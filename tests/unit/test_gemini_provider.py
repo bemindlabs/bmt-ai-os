@@ -3,19 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_BMT_PKG = _REPO_ROOT / "bmt_ai_os"
-sys.path.insert(0, str(_REPO_ROOT))
-sys.path.insert(0, str(_BMT_PKG))
-
-from bmt_ai_os.providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     ModelNotFoundError,
@@ -23,7 +16,7 @@ from bmt_ai_os.providers.base import (  # noqa: E402
     ProviderTimeoutError,
     TokenUsage,
 )
-from bmt_ai_os.providers.gemini_provider import (  # noqa: E402
+from bmt_ai_os.providers.gemini_provider import (
     GeminiProvider,
     _resolve_api_key,
 )

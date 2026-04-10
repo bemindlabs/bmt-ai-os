@@ -4,22 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import os
-
-# We use direct imports from the package path rather than the installed
-# package name so the tests work without ``pip install -e .``.
-import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_BMT_PKG = _REPO_ROOT / "bmt_ai_os"
-# Add both repo root and bmt_ai_os to path so imports resolve correctly.
-sys.path.insert(0, str(_REPO_ROOT))
-sys.path.insert(0, str(_BMT_PKG))
-
-from bmt_ai_os.providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -30,9 +19,9 @@ from bmt_ai_os.providers.base import (  # noqa: E402
     ProviderTimeoutError,
     TokenUsage,
 )
-from bmt_ai_os.providers.config import ProvidersConfig, ProviderSettings, load_config  # noqa: E402
-from bmt_ai_os.providers.ollama import OllamaProvider  # noqa: E402
-from bmt_ai_os.providers.registry import ProviderRegistry, reset_registry  # noqa: E402
+from bmt_ai_os.providers.config import ProvidersConfig, ProviderSettings, load_config
+from bmt_ai_os.providers.ollama import OllamaProvider
+from bmt_ai_os.providers.registry import ProviderRegistry, reset_registry
 
 # ---------------------------------------------------------------------------
 # Helpers

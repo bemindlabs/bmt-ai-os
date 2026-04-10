@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+
 from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
