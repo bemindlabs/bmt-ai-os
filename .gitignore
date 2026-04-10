@@ -41,5 +41,9 @@ bmt_ai_os
 *.gguf
 *.bin
 *.safetensors
-.claude/
-.agents/
+
+# Test artifacts
+test-results/
+.pytest_cache/
+htmlcov/
+.coverage
