@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # BMT AI OS — iptables Firewall Rules
 # Secures the AI stack: localhost and LAN access only by default.
 # SPDX-License-Identifier: MIT
@@ -9,7 +9,7 @@ set -eu
 # Configuration (override via environment)
 # ---------------------------------------------------------------------------
 BMT_NETWORK_NAME="${BMT_NETWORK_NAME:-bmt-ai-net}"
-BMT_SUBNET="${BMT_SUBNET:-172.20.0.0/16}"
+BMT_SUBNET="${BMT_SUBNET:-172.30.0.0/16}"
 BMT_LAN_IFACE="${BMT_LAN_IFACE:-eth0}"
 BMT_IPTABLES_PERSIST="${BMT_IPTABLES_PERSIST:-/etc/iptables/rules-bmt.v4}"
 

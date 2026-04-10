@@ -23,7 +23,7 @@ import pytest
 # Constants
 # ---------------------------------------------------------------------------
 NETWORK_NAME = "bmt-ai-net"
-SUBNET = "172.20.0.0/16"
+SUBNET = "172.30.0.0/16"
 
 SERVICES = {
     "ollama": {"container": "bmt-ollama", "port": 11434},

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # BMT AI OS — Network Initialization Script
 # Creates the Docker bridge network for the AI stack and configures DNS.
 # SPDX-License-Identifier: MIT
@@ -9,7 +9,7 @@ set -eu
 # Configuration (override via environment)
 # ---------------------------------------------------------------------------
 BMT_NETWORK_NAME="${BMT_NETWORK_NAME:-bmt-ai-net}"
-BMT_SUBNET="${BMT_SUBNET:-172.20.0.0/16}"
+BMT_SUBNET="${BMT_SUBNET:-172.30.0.0/16}"
 BMT_GATEWAY="${BMT_GATEWAY:-172.20.0.1}"
 BMT_DNS_CONFIG="${BMT_DNS_CONFIG:-/etc/bmt-ai-os/dns-config.json}"
 BMT_EXTERNAL_DNS="${BMT_EXTERNAL_DNS:-1.1.1.1,8.8.8.8}"
