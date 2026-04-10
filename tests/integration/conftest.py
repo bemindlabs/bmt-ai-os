@@ -122,6 +122,52 @@ def wait_for_service(
 
 
 # ---------------------------------------------------------------------------
+# Fixtures: configurable parameters (env-var backed, graceful defaults)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def qemu_host() -> str:
+    """
+    Hostname / IP where the QEMU guest is reachable.
+
+    Override with the QEMU_HOST environment variable (default: 127.0.0.1).
+    """
+    return os.environ.get("QEMU_HOST", "127.0.0.1")
+
+
+@pytest.fixture(scope="session")
+def ssh_port() -> int:
+    """
+    Host-side TCP port forwarded to the QEMU guest SSH daemon.
+
+    Override with the QEMU_SSH_PORT environment variable (default: 2222).
+    """
+    return int(os.environ.get("QEMU_SSH_PORT", "2222"))
+
+
+@pytest.fixture(scope="session")
+def boot_timeout() -> int:
+    """
+    Seconds to wait for the QEMU guest to become reachable via SSH.
+
+    Override with the BOOT_TIMEOUT environment variable (default: 120).
+    """
+    return int(os.environ.get("BOOT_TIMEOUT", "120"))
+
+
+@pytest.fixture(scope="session")
+def service_timeout() -> int:
+    """
+    Seconds to wait for individual services (Ollama, ChromaDB, etc.) to
+    respond after the guest has booted.
+
+    Override with the SERVICE_TIMEOUT environment variable (default: 180).
+    """
+    return int(os.environ.get("SERVICE_TIMEOUT", "180"))
+
+
+# ---------------------------------------------------------------------------
 # Fixture: QEMU session (session-scoped — one VM per test run)
 # ---------------------------------------------------------------------------
 
