@@ -21,7 +21,7 @@ from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ router = APIRouter(tags=["openai-compat"])
 # ---------------------------------------------------------------------------
 # Request / response schemas (OpenAI-compatible)
 # ---------------------------------------------------------------------------
+
 
 class ChatMessageIn(BaseModel):
     role: str
@@ -76,6 +77,7 @@ class EmbeddingRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_id(prefix: str = "chatcmpl") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:24]}"
@@ -202,9 +204,11 @@ async def _stream_chat_chunks(
 # Provider access helper
 # ---------------------------------------------------------------------------
 
+
 @dataclasses.dataclass
 class _ChatMessage:
     """Lightweight chat message compatible with all provider base variants."""
+
     role: str
     content: str
 
@@ -213,7 +217,8 @@ def _make_chat_message(role: str, content: str) -> Any:
     """Create a ChatMessage using the provider base class if available,
     falling back to a local dataclass."""
     try:
-        from providers.base import ChatMessage
+        from bmt_ai_os.providers.base import ChatMessage
+
         return ChatMessage(role=role, content=content)
     except Exception:
         return _ChatMessage(role=role, content=content)
@@ -225,7 +230,8 @@ def _get_provider_router():
     Falls back to the provider registry when the router is not initialised.
     """
     try:
-        from providers.registry import get_registry
+        from bmt_ai_os.providers.registry import get_registry
+
         return get_registry()
     except Exception:
         return None
@@ -234,6 +240,7 @@ def _get_provider_router():
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/v1/chat/completions")
 async def chat_completions(body: ChatCompletionRequest, request: Request):
@@ -290,9 +297,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         logger.error("Chat completion failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
 
-    prompt_tokens = getattr(response, "input_tokens", 0) or getattr(
-        response, "prompt_tokens", 0
-    )
+    prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
     completion_tokens = getattr(response, "output_tokens", 0) or getattr(
         response, "completion_tokens", 0
     )
@@ -378,9 +383,7 @@ async def completions(body: CompletionRequest, request: Request):
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    prompt_tokens = getattr(response, "input_tokens", 0) or getattr(
-        response, "prompt_tokens", 0
-    )
+    prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
     completion_tokens = getattr(response, "output_tokens", 0) or getattr(
         response, "completion_tokens", 0
     )
@@ -484,14 +487,16 @@ async def list_models():
         else:
             name = getattr(m, "name", str(m))
 
-        data.append({
-            "id": name,
-            "object": "model",
-            "created": _unix_ts(),
-            "owned_by": "bmt-ai-os",
-            "permission": [],
-            "root": name,
-            "parent": None,
-        })
+        data.append(
+            {
+                "id": name,
+                "object": "model",
+                "created": _unix_ts(),
+                "owned_by": "bmt-ai-os",
+                "permission": [],
+                "root": name,
+                "parent": None,
+            }
+        )
 
     return {"object": "list", "data": data}

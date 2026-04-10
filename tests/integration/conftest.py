@@ -176,9 +176,12 @@ def qemu_session(
     proc = subprocess.Popen(
         [
             str(QEMU_BOOT_SCRIPT),
-            "--image", image_path,
-            "--timeout", str(boot_timeout),
-            "--serial-log", serial_log,
+            "--image",
+            image_path,
+            "--timeout",
+            str(boot_timeout),
+            "--serial-log",
+            serial_log,
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -255,7 +258,12 @@ def ssh_connection(qemu_session: QEMUSession) -> Generator[paramiko.SSHClient, N
                 connect_kwargs["password"] = ""
 
             client.connect(**connect_kwargs)
-            logger.info("SSH connected to %s:%d (attempt %d)", qemu_session.host, qemu_session.ssh_port, attempt)
+            logger.info(
+                "SSH connected to %s:%d (attempt %d)",
+                qemu_session.host,
+                qemu_session.ssh_port,
+                attempt,
+            )
             break
         except (paramiko.ssh_exception.SSHException, OSError) as exc:
             if attempt == max_retries:

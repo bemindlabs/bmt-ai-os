@@ -70,9 +70,7 @@ class TestContainerd:
 
     def test_containerd_socket(self, ssh_exec):
         """The containerd socket should exist for Docker/nerdctl to connect."""
-        rc, _stdout, _stderr = ssh_exec(
-            "test -S /run/containerd/containerd.sock"
-        )
+        rc, _stdout, _stderr = ssh_exec("test -S /run/containerd/containerd.sock")
         assert rc == 0, "containerd socket /run/containerd/containerd.sock not found"
 
 
@@ -145,8 +143,7 @@ class TestController:
             "pgrep -f 'controller/main.py' || pgrep -f 'bmt.*controller'"
         )
         assert rc == 0, (
-            "Controller process not found. "
-            "Expected a process matching 'controller/main.py'"
+            "Controller process not found. Expected a process matching 'controller/main.py'"
         )
         assert stdout.strip(), "Controller PID is empty"
 

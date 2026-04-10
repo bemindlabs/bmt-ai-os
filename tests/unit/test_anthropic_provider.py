@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -16,21 +15,21 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (
+from bmt_ai_os.providers.anthropic_provider import (  # noqa: E402
+    _CLAUDE_MODELS,
+    AnthropicProvider,
+    RateLimitError,
+)
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ProviderError,
     TokenUsage,
 )
-from providers.anthropic_provider import (
-    AnthropicProvider,
-    RateLimitError,
-    _CLAUDE_MODELS,
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def provider():
@@ -52,8 +51,8 @@ def sample_messages():
 # Provider basics
 # ---------------------------------------------------------------------------
 
-class TestProviderBasics:
 
+class TestProviderBasics:
     def test_name(self, provider):
         assert provider.name == "anthropic"
 
@@ -76,8 +75,8 @@ class TestProviderBasics:
 # Message format conversion
 # ---------------------------------------------------------------------------
 
-class TestMessageConversion:
 
+class TestMessageConversion:
     def test_system_prompt_extracted(self, sample_messages):
         system, api_msgs = AnthropicProvider._convert_messages(sample_messages)
         assert system == "You are a helpful assistant."
@@ -111,8 +110,8 @@ class TestMessageConversion:
 # API key loading
 # ---------------------------------------------------------------------------
 
-class TestAPIKeyLoading:
 
+class TestAPIKeyLoading:
     def test_explicit_key(self):
         p = AnthropicProvider(api_key="explicit-key")
         assert p._api_key == "explicit-key"
@@ -128,7 +127,7 @@ class TestAPIKeyLoading:
     def test_secrets_file_key(self, tmp_path):
         secrets_file = tmp_path / "ANTHROPIC_API_KEY"
         secrets_file.write_text("  file-key  \n")
-        with patch("providers.anthropic_provider._SECRETS_PATH", str(secrets_file)):
+        with patch("bmt_ai_os.providers.anthropic_provider._SECRETS_PATH", str(secrets_file)):
             # Clear env var so it falls through to file.
             os.environ.pop("ANTHROPIC_API_KEY", None)
             p = AnthropicProvider()
@@ -136,7 +135,7 @@ class TestAPIKeyLoading:
 
     def test_no_key_available(self):
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        with patch("providers.anthropic_provider._SECRETS_PATH", "/nonexistent/path"):
+        with patch("bmt_ai_os.providers.anthropic_provider._SECRETS_PATH", "/nonexistent/path"):
             p = AnthropicProvider()
             assert p._api_key == ""
 
@@ -153,8 +152,8 @@ class TestAPIKeyLoading:
 # Embed raises error
 # ---------------------------------------------------------------------------
 
-class TestEmbed:
 
+class TestEmbed:
     def test_embed_raises_provider_error(self, provider):
         with pytest.raises(ProviderError, match="does not offer embeddings"):
             asyncio.run(provider.embed(["test text"]))
@@ -164,8 +163,8 @@ class TestEmbed:
 # List models
 # ---------------------------------------------------------------------------
 
-class TestListModels:
 
+class TestListModels:
     def test_returns_hardcoded_models(self, provider):
         models = asyncio.run(provider.list_models())
         assert len(models) == len(_CLAUDE_MODELS)
@@ -184,8 +183,8 @@ class TestListModels:
 # Response parsing
 # ---------------------------------------------------------------------------
 
-class TestResponseParsing:
 
+class TestResponseParsing:
     def test_extract_text_single_block(self):
         data = {"content": [{"type": "text", "text": "Hello world"}]}
         assert AnthropicProvider._extract_text(data) == "Hello world"
@@ -220,23 +219,23 @@ class TestResponseParsing:
 # Streaming event parsing
 # ---------------------------------------------------------------------------
 
-class TestStreamingParsing:
 
+class TestStreamingParsing:
     def test_stream_yields_content_block_delta(self, provider):
         """Simulate SSE lines and verify only content_block_delta text is yielded."""
         sse_lines = [
-            b'event: message_start\n',
+            b"event: message_start\n",
             b'data: {"type":"message_start","message":{"id":"msg_1"}}\n',
-            b'\n',
-            b'event: content_block_delta\n',
+            b"\n",
+            b"event: content_block_delta\n",
             b'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}\n',
-            b'\n',
-            b'event: content_block_delta\n',
+            b"\n",
+            b"event: content_block_delta\n",
             b'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}\n',
-            b'\n',
-            b'event: message_stop\n',
+            b"\n",
+            b"event: message_stop\n",
             b'data: {"type":"message_stop"}\n',
-            b'\n',
+            b"\n",
         ]
 
         mock_resp = AsyncMock()
@@ -273,7 +272,7 @@ class TestStreamingParsing:
         """Stream should stop on [DONE] signal."""
         sse_lines = [
             b'data: {"type":"content_block_delta","delta":{"text":"Hi"}}\n',
-            b'data: [DONE]\n',
+            b"data: [DONE]\n",
             b'data: {"type":"content_block_delta","delta":{"text":"ignored"}}\n',
         ]
 
@@ -307,8 +306,8 @@ class TestStreamingParsing:
 # Rate limit handling
 # ---------------------------------------------------------------------------
 
-class TestRateLimitHandling:
 
+class TestRateLimitHandling:
     def test_rate_limit_error_attributes(self):
         err = RateLimitError("rate limited", retry_after=5.0)
         assert err.retry_after == 5.0
@@ -337,18 +336,20 @@ class TestRateLimitHandling:
 # Cost logging
 # ---------------------------------------------------------------------------
 
-class TestCostLogging:
 
+class TestCostLogging:
     def test_log_cost_known_model(self, caplog):
         import logging
-        with caplog.at_level(logging.INFO, logger="providers.anthropic_provider"):
+
+        with caplog.at_level(logging.INFO, logger="bmt_ai_os.providers.anthropic_provider"):
             usage = TokenUsage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
             AnthropicProvider._log_cost("claude-sonnet-4-20250514", usage)
         assert "$" in caplog.text or "est." in caplog.text
 
     def test_log_cost_unknown_model(self, caplog):
         import logging
-        with caplog.at_level(logging.DEBUG, logger="providers.anthropic_provider"):
+
+        with caplog.at_level(logging.DEBUG, logger="bmt_ai_os.providers.anthropic_provider"):
             usage = TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150)
             AnthropicProvider._log_cost("unknown-model", usage)
         assert "no cost data" in caplog.text
@@ -358,8 +359,8 @@ class TestCostLogging:
 # Headers
 # ---------------------------------------------------------------------------
 
-class TestHeaders:
 
+class TestHeaders:
     def test_headers_include_required_fields(self, provider):
         headers = provider._headers()
         assert headers["x-api-key"] == "sk-ant-test-key"
@@ -370,6 +371,7 @@ class TestHeaders:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _aiter_from_list(items):
     for item in items:

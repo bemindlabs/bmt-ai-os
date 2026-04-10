@@ -8,20 +8,17 @@ ChromaDB services.
 from __future__ import annotations
 
 import pytest
-
 from rag.config import RAGConfig
 from rag.prompts import (
-    DEFAULT_RAG_TEMPLATE,
     DEFAULT_SYSTEM_PROMPT,
-    CODE_RAG_TEMPLATE,
     render_prompt,
 )
 from rag.query import RAGQueryEngine, RAGResponse, SourceAttribution
 
-
 # ------------------------------------------------------------------
 # Fixtures
 # ------------------------------------------------------------------
+
 
 @pytest.fixture()
 def sample_chunks() -> list[dict]:
@@ -45,6 +42,7 @@ def sample_raw_chromadb_response() -> dict:
 # ------------------------------------------------------------------
 # Prompt template tests
 # ------------------------------------------------------------------
+
 
 class TestPromptRendering:
     def test_default_template_includes_question(self, sample_chunks: list[dict]) -> None:
@@ -88,6 +86,7 @@ class TestPromptRendering:
 # Source attribution tests
 # ------------------------------------------------------------------
 
+
 class TestSourceAttribution:
     def test_to_dict(self) -> None:
         sa = SourceAttribution(
@@ -110,6 +109,7 @@ class TestSourceAttribution:
 # ------------------------------------------------------------------
 # RAGResponse serialization tests
 # ------------------------------------------------------------------
+
 
 class TestRAGResponse:
     def test_to_dict_structure(self) -> None:
@@ -140,6 +140,7 @@ class TestRAGResponse:
 # Config tests
 # ------------------------------------------------------------------
 
+
 class TestRAGConfig:
     def test_defaults(self) -> None:
         cfg = RAGConfig()
@@ -167,6 +168,7 @@ class TestRAGConfig:
 # ------------------------------------------------------------------
 # _parse_results helper tests
 # ------------------------------------------------------------------
+
 
 class TestParseResults:
     def test_parse_basic(self, sample_raw_chromadb_response: dict) -> None:

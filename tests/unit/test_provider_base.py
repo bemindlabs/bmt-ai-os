@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import os
-import tempfile
-import textwrap
-from pathlib import Path
-
-import pytest
 
 # We use direct imports from the package path rather than the installed
 # package name so the tests work without ``pip install -e .``.
 import sys
+import textwrap
+from pathlib import Path
+
+import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
@@ -20,7 +19,7 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -31,14 +30,14 @@ from providers.base import (
     ProviderTimeoutError,
     TokenUsage,
 )
-from providers.registry import ProviderRegistry, reset_registry
-from providers.config import ProvidersConfig, ProviderSettings, load_config
-from providers.ollama import OllamaProvider
-
+from bmt_ai_os.providers.config import ProvidersConfig, ProviderSettings, load_config  # noqa: E402
+from bmt_ai_os.providers.ollama import OllamaProvider  # noqa: E402
+from bmt_ai_os.providers.registry import ProviderRegistry, reset_registry  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class FakeProvider(LLMProvider):
     """Minimal concrete provider for testing the abstract interface."""
@@ -50,8 +49,7 @@ class FakeProvider(LLMProvider):
     def name(self) -> str:
         return self._name
 
-    async def chat(self, messages, *, model=None, temperature=0.7,
-                   max_tokens=2048, stream=False):
+    async def chat(self, messages, *, model=None, temperature=0.7, max_tokens=2048, stream=False):
         return ChatResponse(
             content="hello",
             model=model or "fake-model",
@@ -74,8 +72,8 @@ class FakeProvider(LLMProvider):
 # Data-class serialisation
 # ---------------------------------------------------------------------------
 
-class TestChatResponseSerialization:
 
+class TestChatResponseSerialization:
     def test_to_dict_returns_plain_dict(self):
         usage = TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
         resp = ChatResponse(
@@ -115,8 +113,8 @@ class TestChatResponseSerialization:
 # Provider registry
 # ---------------------------------------------------------------------------
 
-class TestProviderRegistry:
 
+class TestProviderRegistry:
     def setup_method(self):
         reset_registry()
 
@@ -179,11 +177,12 @@ class TestProviderRegistry:
 # Configuration
 # ---------------------------------------------------------------------------
 
-class TestConfig:
 
+class TestConfig:
     def test_load_from_yaml(self, tmp_path):
         cfg_file = tmp_path / "providers.yml"
-        cfg_file.write_text(textwrap.dedent("""\
+        cfg_file.write_text(
+            textwrap.dedent("""\
             active_provider: ollama
             fallback_chain: [ollama, vllm]
             providers:
@@ -197,7 +196,8 @@ class TestConfig:
                 base_url: http://localhost:8000
                 default_model: qwen2.5-coder-7b-instruct
                 timeout: 60
-        """))
+        """)
+        )
 
         cfg = load_config(cfg_file)
         assert cfg.active_provider == "ollama"
@@ -223,13 +223,15 @@ class TestConfig:
 
     def test_env_override(self, tmp_path):
         cfg_file = tmp_path / "custom.yml"
-        cfg_file.write_text(textwrap.dedent("""\
+        cfg_file.write_text(
+            textwrap.dedent("""\
             active_provider: vllm
             providers:
               vllm:
                 enabled: true
                 base_url: http://localhost:8000
-        """))
+        """)
+        )
 
         os.environ["BMT_PROVIDERS_CONFIG"] = str(cfg_file)
         try:
@@ -243,8 +245,8 @@ class TestConfig:
 # Ollama provider — URL construction
 # ---------------------------------------------------------------------------
 
-class TestOllamaURLConstruction:
 
+class TestOllamaURLConstruction:
     def test_default_base_url(self):
         p = OllamaProvider()
         assert p.build_url("/api/chat") == "http://localhost:11434/api/chat"
@@ -267,8 +269,8 @@ class TestOllamaURLConstruction:
 # Exception hierarchy
 # ---------------------------------------------------------------------------
 
-class TestExceptions:
 
+class TestExceptions:
     def test_timeout_is_provider_error(self):
         assert issubclass(ProviderTimeoutError, ProviderError)
 

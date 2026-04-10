@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import aiohttp
-
-from providers.base import (
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -216,10 +215,12 @@ class GeminiProvider(LLMProvider):
                 system_parts.append({"text": msg.content})
             else:
                 role = "model" if msg.role == "assistant" else "user"
-                contents.append({
-                    "role": role,
-                    "parts": [{"text": msg.content}],
-                })
+                contents.append(
+                    {
+                        "role": role,
+                        "parts": [{"text": msg.content}],
+                    }
+                )
 
         system_instruction = None
         if system_parts:
@@ -248,22 +249,17 @@ class GeminiProvider(LLMProvider):
                 async with aiohttp.ClientSession(timeout=self._timeout) as session:
                     async with session.post(url, json=payload) as resp:
                         if resp.status == 404:
-                            raise ModelNotFoundError(
-                                f"Model not found on Gemini API (404)."
-                            )
+                            raise ModelNotFoundError("Model not found on Gemini API (404).")
                         if resp.status == 429:
                             body = await resp.text()
                             _LOG.warning(
-                                "gemini rate limited (429), attempt %d/%d, "
-                                "retrying in %.1fs: %s",
+                                "gemini rate limited (429), attempt %d/%d, retrying in %.1fs: %s",
                                 attempt + 1,
                                 _MAX_RETRIES + 1,
                                 backoff,
                                 body[:200],
                             )
-                            last_exc = ProviderError(
-                                f"Gemini rate limited (429): {body[:200]}"
-                            )
+                            last_exc = ProviderError(f"Gemini rate limited (429): {body[:200]}")
                             if attempt < _MAX_RETRIES:
                                 await asyncio.sleep(backoff)
                                 backoff *= _BACKOFF_MULTIPLIER
@@ -271,16 +267,12 @@ class GeminiProvider(LLMProvider):
                             raise last_exc
                         if resp.status != 200:
                             body = await resp.text()
-                            raise ProviderError(
-                                f"Gemini returned {resp.status}: {body[:500]}"
-                            )
+                            raise ProviderError(f"Gemini returned {resp.status}: {body[:500]}")
                         return await resp.json()
             except aiohttp.ServerTimeoutError as exc:
                 raise ProviderTimeoutError(str(exc)) from exc
             except aiohttp.ClientError as exc:
-                raise ProviderError(
-                    f"Gemini connection error: {exc}"
-                ) from exc
+                raise ProviderError(f"Gemini connection error: {exc}") from exc
 
         # Should not reach here, but just in case:
         raise last_exc or ProviderError("Gemini request failed after retries.")
@@ -291,9 +283,7 @@ class GeminiProvider(LLMProvider):
                 async with session.get(url) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Gemini returned {resp.status}: {body[:500]}"
-                        )
+                        raise ProviderError(f"Gemini returned {resp.status}: {body[:500]}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
@@ -312,15 +302,13 @@ class GeminiProvider(LLMProvider):
                 async with session.post(url, json=payload) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Gemini returned {resp.status}: {body[:500]}"
-                        )
+                        raise ProviderError(f"Gemini returned {resp.status}: {body[:500]}")
                     async for line in resp.content:
                         decoded = line.decode("utf-8") if isinstance(line, bytes) else line
                         decoded = decoded.strip()
                         if not decoded or not decoded.startswith("data: "):
                             continue
-                        json_str = decoded[len("data: "):]
+                        json_str = decoded[len("data: ") :]
                         if json_str == "[DONE]":
                             break
                         try:

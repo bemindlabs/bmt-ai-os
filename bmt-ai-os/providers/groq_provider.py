@@ -10,11 +10,8 @@ Note: Groq does **not** support embeddings.  Calling :meth:`embed` raises
 
 from __future__ import annotations
 
-from typing import Any
-
 from bmt_ai_os.providers.base import EmbedResponse, ProviderError
 from bmt_ai_os.providers.openai_provider import OpenAICompatibleProvider
-
 
 # Pricing as of 2026-Q2 (USD per million tokens)
 _GROQ_PRICING: dict[str, tuple[float, float]] = {

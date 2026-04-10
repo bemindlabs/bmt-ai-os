@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Data classes for routing results
 # ------------------------------------------------------------------ #
 
+
 @dataclass
 class ProviderAttempt:
     """Record of a single attempt against one provider."""
@@ -59,20 +60,20 @@ class RoutingResult:
 # Errors
 # ------------------------------------------------------------------ #
 
+
 class AllProvidersFailedError(Exception):
     """Raised when every provider in the fallback chain has failed."""
 
     def __init__(self, attempts: list[ProviderAttempt]) -> None:
         self.attempts = attempts
-        details = "; ".join(
-            f"{a.provider}: {a.error}" for a in attempts
-        )
+        details = "; ".join(f"{a.provider}: {a.error}" for a in attempts)
         super().__init__(f"All providers failed — {details}")
 
 
 # ------------------------------------------------------------------ #
 # Router
 # ------------------------------------------------------------------ #
+
 
 class ProviderRouter:
     """Route LLM requests through the fallback chain with circuit breaking."""
@@ -149,7 +150,7 @@ class ProviderRouter:
         """Try each provider in the fallback chain until one succeeds."""
 
         attempts: list[ProviderAttempt] = []
-        registered = set(self._registry.list_providers())
+        registered = set(self._registry.list())
 
         for provider_name in self._config.fallback_chain:
             # Skip providers that are not registered.
@@ -157,8 +158,8 @@ class ProviderRouter:
                 continue
 
             # Skip disabled providers.
-            settings = self._config.settings_for(provider_name)
-            if not settings.enabled:
+            settings = self._config.get_provider_settings(provider_name)
+            if settings is None or not settings.enabled:
                 continue
 
             # Skip circuit-broken providers.
@@ -175,7 +176,7 @@ class ProviderRouter:
             if breaker.state is CircuitState.HALF_OPEN:
                 await breaker.record_half_open_attempt()
 
-            timeout = settings.effective_timeout(provider_name)
+            timeout = float(settings.timeout)
             t0 = time.monotonic()
 
             try:

@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-"""Provider configuration — load settings from YAML."""
-=======
 """BMT AI OS — Provider configuration loader.
 
 Configuration priority (highest wins):
@@ -9,21 +6,16 @@ Configuration priority (highest wins):
   3. Secrets file (/etc/bmt-ai-os/secrets/<KEY_NAME>)
   4. providers.yml defaults
 """
->>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
 
 from __future__ import annotations
 
 import os
-<<<<<<< HEAD
 from dataclasses import dataclass, field
-=======
->>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-<<<<<<< HEAD
 # Default search paths (highest priority first).
 _CONFIG_SEARCH_PATHS = [
     Path("/etc/bmt-ai-os/providers.yml"),
@@ -31,6 +23,21 @@ _CONFIG_SEARCH_PATHS = [
 ]
 
 _ENV_CONFIG_PATH = "BMT_PROVIDERS_CONFIG"
+_SECRETS_DIR = Path("/etc/bmt-ai-os/secrets")
+
+
+# ---------------------------------------------------------------------------
+# Dataclass-based config (used by router, registry, tests)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CircuitBreakerSettings:
+    """Circuit breaker settings for provider failover."""
+
+    failure_threshold: int = 3
+    cooldown_seconds: float = 60.0
+    half_open_max_requests: int = 1
 
 
 @dataclass
@@ -61,6 +68,7 @@ class ProvidersConfig:
     active_provider: str = "ollama"
     fallback_chain: list[str] = field(default_factory=lambda: ["ollama"])
     providers: dict[str, ProviderSettings] = field(default_factory=dict)
+    circuit_breaker: CircuitBreakerSettings = field(default_factory=CircuitBreakerSettings)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProvidersConfig:
@@ -80,6 +88,11 @@ class ProvidersConfig:
     def enabled_providers(self) -> list[str]:
         """Return names of providers that have ``enabled: true``."""
         return [n for n, s in self.providers.items() if s.enabled]
+
+
+# ---------------------------------------------------------------------------
+# File discovery and loading
+# ---------------------------------------------------------------------------
 
 
 def _find_config_file() -> Path | None:
@@ -114,15 +127,18 @@ def load_config(path: str | Path | None = None) -> ProvidersConfig:
         data = yaml.safe_load(fh) or {}
 
     return ProvidersConfig.from_dict(data)
-=======
-_SECRETS_DIR = Path("/etc/bmt-ai-os/secrets")
-_CONFIG_PATH = Path(__file__).parent / "providers.yml"
+
+
+# ---------------------------------------------------------------------------
+# Dict-based helpers (used by individual providers)
+# ---------------------------------------------------------------------------
 
 
 def load_providers_config() -> dict[str, Any]:
     """Load providers.yml and return the full config dict."""
-    if _CONFIG_PATH.exists():
-        with open(_CONFIG_PATH) as fh:
+    config_path = _find_config_file()
+    if config_path and config_path.exists():
+        with open(config_path) as fh:
             return yaml.safe_load(fh) or {}
     return {}
 
@@ -144,22 +160,17 @@ def resolve_api_key(
     1. *explicit* value (passed directly)
     2. Environment variable (*env_var* or *key_name*)
     3. Secrets file at ``/etc/bmt-ai-os/secrets/<key_name>``
-    4. providers.yml ``api_key`` field
     """
-    # 1. Explicit
     if explicit:
         return explicit
 
-    # 2. Environment variable
     env_name = env_var or key_name
     value = os.environ.get(env_name)
     if value:
         return value
 
-    # 3. Secrets file
     secrets_file = _SECRETS_DIR / key_name
     if secrets_file.exists():
         return secrets_file.read_text().strip()
 
     return None
->>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)

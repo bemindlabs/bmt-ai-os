@@ -34,9 +34,7 @@ class BMTAIOSController:
         self.health_checker = HealthChecker(config)
         self._shutdown_event = threading.Event()
         self._health_thread: threading.Thread | None = None
-        self._restart_counts: dict[str, int] = {
-            svc.name: 0 for svc in config.services
-        }
+        self._restart_counts: dict[str, int] = {svc.name: 0 for svc in config.services}
         self._start_time = time.time()
 
     # --- Compose helpers ---
@@ -44,8 +42,10 @@ class BMTAIOSController:
     def _compose_cmd(self, *args: str) -> list[str]:
         """Build a docker compose command list."""
         return [
-            "docker", "compose",
-            "-f", self.config.compose_file,
+            "docker",
+            "compose",
+            "-f",
+            self.config.compose_file,
             *args,
         ]
 
@@ -110,17 +110,21 @@ class BMTAIOSController:
             last_health = history[-1] if history else None
             circuit = self.health_checker.get_circuit_state(svc.name)
 
-            statuses.append({
-                "name": svc.name,
-                "container_name": svc.container_name,
-                "state": info.get("state", "unknown"),
-                "health": last_health.status.value if last_health else "unknown",
-                "uptime_seconds": info.get("uptime_seconds"),
-                "restarts": self._restart_counts.get(svc.name, 0),
-                "circuit_breaker": circuit.value,
-                "last_check_ms": round(last_health.response_time_ms, 1) if last_health else None,
-                "last_error": last_health.error if last_health and last_health.error else None,
-            })
+            statuses.append(
+                {
+                    "name": svc.name,
+                    "container_name": svc.container_name,
+                    "state": info.get("state", "unknown"),
+                    "health": last_health.status.value if last_health else "unknown",
+                    "uptime_seconds": info.get("uptime_seconds"),
+                    "restarts": self._restart_counts.get(svc.name, 0),
+                    "circuit_breaker": circuit.value,
+                    "last_check_ms": round(last_health.response_time_ms, 1)
+                    if last_health
+                    else None,
+                    "last_error": last_health.error if last_health and last_health.error else None,
+                }
+            )
         return statuses
 
     def _get_container_info(self, svc: ServiceDef) -> dict:
@@ -162,11 +166,13 @@ class BMTAIOSController:
             results = self.health_checker.check_all()
             for result in results:
                 if result.status == HealthStatus.HEALTHY:
-                    logger.debug("Service %s healthy (%.0fms)", result.service, result.response_time_ms)
-                else:
-                    logger.warning(
-                        "Service %s unhealthy: %s", result.service, result.error
+                    logger.debug(
+                        "Service %s healthy (%.0fms)",
+                        result.service,
+                        result.response_time_ms,
                     )
+                else:
+                    logger.warning("Service %s unhealthy: %s", result.service, result.error)
                     if self.health_checker.needs_restart(result.service):
                         logger.info("Auto-restarting %s", result.service)
                         self.restart_service(result.service)
@@ -250,7 +256,8 @@ def _setup_logging(config: ControllerConfig) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="BMT AI OS Controller")
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         help="Path to controller.yml config file",
         default=None,
     )

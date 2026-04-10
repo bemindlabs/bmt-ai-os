@@ -76,6 +76,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 # Request Logging
 # ---------------------------------------------------------------------------
 
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log every request with method, path, status, and elapsed time."""
 
@@ -98,6 +99,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # CORS setup
 # ---------------------------------------------------------------------------
 
+
 def add_cors(app: FastAPI) -> None:
     """Configure permissive CORS so IDEs on any origin can reach the API.
 
@@ -119,6 +121,7 @@ def add_cors(app: FastAPI) -> None:
 # ---------------------------------------------------------------------------
 # Convenience: apply all middleware
 # ---------------------------------------------------------------------------
+
 
 def apply_middleware(app: FastAPI, *, api_key: str | None = None) -> None:
     """Apply all middleware to the FastAPI application.

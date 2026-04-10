@@ -7,8 +7,7 @@ import time
 from typing import Any, AsyncGenerator
 
 import aiohttp
-
-from providers.base import (
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -147,14 +146,10 @@ class OllamaProvider(LLMProvider):
             async with aiohttp.ClientSession(timeout=self._timeout) as session:
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 404:
-                        raise ModelNotFoundError(
-                            f"Model not found: {payload.get('model')}"
-                        )
+                        raise ModelNotFoundError(f"Model not found: {payload.get('model')}")
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Ollama returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"Ollama returned {resp.status}: {body}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
@@ -168,9 +163,7 @@ class OllamaProvider(LLMProvider):
                 async with session.get(url) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Ollama returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"Ollama returned {resp.status}: {body}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
@@ -189,9 +182,7 @@ class OllamaProvider(LLMProvider):
                 async with session.post(url, json=payload) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Ollama returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"Ollama returned {resp.status}: {body}")
                     async for line in resp.content:
                         line = line.strip()
                         if not line:

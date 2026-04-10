@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import time
-from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
-
 from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
@@ -22,13 +18,12 @@ from bmt_ai_os.providers.registry import ProviderRegistry
 from bmt_ai_os.providers.router import (
     AllProvidersFailedError,
     ProviderRouter,
-    RoutingResult,
 )
-
 
 # ------------------------------------------------------------------ #
 # Helpers
 # ------------------------------------------------------------------ #
+
 
 class FakeProvider(LLMProvider):
     """A provider whose behaviour can be controlled per-test."""
@@ -45,10 +40,13 @@ class FakeProvider(LLMProvider):
     ) -> None:
         self.name = name
         self._chat_response = chat_response or ChatResponse(
-            content="hello", model="m", provider=name,
+            content="hello",
+            model="m",
+            provider=name,
         )
         self._embed_response = embed_response or EmbedResponse(
-            embeddings=[[0.1, 0.2]], model="m", provider=name,
+            embedding=[0.1, 0.2],
+            model="m",
         )
         self._should_fail = should_fail
         self._fail_error = fail_error or RuntimeError(f"{name} down")
@@ -119,6 +117,7 @@ def _make_router(
 # Fallback chain ordering
 # ------------------------------------------------------------------ #
 
+
 class TestFallbackChain:
     @pytest.mark.asyncio
     async def test_uses_first_healthy_provider(self):
@@ -182,6 +181,7 @@ class TestFallbackChain:
 # Circuit breaker state transitions
 # ------------------------------------------------------------------ #
 
+
 class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_starts_closed(self):
@@ -218,7 +218,8 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_half_open_failure_reopens(self):
         cb = ProviderCircuitBreaker(
-            failure_threshold=1, cooldown_seconds=300.0,
+            failure_threshold=1,
+            cooldown_seconds=300.0,
         )
         await cb.record_failure()
         assert cb._state is CircuitState.OPEN
@@ -265,6 +266,7 @@ class TestCircuitBreaker:
 # Timeout handling
 # ------------------------------------------------------------------ #
 
+
 class TestTimeout:
     @pytest.mark.asyncio
     async def test_timeout_triggers_fallback(self):
@@ -292,6 +294,7 @@ class TestTimeout:
 # All providers failed
 # ------------------------------------------------------------------ #
 
+
 class TestAllFailed:
     @pytest.mark.asyncio
     async def test_raises_when_all_fail(self):
@@ -316,6 +319,7 @@ class TestAllFailed:
 # ------------------------------------------------------------------ #
 # Metrics tracking
 # ------------------------------------------------------------------ #
+
 
 class TestMetrics:
     @pytest.mark.asyncio

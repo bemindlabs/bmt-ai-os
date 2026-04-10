@@ -10,11 +10,10 @@ _BMT_ROOT = str(Path(__file__).resolve().parent.parent)
 if _BMT_ROOT not in sys.path:
     sys.path.insert(0, _BMT_ROOT)
 
-from fastapi import FastAPI  # noqa: E402
-
-from controller.rag_routes import router as rag_router  # noqa: E402
-from controller.openai_compat import router as openai_router  # noqa: E402
 from controller.middleware import apply_middleware  # noqa: E402
+from controller.openai_compat import router as openai_router  # noqa: E402
+from controller.rag_routes import router as rag_router  # noqa: E402
+from fastapi import FastAPI  # noqa: E402
 
 app = FastAPI(
     title="BMT AI OS Controller",

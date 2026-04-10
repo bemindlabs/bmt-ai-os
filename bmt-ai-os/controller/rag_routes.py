@@ -35,6 +35,7 @@ _storage = ChromaStorage(_config)
 # Request / response models
 # ------------------------------------------------------------------
 
+
 class QueryRequest(BaseModel):
     question: str
     collection: str = "default"
@@ -58,6 +59,7 @@ class QueryResponseModel(BaseModel):
 # ------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------
+
 
 @router.post("/query", response_model=QueryResponseModel)
 async def query(req: QueryRequest) -> dict:

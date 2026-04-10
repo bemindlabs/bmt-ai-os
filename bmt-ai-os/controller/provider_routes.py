@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+from bmt_ai_os.providers.base import ChatMessage, ModelNotFoundError, ProviderError, ProviderHealth
+from bmt_ai_os.providers.registry import get_registry
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-from providers.base import ChatMessage, ProviderError, ModelNotFoundError
-from providers.registry import get_registry
 
 router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
 
@@ -14,6 +13,7 @@ router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
 # ---------------------------------------------------------------------------
 # Request / response schemas
 # ---------------------------------------------------------------------------
+
 
 class SetActiveRequest(BaseModel):
     name: str
@@ -30,6 +30,7 @@ class ChatRequest(BaseModel):
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("")
 async def list_providers():
     """List all registered providers with their health status."""
@@ -40,11 +41,17 @@ async def list_providers():
     providers = []
     for name in names:
         health = health_map.get(name)
-        providers.append({
-            "name": name,
-            "active": name == registry.active_name,
-            "health": health.to_dict() if health else None,
-        })
+        providers.append(
+            {
+                "name": name,
+                "active": name == registry.active_name,
+                "health": health.to_dict()
+                if isinstance(health, ProviderHealth)
+                else {"healthy": bool(health)}
+                if health is not None
+                else None,
+            }
+        )
     return {"providers": providers}
 
 
@@ -59,7 +66,9 @@ async def get_active_provider():
     health = await provider.health_check()
     return {
         "name": provider.name,
-        "health": health.to_dict(),
+        "health": health.to_dict()
+        if isinstance(health, ProviderHealth)
+        else {"healthy": bool(health)},
     }
 
 

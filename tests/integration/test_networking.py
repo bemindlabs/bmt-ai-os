@@ -53,9 +53,7 @@ def network_exists(name: str = NETWORK_NAME) -> bool:
 
 
 def container_running(name: str) -> bool:
-    result = docker(
-        "inspect", "--format", "{{.State.Running}}", name, check=False
-    )
+    result = docker("inspect", "--format", "{{.State.Running}}", name, check=False)
     return result.stdout.strip() == "true"
 
 
@@ -80,9 +78,7 @@ def wait_for_container(container: str, timeout: int = 30) -> None:
 @pytest.fixture(scope="module", autouse=True)
 def require_docker():
     """Skip the entire module if Docker is not available."""
-    result = subprocess.run(
-        ["docker", "info"], capture_output=True, text=True, timeout=10
-    )
+    result = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=10)
     if result.returncode != 0:
         pytest.skip("Docker daemon is not available")
 
@@ -99,10 +95,7 @@ def require_services(require_network):
     """Ensure at least the core services are running."""
     for svc in SERVICES.values():
         if not container_running(svc["container"]):
-            pytest.skip(
-                f"Container {svc['container']} is not running — "
-                "start the AI stack first"
-            )
+            pytest.skip(f"Container {svc['container']} is not running — start the AI stack first")
 
 
 # ---------------------------------------------------------------------------
@@ -114,21 +107,16 @@ class TestContainerDNSResolution:
     @pytest.mark.parametrize("target", list(SERVICES.keys()))
     def test_container_dns_resolution(self, require_services, target):
         """Each service name must resolve from within another container."""
-        svc = SERVICES[target]
+        _svc = SERVICES[target]
         # Pick a *different* container to resolve from
-        probe = next(
-            s["container"]
-            for name, s in SERVICES.items()
-            if name != target
-        )
+        probe = next(s["container"] for name, s in SERVICES.items() if name != target)
 
         result = exec_in_container(
             probe,
             ["sh", "-c", f"getent hosts {target} 2>/dev/null || nslookup {target} 2>/dev/null"],
         )
         assert result.returncode == 0, (
-            f"DNS resolution of '{target}' failed inside {probe}: "
-            f"{result.stderr}"
+            f"DNS resolution of '{target}' failed inside {probe}: {result.stderr}"
         )
 
 
@@ -157,9 +145,7 @@ class TestHostPortAccess:
                 capture_output=True,
                 timeout=10,
             )
-            assert nc_result.returncode == 0, (
-                f"Port {port} not reachable on localhost"
-            )
+            assert nc_result.returncode == 0, f"Port {port} not reachable on localhost"
 
 
 class TestNetworkIsolation:
@@ -173,17 +159,15 @@ class TestNetworkIsolation:
 
         net = info[0]
         assert net["Driver"] == "bridge"
-        assert any(
-            cfg["Subnet"] == SUBNET for cfg in net["IPAM"]["Config"]
-        ), f"Expected subnet {SUBNET} not found in network config"
+        assert any(cfg["Subnet"] == SUBNET for cfg in net["IPAM"]["Config"]), (
+            f"Expected subnet {SUBNET} not found in network config"
+        )
 
     def test_containers_on_correct_network(self, require_services):
         """All AI-stack containers must be attached to bmt-ai-net."""
         result = docker("network", "inspect", NETWORK_NAME)
         info = json.loads(result.stdout)
-        connected = {
-            c["Name"] for c in info[0].get("Containers", {}).values()
-        }
+        connected = {c["Name"] for c in info[0].get("Containers", {}).values()}
         for svc in SERVICES.values():
             assert svc["container"] in connected, (
                 f"{svc['container']} not connected to {NETWORK_NAME}"
@@ -207,18 +191,16 @@ class TestNetworkSurvivesRestart:
         time.sleep(2)
 
         # DNS resolution must still work
-        probe = next(
-            s["container"]
-            for name, s in SERVICES.items()
-            if name != target_name
-        )
+        probe = next(s["container"] for name, s in SERVICES.items() if name != target_name)
         result = exec_in_container(
             probe,
-            ["sh", "-c", f"getent hosts {target_name} 2>/dev/null || nslookup {target_name} 2>/dev/null"],
+            [
+                "sh",
+                "-c",
+                f"getent hosts {target_name} 2>/dev/null || nslookup {target_name} 2>/dev/null",
+            ],
         )
-        assert result.returncode == 0, (
-            f"DNS resolution of '{target_name}' failed after restart"
-        )
+        assert result.returncode == 0, f"DNS resolution of '{target_name}' failed after restart"
 
         # Host port must still be reachable
         deadline = time.time() + 15
@@ -233,9 +215,7 @@ class TestNetworkSurvivesRestart:
                 reachable = True
                 break
             time.sleep(1)
-        assert reachable, (
-            f"Port {target['port']} not reachable after restarting {container}"
-        )
+        assert reachable, f"Port {target['port']} not reachable after restarting {container}"
 
 
 class TestExternalDNS:
@@ -246,9 +226,12 @@ class TestExternalDNS:
         """Containers should resolve public hostnames via Docker DNS."""
         result = exec_in_container(
             container,
-            ["sh", "-c", "getent hosts cloudflare.com 2>/dev/null || nslookup cloudflare.com 2>/dev/null"],
+            [
+                "sh",
+                "-c",
+                "getent hosts cloudflare.com 2>/dev/null || nslookup cloudflare.com 2>/dev/null",
+            ],
         )
         assert result.returncode == 0, (
-            f"External DNS resolution failed inside {container}: "
-            f"{result.stderr}"
+            f"External DNS resolution failed inside {container}: {result.stderr}"
         )

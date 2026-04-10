@@ -27,6 +27,7 @@ _token_len = _mod._token_len
 # TextChunker tests
 # ---------------------------------------------------------------------------
 
+
 class TestTextChunker:
     def test_single_short_paragraph(self):
         chunker = TextChunker(chunk_size=512, overlap=50)
@@ -88,6 +89,7 @@ class TestTextChunker:
 # MarkdownChunker tests
 # ---------------------------------------------------------------------------
 
+
 class TestMarkdownChunker:
     def test_heading_aware_splitting(self):
         md = "# Title\n\nIntro text.\n\n## Section A\n\nContent A.\n\n## Section B\n\nContent B."
@@ -99,12 +101,7 @@ class TestMarkdownChunker:
             assert "heading" in chunk.metadata
 
     def test_code_fence_kept_intact(self):
-        md = (
-            "# Guide\n\n"
-            "Some text.\n\n"
-            "```python\ndef foo():\n    return 42\n```\n\n"
-            "More text."
-        )
+        md = "# Guide\n\nSome text.\n\n```python\ndef foo():\n    return 42\n```\n\nMore text."
         chunker = MarkdownChunker(chunk_size=512, overlap=50)
         chunks = chunker.chunk(md, source="guide.md")
         # The code block should not be split across chunks
@@ -130,6 +127,7 @@ class TestMarkdownChunker:
 # ---------------------------------------------------------------------------
 # CodeChunker tests
 # ---------------------------------------------------------------------------
+
 
 class TestCodeChunker:
     def test_python_function_splitting(self):
@@ -177,16 +175,20 @@ class TestCodeChunker:
 # Utility tests
 # ---------------------------------------------------------------------------
 
+
 class TestGuessLanguage:
-    @pytest.mark.parametrize("ext,expected", [
-        (".py", "python"),
-        (".js", "javascript"),
-        (".ts", "typescript"),
-        (".rs", "rust"),
-        (".go", "go"),
-        (".c", "c"),
-        (".java", "java"),
-    ])
+    @pytest.mark.parametrize(
+        "ext,expected",
+        [
+            (".py", "python"),
+            (".js", "javascript"),
+            (".ts", "typescript"),
+            (".rs", "rust"),
+            (".go", "go"),
+            (".c", "c"),
+            (".java", "java"),
+        ],
+    )
     def test_known_extensions(self, ext, expected):
         assert _guess_language(f"file{ext}") == expected
 

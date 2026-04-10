@@ -71,9 +71,7 @@ class TestComposeValidation:
         )
         if result.returncode == 127:
             pytest.skip("docker CLI not available")
-        assert result.returncode == 0, (
-            f"docker compose config failed:\n{result.stderr}"
-        )
+        assert result.returncode == 0, f"docker compose config failed:\n{result.stderr}"
 
     def test_compose_yaml_parseable(self, compose_config):
         """The compose file should parse as valid YAML with a services key."""
@@ -119,8 +117,7 @@ class TestServiceDefinitions:
         port_strings = [str(p) for p in ports]
         found = any(str(expected_port) in ps for ps in port_strings)
         assert found, (
-            f"Service '{service_name}' does not expose port {expected_port}. "
-            f"Ports found: {ports}"
+            f"Service '{service_name}' does not expose port {expected_port}. Ports found: {ports}"
         )
 
 
@@ -149,9 +146,7 @@ class TestHealthchecks:
     def test_healthcheck_has_interval(self, compose_config, service_name):
         """Healthchecks should define a check interval."""
         hc = compose_config["services"][service_name].get("healthcheck", {})
-        assert "interval" in hc, (
-            f"Service '{service_name}' healthcheck missing 'interval'"
-        )
+        assert "interval" in hc, f"Service '{service_name}' healthcheck missing 'interval'"
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +197,5 @@ class TestRestartPolicy:
         restart = service.get("restart", "no")
         valid_policies = {"always", "unless-stopped", "on-failure"}
         assert restart in valid_policies, (
-            f"Service '{service_name}' has restart='{restart}', "
-            f"expected one of {valid_policies}"
+            f"Service '{service_name}' has restart='{restart}', expected one of {valid_policies}"
         )

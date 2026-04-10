@@ -15,14 +15,14 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import ProviderError, EmbedResponse
-from providers.openai_provider import OpenAICompatibleProvider
-from providers.groq_provider import GroqProvider, _GROQ_PRICING
-
+from bmt_ai_os.providers.base import ProviderError  # noqa: E402
+from bmt_ai_os.providers.groq_provider import _GROQ_PRICING, GroqProvider  # noqa: E402
+from bmt_ai_os.providers.openai_provider import OpenAICompatibleProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def provider():
@@ -34,8 +34,8 @@ def provider():
 # Subclassing
 # ---------------------------------------------------------------------------
 
-class TestSubclassing:
 
+class TestSubclassing:
     def test_inherits_openai_compatible(self):
         assert issubclass(GroqProvider, OpenAICompatibleProvider)
 
@@ -54,8 +54,8 @@ class TestSubclassing:
 # URL and headers
 # ---------------------------------------------------------------------------
 
-class TestURLAndHeaders:
 
+class TestURLAndHeaders:
     def test_base_url(self, provider):
         assert provider.base_url == "https://api.groq.com/openai/v1"
 
@@ -77,8 +77,8 @@ class TestURLAndHeaders:
 # Embed raises ProviderError
 # ---------------------------------------------------------------------------
 
-class TestEmbed:
 
+class TestEmbed:
     def test_embed_raises_provider_error(self, provider):
         with pytest.raises(ProviderError, match="does not support embeddings"):
             asyncio.run(provider.embed("test text"))
@@ -96,8 +96,8 @@ class TestEmbed:
 # API key loading
 # ---------------------------------------------------------------------------
 
-class TestAPIKeyLoading:
 
+class TestAPIKeyLoading:
     def test_explicit_key(self):
         p = GroqProvider(api_key="explicit-groq-key")
         assert p._api_key == "explicit-groq-key"
@@ -126,7 +126,7 @@ class TestAPIKeyLoading:
         secrets_file.write_text("  file-groq-key  \n")
         os.environ.pop("GROQ_API_KEY", None)
         with patch(
-            "providers.openai_provider._SECRETS_DIR",
+            "bmt_ai_os.providers.config._SECRETS_DIR",
             tmp_path,
         ):
             p = GroqProvider()
@@ -137,8 +137,8 @@ class TestAPIKeyLoading:
 # Cost estimation
 # ---------------------------------------------------------------------------
 
-class TestCostEstimation:
 
+class TestCostEstimation:
     def test_cost_known_model(self, provider):
         cost = provider._estimate_cost("llama-3.3-70b-versatile", 1_000_000, 1_000_000)
         input_price, output_price = _GROQ_PRICING["llama-3.3-70b-versatile"]
@@ -154,8 +154,8 @@ class TestCostEstimation:
 # Custom base_url override
 # ---------------------------------------------------------------------------
 
-class TestBaseURLOverride:
 
+class TestBaseURLOverride:
     def test_override_base_url(self):
         p = GroqProvider(api_key="key", base_url="https://custom.groq.example.com/v1")
         assert p.base_url == "https://custom.groq.example.com/v1"

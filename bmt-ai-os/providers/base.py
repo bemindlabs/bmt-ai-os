@@ -1,17 +1,20 @@
-<<<<<<< HEAD
-"""Abstract base classes and data models for the LLM provider layer."""
+"""BMT AI OS — LLM Provider abstract base class.
+
+Every provider (Ollama, OpenAI, Groq, vLLM, ...) implements this interface
+so the controller and RAG pipeline can swap backends transparently.
+"""
 
 from __future__ import annotations
 
+import abc
 import time
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
-from typing import AsyncGenerator
-
+from dataclasses import asdict, dataclass, field
+from typing import Any, AsyncGenerator, AsyncIterator
 
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
+
 
 class ProviderError(Exception):
     """Base exception for provider-related errors."""
@@ -29,11 +32,12 @@ class ModelNotFoundError(ProviderError):
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ChatMessage:
     """A single message in a chat conversation."""
 
-    role: str  # "system", "user", "assistant"
+    role: str  # "system" | "user" | "assistant"
     content: str
 
     def to_dict(self) -> dict:
@@ -54,17 +58,29 @@ class TokenUsage:
 
 @dataclass(frozen=True)
 class ChatResponse:
-    """Response returned by :meth:`LLMProvider.chat`."""
+    """Response returned by provider.chat()."""
 
     content: str
     model: str
-    provider: str
-    usage: TokenUsage = field(default_factory=lambda: TokenUsage())
+    provider: str = ""
+    usage: TokenUsage = field(default_factory=TokenUsage)
+    input_tokens: int = 0
+    output_tokens: int = 0
     latency_ms: float = 0.0
+    raw: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        d = asdict(self)
-        return d
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class EmbedResponse:
+    """Result returned by provider.embed()."""
+
+    embedding: list[float]
+    model: str
+    input_tokens: int = 0
+    latency_ms: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -96,111 +112,22 @@ class ProviderHealth:
 # Abstract provider
 # ---------------------------------------------------------------------------
 
-class LLMProvider(ABC):
-    """Abstract interface that every LLM backend must implement."""
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique provider identifier (e.g. ``'ollama'``, ``'vllm'``)."""
-
-    @abstractmethod
-=======
-"""BMT AI OS — LLM Provider abstract base class.
-
-Every provider (Ollama, OpenAI, Groq, vLLM, ...) implements this interface
-so the controller and RAG pipeline can swap backends transparently.
-"""
-
-from __future__ import annotations
-
-import abc
-import dataclasses
-import time
-from typing import Any, AsyncIterator
-
-
-@dataclasses.dataclass
-class ChatMessage:
-    """Single message in a conversation."""
-
-    role: str  # "system" | "user" | "assistant"
-    content: str
-
-
-@dataclasses.dataclass
-class ChatResponse:
-    """Result returned by provider.chat()."""
-
-    content: str
-    model: str
-    input_tokens: int = 0
-    output_tokens: int = 0
-    latency_ms: float = 0.0
-    raw: dict[str, Any] = dataclasses.field(default_factory=dict)
-
-
-@dataclasses.dataclass
-class EmbedResponse:
-    """Result returned by provider.embed()."""
-
-    embedding: list[float]
-    model: str
-    input_tokens: int = 0
-    latency_ms: float = 0.0
-
 
 class LLMProvider(abc.ABC):
-    """Abstract base for all LLM providers."""
+    """Abstract interface that every LLM backend must implement."""
 
     name: str = "base"
 
     @abc.abstractmethod
->>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
     async def chat(
         self,
         messages: list[ChatMessage],
         *,
         model: str | None = None,
         temperature: float = 0.7,
-<<<<<<< HEAD
-        max_tokens: int = 2048,
-        stream: bool = False,
-    ) -> ChatResponse | AsyncGenerator[str, None]:
-        """Send a chat completion request.
-
-        When *stream* is ``False`` return a :class:`ChatResponse`.
-        When *stream* is ``True`` return an async generator yielding content
-        chunks as plain strings.
-        """
-
-    @abstractmethod
-    async def embed(
-        self,
-        texts: list[str],
-        *,
-        model: str | None = None,
-    ) -> list[list[float]]:
-        """Return embedding vectors for *texts*."""
-
-    @abstractmethod
-    async def list_models(self) -> list[ModelInfo]:
-        """Return models currently available on this provider."""
-
-    @abstractmethod
-    async def health_check(self) -> ProviderHealth:
-        """Check whether the provider backend is reachable and healthy."""
-
-    # Convenience ---------------------------------------------------------
-
-    @staticmethod
-    def _elapsed_ms(start: float) -> float:
-        """Milliseconds elapsed since *start* (``time.perf_counter``)."""
-        return round((time.perf_counter() - start) * 1000, 2)
-=======
         max_tokens: int = 4096,
         stream: bool = False,
-    ) -> ChatResponse | AsyncIterator[str]:
+    ) -> ChatResponse | AsyncIterator[str] | AsyncGenerator[str, None]:
         """Send a chat completion request.
 
         When *stream* is True, returns an async iterator yielding content
@@ -217,16 +144,20 @@ class LLMProvider(abc.ABC):
         """Generate embeddings for one or more texts."""
 
     @abc.abstractmethod
-    async def list_models(self) -> list[dict[str, Any]]:
+    async def list_models(self) -> list[ModelInfo] | list[dict[str, Any]]:
         """Return available models from the provider."""
 
     @abc.abstractmethod
-    async def health_check(self) -> bool:
-        """Return True if the provider endpoint is reachable."""
+    async def health_check(self) -> ProviderHealth | bool:
+        """Check whether the provider backend is reachable and healthy."""
 
     # Utility ----------------------------------------------------------------
 
     @staticmethod
+    def _elapsed_ms(start: float) -> float:
+        """Milliseconds elapsed since *start* (``time.perf_counter``)."""
+        return round((time.perf_counter() - start) * 1000, 2)
+
+    @staticmethod
     def _now_ms() -> float:
         return time.monotonic() * 1000
->>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)
