@@ -31,7 +31,8 @@ Thumbs.db
 
 # Build artifacts
 output/
-buildroot-*/
+buildroot-*
+releases/
 *.img
 
 # Package symlink (bmt-ai-os -> bmt_ai_os for Python imports)
