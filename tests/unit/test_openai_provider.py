@@ -6,6 +6,7 @@ from unittest import mock
 
 import aiohttp
 import pytest
+
 from bmt_ai_os.providers.base import ChatMessage, ChatResponse, EmbedResponse
 from bmt_ai_os.providers.openai_provider import (
     OpenAICompatibleProvider,

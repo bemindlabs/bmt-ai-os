@@ -3,18 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_BMT_PKG = _REPO_ROOT / "bmt_ai_os"
-sys.path.insert(0, str(_REPO_ROOT))
-sys.path.insert(0, str(_BMT_PKG))
-
-from bmt_ai_os.providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -24,7 +17,7 @@ from bmt_ai_os.providers.base import (  # noqa: E402
     ProviderHealth,
     ProviderTimeoutError,
 )
-from bmt_ai_os.providers.llamacpp import LlamaCppProvider  # noqa: E402
+from bmt_ai_os.providers.llamacpp import LlamaCppProvider
 
 # ---------------------------------------------------------------------------
 # Helpers
