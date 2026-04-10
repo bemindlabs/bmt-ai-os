@@ -5,7 +5,7 @@ BMTOS-21 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
 ## 1. Container Isolation Model
 
 All AI-stack containers run under a hardened security posture. The security
-overlay (`bmt-ai-os/runtime/security/container-security.yml`) is applied on
+overlay (`bmt_ai_os/runtime/security/container-security.yml`) is applied on
 top of the base Docker Compose file.
 
 ### 1.1 Non-Root Execution
@@ -47,10 +47,10 @@ files (`/etc/shadow`, `/root/.ssh/`, Docker socket, etc.).
 
 ### 2.1 Storage
 
-Secrets are stored as individual files under `/etc/bmt-ai-os/secrets/`:
+Secrets are stored as individual files under `/etc/bmt_ai_os/secrets/`:
 
 ```
-/etc/bmt-ai-os/secrets/          (0700 root:root)
+/etc/bmt_ai_os/secrets/          (0700 root:root)
   OPENAI_API_KEY                  (0600 root:root)
   ANTHROPIC_API_KEY               (0600 root:root)
   GOOGLE_API_KEY                  (0600 root:root)
@@ -66,7 +66,7 @@ Secrets are stored as individual files under `/etc/bmt-ai-os/secrets/`:
 
 Secrets are **never** passed as environment variables. They are:
 
-1. Written to `/etc/bmt-ai-os/secrets/<KEY>` via `secrets-manager.sh set`
+1. Written to `/etc/bmt_ai_os/secrets/<KEY>` via `secrets-manager.sh set`
 2. Copied to per-service directories via `secrets-manager.sh inject`
 3. Bind-mounted into containers at `/run/secrets/` (read-only)
 4. Read by application code from the filesystem
@@ -78,7 +78,7 @@ This approach prevents secrets from appearing in `docker inspect` output,
 
 ```bash
 sudo secrets-manager.sh rotate OPENAI_API_KEY
-# Archives old value to /etc/bmt-ai-os/secrets/.archive/OPENAI_API_KEY.<timestamp>
+# Archives old value to /etc/bmt_ai_os/secrets/.archive/OPENAI_API_KEY.<timestamp>
 sudo secrets-manager.sh set OPENAI_API_KEY sk-new-key-here
 sudo secrets-manager.sh inject ollama
 docker compose restart ollama

@@ -71,7 +71,7 @@
     {
       "id": "BMTOS-3",
       "title": "Deploy Ollama + ChromaDB AI stack via Docker Compose",
-      "description": "Validate and harden the Docker Compose configuration for Ollama LLM server and ChromaDB vector database. Resolve LanceDB/ChromaDB mismatch in bmt-ai-os-build/. Ensure data persistence and service resilience.",
+      "description": "Validate and harden the Docker Compose configuration for Ollama LLM server and ChromaDB vector database. Resolve LanceDB/ChromaDB mismatch in bmt_ai_os-build/. Ensure data persistence and service resilience.",
       "type": "story",
       "priority": "high",
       "points": 5,
@@ -84,7 +84,7 @@
         "Model data persisted via named volume (survives container restart)",
         "ChromaDB data persisted via named volume (survives container restart)",
         "Resource limits set (CPU, memory) appropriate per device tier",
-        "bmt-ai-os-build/services/ai-stack.yml updated to ChromaDB (remove LanceDB reference)"
+        "bmt_ai_os-build/services/ai-stack.yml updated to ChromaDB (remove LanceDB reference)"
       ],
       "dependencies": ["BMTOS-2a"],
       "epic_id": "BMTOS-EPIC-3",
@@ -451,7 +451,7 @@
         "Preset 'standard': Qwen2.5-Coder-7B Q4 + Qwen3-Embedding-8B (~8GB) for RK3588 16GB / Jetson",
         "Preset 'full': Qwen3.5-27B Q4 + Qwen3-Embedding-8B (~18GB) for Jetson / RK3588 32GB",
         "Auto-detect device RAM/NPU and recommend preset",
-        "One-command model pull: bmt-ai-os models install coding-standard",
+        "One-command model pull: bmt_ai_os models install coding-standard",
         "Preset config shared across all coding CLIs"
       ],
       "dependencies": ["BMTOS-6", "BMTOS-3"],
@@ -462,7 +462,7 @@
     {
       "id": "BMTOS-16",
       "title": "Build bootable ARM64 image pipeline",
-      "description": "Create the end-to-end build pipeline that takes Buildroot config + BitBake layers from bmt-ai-os-build/ and produces a flashable ARM64 image. Support multiple board targets.",
+      "description": "Create the end-to-end build pipeline that takes Buildroot config + BitBake layers from bmt_ai_os-build/ and produces a flashable ARM64 image. Support multiple board targets.",
       "type": "story",
       "priority": "critical",
       "points": 8,
@@ -470,7 +470,7 @@
       "labels": ["build", "infrastructure"],
       "acceptance_criteria": [
         "Build script produces bootable .img file for at least one Tier 1 target",
-        "Integrates bmt-ai-os-build/ BitBake layers (hardware-accel.bb, container-engine.bb)",
+        "Integrates bmt_ai_os-build/ BitBake layers (hardware-accel.bb, container-engine.bb)",
         "Image boots on QEMU ARM64 emulator (qemu-system-aarch64)",
         "Image boots on target hardware (Jetson Orin or RK3588)",
         "Build reproducible with pinned package versions",
@@ -532,7 +532,7 @@
       "status": "backlog",
       "labels": ["infrastructure", "storage"],
       "acceptance_criteria": [
-        "Root filesystem layout documented (/etc, /var, /opt/bmt-ai-os)",
+        "Root filesystem layout documented (/etc, /var, /opt/bmt_ai_os)",
         "Dedicated data partition for AI models and ChromaDB volumes",
         "Partition scheme supports A/B root for future OTA updates",
         "Model storage location standardized (/var/lib/ollama/models)",
@@ -574,7 +574,7 @@
       "labels": ["security", "infrastructure"],
       "acceptance_criteria": [
         "AI stack containers run as non-root user where possible",
-        "Secrets stored in /etc/bmt-ai-os/secrets/ with restricted permissions (0600)",
+        "Secrets stored in /etc/bmt_ai_os/secrets/ with restricted permissions (0600)",
         "Cloud API keys loaded from secrets files, never from environment in logs",
         "Container capabilities dropped to minimum required set",
         "No hardcoded credentials in any image layer",
@@ -586,7 +586,7 @@
     },
     {
       "id": "BMTOS-22",
-      "title": "Build BMT AI OS CLI tool (bmt-ai-os command)",
+      "title": "Build BMT AI OS CLI tool (bmt_ai_os command)",
       "_epic_note": "Standalone — cross-cutting CLI used by all epics",
       "description": "Create the primary user-facing CLI for interacting with BMT AI OS: manage models, query RAG, check status, configure providers. Single entry point for all OS AI capabilities.",
       "type": "story",
@@ -595,12 +595,12 @@
       "status": "backlog",
       "labels": ["cli", "developer-experience"],
       "acceptance_criteria": [
-        "bmt-ai-os status — show system health, active provider, loaded model",
-        "bmt-ai-os models list/install/remove — model management via Ollama",
-        "bmt-ai-os query 'question' — RAG query against indexed workspace",
-        "bmt-ai-os ingest /path/to/docs — index documents into ChromaDB",
-        "bmt-ai-os provider set ollama|vllm|openai — switch active provider",
-        "bmt-ai-os workspace add /path — mount and index a project",
+        "bmt_ai_os status — show system health, active provider, loaded model",
+        "bmt_ai_os models list/install/remove — model management via Ollama",
+        "bmt_ai_os query 'question' — RAG query against indexed workspace",
+        "bmt_ai_os ingest /path/to/docs — index documents into ChromaDB",
+        "bmt_ai_os provider set ollama|vllm|openai — switch active provider",
+        "bmt_ai_os workspace add /path — mount and index a project",
         "Help text and --help for all subcommands"
       ],
       "dependencies": ["BMTOS-4", "BMTOS-5b"],
@@ -642,8 +642,8 @@
         "All container logs aggregated to syslog or journal",
         "System metrics collected: CPU, RAM, disk, temperature",
         "Inference metrics: tokens/sec, model load time, queue depth",
-        "bmt-ai-os logs — tail aggregated logs",
-        "bmt-ai-os metrics — show current system stats",
+        "bmt_ai_os logs — tail aggregated logs",
+        "bmt_ai_os metrics — show current system stats",
         "Log retention policy: rotate at 100MB, keep 7 days"
       ],
       "dependencies": ["BMTOS-4"],
@@ -665,7 +665,7 @@
         "Automatic rollback if new partition fails health check",
         "Container image updates independent (docker compose pull)",
         "Model data and ChromaDB data preserved across updates",
-        "bmt-ai-os update — single command for full system update"
+        "bmt_ai_os update — single command for full system update"
       ],
       "dependencies": ["BMTOS-16", "BMTOS-19"],
       "epic_id": null,
@@ -744,7 +744,7 @@
       "status": "done",
       "labels": ["dashboard", "frontend", "setup"],
       "acceptance_criteria": [
-        "Next.js 15+ app created at bmt-ai-os/dashboard/ with App Router",
+        "Next.js 15+ app created at bmt_ai_os/dashboard/ with App Router",
         "shadcn/ui initialized with 'new-york' style, dark theme default",
         "Tailwind CSS configured with shadcn/ui CSS variables",
         "Layout shell: sidebar nav (shadcn Sidebar), top bar, main content area",
@@ -914,7 +914,7 @@
       "status": "done",
       "labels": ["dashboard", "tui", "cli"],
       "acceptance_criteria": [
-        "TUI launches via 'bmt-ai-os tui' command",
+        "TUI launches via 'bmt_ai_os tui' command",
         "System overview tab: service health, CPU/RAM/disk/temp gauges, tok/s",
         "Models tab: list installed models, pull/remove with progress bar",
         "Logs tab: live-tail with service filter and log level filter",
@@ -967,9 +967,9 @@
         "bitsandbytes installed for 4-bit quantization (QLoRA)",
         "Fine-tune Qwen2.5-1.5B with LoRA on custom dataset (Jetson: <4GB VRAM)",
         "Fine-tune with QLoRA on same model (<2GB VRAM for 4-bit base)",
-        "Training produces adapter weights saved to /var/lib/bmt-ai-os/adapters/",
+        "Training produces adapter weights saved to /var/lib/bmt_ai_os/adapters/",
         "Adapter weights loadable by Ollama via Modelfile",
-        "Training script: bmt-ai-os train --model qwen2.5:1.5b --data /path/to/data",
+        "Training script: bmt_ai_os train --model qwen2.5:1.5b --data /path/to/data",
         "Training resumes from checkpoint on interruption"
       ],
       "dependencies": ["BMTOS-37"],
@@ -987,12 +987,12 @@
       "status": "done",
       "labels": ["training", "data", "cli"],
       "acceptance_criteria": [
-        "bmt-ai-os data prepare --input /docs --format alpaca — convert docs to training format",
+        "bmt_ai_os data prepare --input /docs --format alpaca — convert docs to training format",
         "Supported input: .txt, .md, .jsonl, .csv, code files",
         "Output formats: Alpaca (instruction/input/output), ShareGPT (conversations), ChatML",
         "Auto-generate instruction/response pairs from documents using local LLM",
-        "bmt-ai-os data validate /path/to/dataset.jsonl — check format, stats, issues",
-        "bmt-ai-os data preview /path/to/dataset.jsonl — show sample entries",
+        "bmt_ai_os data validate /path/to/dataset.jsonl — check format, stats, issues",
+        "bmt_ai_os data preview /path/to/dataset.jsonl — show sample entries",
         "Dataset splitting: auto train/eval split (default 90/10)"
       ],
       "dependencies": ["BMTOS-22", "BMTOS-5b"],
@@ -1010,13 +1010,13 @@
       "status": "done",
       "labels": ["training", "jupyter", "developer-experience"],
       "acceptance_criteria": [
-        "JupyterLab installed and launchable via bmt-ai-os jupyter",
+        "JupyterLab installed and launchable via bmt_ai_os jupyter",
         "Served on port 8888, accessible from browser",
         "Pre-configured kernel with PyTorch, Transformers, PEFT, Datasets",
         "Example notebooks: LoRA fine-tuning, data preparation, model evaluation",
         "Token authentication enabled by default",
         "Auto-detected GPU/NPU shown in notebook environment info",
-        "Notebooks saved to /var/lib/bmt-ai-os/notebooks/"
+        "Notebooks saved to /var/lib/bmt_ai_os/notebooks/"
       ],
       "dependencies": ["BMTOS-37"],
       "epic_id": "BMTOS-EPIC-6",
@@ -1033,9 +1033,9 @@
       "status": "done",
       "labels": ["training", "monitoring", "dashboard"],
       "acceptance_criteria": [
-        "TensorBoard installed, launchable via bmt-ai-os tensorboard",
+        "TensorBoard installed, launchable via bmt_ai_os tensorboard",
         "Served on port 6006, accessible from browser",
-        "Training logs written to /var/lib/bmt-ai-os/runs/ in TensorBoard format",
+        "Training logs written to /var/lib/bmt_ai_os/runs/ in TensorBoard format",
         "Metrics tracked: loss, eval loss, learning rate, GPU memory, tok/s",
         "Dashboard integration: training job Card on system overview page",
         "Training job status: idle/running/complete/failed with progress %",
@@ -1056,9 +1056,9 @@
       "status": "done",
       "labels": ["training", "deployment", "models"],
       "acceptance_criteria": [
-        "bmt-ai-os model merge --base qwen2.5:1.5b --adapter /path/to/lora — merge LoRA weights",
-        "bmt-ai-os model export --format gguf — convert merged model to GGUF (Q4_K_M default)",
-        "bmt-ai-os model export --format ollama — create Ollama Modelfile and register model",
+        "bmt_ai_os model merge --base qwen2.5:1.5b --adapter /path/to/lora — merge LoRA weights",
+        "bmt_ai_os model export --format gguf — convert merged model to GGUF (Q4_K_M default)",
+        "bmt_ai_os model export --format ollama — create Ollama Modelfile and register model",
         "Exported model immediately available in Ollama (ollama run my-fine-tuned-model)",
         "Export preserves tokenizer and chat template",
         "Validation: run inference on 10 test prompts, compare base vs fine-tuned"

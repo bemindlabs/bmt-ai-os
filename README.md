@@ -9,9 +9,9 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/version-2026.4.9-green.svg" alt="Version"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-84%25_(41%2F48_stories)-brightgreen.svg" alt="Progress: 84%"></a>
+  <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/version-2026.4.9-green.svg" alt="Version"></a>
+  <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
+  <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/progress-84%25_(41%2F48_stories)-brightgreen.svg" alt="Progress: 84%"></a>
 </p>
 
 ---
@@ -36,7 +36,7 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)        │
+│  Dashboard (:9090)  │  TUI (bmt_ai_os tui)        │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│
 │  Claude Code, Aider │  Cursor       │  SWE-agent  │
@@ -78,7 +78,7 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 
 ```bash
 # Start Ollama + ChromaDB
-cd bmt-ai-os/ai-stack
+cd bmt_ai_os/ai-stack
 docker compose up -d
 
 # Verify services
@@ -90,14 +90,14 @@ curl http://localhost:8000/api/v1/heartbeat  # ChromaDB
 
 ```bash
 pip install docker
-python bmt-ai-os/controller/main.py
+python bmt_ai_os/controller/main.py
 ```
 
 ### Build the OS Image
 
 ```bash
 # Cross-compile for ARM64 (requires Buildroot toolchain)
-make O=output defconfig BR2_DEFCONFIG=bmt-ai-os/kernel/defconfig
+make O=output defconfig BR2_DEFCONFIG=bmt_ai_os/kernel/defconfig
 make
 
 # Test with QEMU
@@ -112,7 +112,7 @@ qemu-system-aarch64 \
 
 ```
 ai-first-os/
-├── bmt-ai-os/                # Runtime
+├── bmt_ai_os/                # Runtime
 │   ├── kernel/               # Buildroot defconfig, linux.config, uboot.config
 │   ├── ai-stack/             # Docker Compose (Ollama, ChromaDB, vLLM, llama.cpp, Jupyter)
 │   ├── controller/           # FastAPI orchestration (health, providers, RAG, workspaces)
@@ -125,7 +125,7 @@ ai-first-os/
 │   ├── dashboard/            # Next.js 15 + shadcn/ui web dashboard (6 pages)
 │   ├── tui/                  # Python Textual terminal UI (5 screens)
 │   └── runtime/              # OpenRC init, containerd, networking, security, NPU passthrough
-├── bmt-ai-os-build/          # Build infrastructure
+├── bmt_ai_os-build/          # Build infrastructure
 │   ├── base-config.toml      # Base distro config (Alpine, aarch64)
 │   ├── buildroot-external/   # Buildroot packages (containerd, docker, ollama, training)
 │   └── layers/               # BitBake/Yocto layers (NPU drivers, etc.)

@@ -6,7 +6,7 @@
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt-ai-os tui)       │
+│  Dashboard (:9090)  │  TUI (bmt_ai_os tui)       │
 │  Next.js+shadcn/ui  │  Python Textual             │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│

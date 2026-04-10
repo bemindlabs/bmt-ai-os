@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_BMT_PKG = _REPO_ROOT / "bmt-ai-os"
-# Add both repo root and bmt-ai-os to path so imports resolve correctly.
+_BMT_PKG = _REPO_ROOT / "bmt_ai_os"
+# Add both repo root and bmt_ai_os to path so imports resolve correctly.
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 

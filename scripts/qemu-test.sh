@@ -9,7 +9,7 @@
 #   ./scripts/qemu-test.sh [OPTIONS]
 #
 # Options:
-#   --image <path>      Path to the disk image (default: output/images/bmt-ai-os-arm64.img)
+#   --image <path>      Path to the disk image (default: output/images/bmt_ai_os-arm64.img)
 #   --timeout <sec>     Seconds to wait for login prompt (default: 60)
 #   --interactive       Keep QEMU open after tests (do not auto-quit)
 #   --smoke-tests       Run port-level smoke tests after boot
@@ -26,7 +26,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-DEFAULT_IMAGE="${PROJECT_ROOT}/output/images/bmt-ai-os-arm64.img"
+DEFAULT_IMAGE="${PROJECT_ROOT}/output/images/bmt_ai_os-arm64.img"
 QEMU_BIOS_DIR="/usr/share/qemu-efi-aarch64"   # Debian/Ubuntu path
 QEMU_BIOS_BREW="/opt/homebrew/share/qemu"      # macOS Homebrew path
 QEMU_MONITOR_SOCK="/tmp/bmt-qemu-monitor-$$.sock"
@@ -64,7 +64,7 @@ Usage:
   $(basename "$0") [OPTIONS]
 
 Options:
-  --image <path>      Path to disk image (default: output/images/bmt-ai-os-arm64.img)
+  --image <path>      Path to disk image (default: output/images/bmt_ai_os-arm64.img)
   --timeout <sec>     Seconds to wait for login prompt (default: 60)
   --interactive       Keep QEMU open after boot/tests (attach to serial console)
   --smoke-tests       Run service port smoke tests after successful boot

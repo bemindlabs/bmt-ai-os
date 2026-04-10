@@ -30,7 +30,7 @@ SERVICES = {
     "chromadb": {"container": "bmt-chromadb", "port": 8000},
 }
 
-COMPOSE_FILE = "bmt-ai-os/ai-stack/docker-compose.yml"
+COMPOSE_FILE = "bmt_ai_os/ai-stack/docker-compose.yml"
 
 
 # ---------------------------------------------------------------------------

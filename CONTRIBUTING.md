@@ -5,7 +5,7 @@ Thank you for your interest in contributing to BMT AI OS! This document provides
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone git@github.com:YOUR_USERNAME/bmt-ai-os.git`
+2. Clone your fork: `git clone git@github.com:YOUR_USERNAME/bmt_ai_os.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Push to your fork: `git push origin feature/your-feature-name`
@@ -23,18 +23,18 @@ Thank you for your interest in contributing to BMT AI OS! This document provides
 
 ```bash
 # Start AI stack
-cd bmt-ai-os/ai-stack
+cd bmt_ai_os/ai-stack
 docker compose up -d
 
 # Run controller
 pip install docker
-python bmt-ai-os/controller/main.py
+python bmt_ai_os/controller/main.py
 ```
 
 ## Project Structure
 
-- `bmt-ai-os/` — Runtime components (kernel, controller, AI stack, dashboard)
-- `bmt-ai-os-build/` — Build infrastructure (Buildroot, BitBake layers)
+- `bmt_ai_os/` — Runtime components (kernel, controller, AI stack, dashboard)
+- `bmt_ai_os-build/` — Build infrastructure (Buildroot, BitBake layers)
 - `.scrum/` — Project management (backlog, epics, sprints)
 
 ## Backlog & Issues
@@ -53,7 +53,7 @@ We track work using a scrum backlog in `.scrum/backlog.json`. Story IDs use the 
 - Keep PRs focused on a single change
 - Include a clear description of what and why
 - Reference the BMTOS story ID if applicable
-- Ensure Docker Compose config validates: `docker compose -f bmt-ai-os/ai-stack/docker-compose.yml config`
+- Ensure Docker Compose config validates: `docker compose -f bmt_ai_os/ai-stack/docker-compose.yml config`
 
 ## Hardware Testing
 

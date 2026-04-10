@@ -1,0 +1,67 @@
+# BMT AI OS — Container Security Overlay (ARM64)
+#
+# BMTOS-21 | Epic: BMTOS-EPIC-3 (OS Foundation & Infrastructure)
+#
+# Docker Compose override that hardens AI-stack containers.
+# Apply with:
+#   docker compose \
+#     -f bmt_ai_os/ai-stack/docker-compose.yml \
+#     -f bmt_ai_os/runtime/security/container-security.yml \
+#     up -d
+#
+# Principles:
+#   - Drop ALL capabilities, re-add only what each service needs
+#   - No new privileges escalation
+#   - Read-only root filesystem where feasible
+#   - PID limits to prevent fork bombs
+#   - tmpfs for /tmp in every container
+#   - Secrets injected via file mounts, never plain environment variables
+
+services:
+  ollama:
+    # Ollama needs rw rootfs for model cache under /root/.ollama
+    # but /tmp is tmpfs and we lock everything else down.
+    user: "1000:1000"
+    read_only: false
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-default.json
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - SYS_RESOURCE          # mmap large model files
+    pids_limit: 256
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    volumes:
+      - /etc/bmt_ai_os/secrets/ollama:/run/secrets:ro
+    environment:
+      # Override: ensure sensitive keys are NOT in env; loaded from /run/secrets
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
+    labels:
+      com.bemind.security: "hardened"
+      com.bemind.security.caps: "NET_BIND_SERVICE,SYS_RESOURCE"
+
+  chromadb:
+    user: "1000:1000"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-default.json
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    volumes:
+      - /etc/bmt_ai_os/secrets/chromadb:/run/secrets:ro
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    labels:
+      com.bemind.security: "hardened"
+      com.bemind.security.caps: "NET_BIND_SERVICE"

@@ -23,7 +23,7 @@ pytestmark = pytest.mark.smoke
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-COMPOSE_FILE = PROJECT_ROOT / "bmt-ai-os" / "ai-stack" / "docker-compose.yml"
+COMPOSE_FILE = PROJECT_ROOT / "bmt_ai_os" / "ai-stack" / "docker-compose.yml"
 
 # Services that MUST be present in the AI stack
 REQUIRED_SERVICES = {"ollama", "chromadb"}

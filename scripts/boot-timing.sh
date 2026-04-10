@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 # BMT AI OS — Boot Timing Measurement
 # Measures wall-clock time from kernel start to each service milestone.
-# Outputs results to stdout and saves JSON to /var/log/bmt-ai-os/boot-timing.json.
+# Outputs results to stdout and saves JSON to /var/log/bmt_ai_os/boot-timing.json.
 #
 # Usage: boot-timing.sh [--json-only]
 #
@@ -9,7 +9,7 @@
 
 set -eu
 
-JSON_OUT="/var/log/bmt-ai-os/boot-timing.json"
+JSON_OUT="/var/log/bmt_ai_os/boot-timing.json"
 
 # ---------------------------------------------------------------------------
 # Helpers

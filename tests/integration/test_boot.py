@@ -3,7 +3,7 @@ tests/integration/test_boot.py — QEMU ARM64 integration tests for BMT AI OS.
 
 These tests boot the OS image in QEMU and verify that the core services
 come up correctly. They require either:
-  - A pre-built image at output/images/bmt-ai-os-arm64.img, or
+  - A pre-built image at output/images/bmt_ai_os-arm64.img, or
   - QEMU_EXTERNAL=1 with a QEMU instance already running.
 
 All timeouts are configurable via environment variables:

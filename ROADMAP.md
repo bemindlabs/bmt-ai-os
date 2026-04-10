@@ -102,7 +102,7 @@ Web dashboard (Next.js + shadcn/ui) and terminal UI (Python Textual) for system 
 | BMTOS-35 | Build coding tools status dashboard page | 5 | Done |
 | BMTOS-36 | Build terminal UI (TUI) dashboard with Textual | 8 | Done |
 
-**Milestone:** Open `http://device-ip:9090` — see system health, manage models, query RAG, configure providers. Or SSH in and run `bmt-ai-os tui`.
+**Milestone:** Open `http://device-ip:9090` — see system health, manage models, query RAG, configure providers. Or SSH in and run `bmt_ai_os tui`.
 
 ---
 
@@ -150,12 +150,12 @@ Cross-cutting tools used by all epics.
 
 | Story | Title | Pts | Priority |
 |-------|-------|-----|----------|
-| BMTOS-22 | Build BMT AI OS CLI tool (bmt-ai-os command) | 8 | Medium |
+| BMTOS-22 | Build BMT AI OS CLI tool (bmt_ai_os command) | 8 | Medium |
 | BMTOS-23 | Expose external REST API for AI stack access | 5 | Medium |
 | BMTOS-24 | Build centralized logging and system metrics | 5 | Medium |
 | BMTOS-25 | Implement OS update mechanism with rollback | 8 | Low |
 
-**Milestone:** `bmt-ai-os status`, `bmt-ai-os models install`, `bmt-ai-os update` — one CLI for everything. OTA updates with A/B rollback.
+**Milestone:** `bmt_ai_os status`, `bmt_ai_os models install`, `bmt_ai_os update` — one CLI for everything. OTA updates with A/B rollback.
 
 ---
 

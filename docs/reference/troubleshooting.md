@@ -42,7 +42,7 @@ df -h /var/lib/chromadb
 free -h
 
 # Switch to a lighter model preset
-bmt-ai-os models install lite
+bmt_ai_os models install lite
 
 # Or pull a smaller model
 ollama pull qwen2.5-coder:3b
@@ -81,7 +81,7 @@ curl http://localhost:9090
 ps aux | grep next
 
 # Rebuild dashboard
-cd bmt-ai-os/dashboard && npm run build
+cd bmt_ai_os/dashboard && npm run build
 ```
 
 ## Dev Stack (Docker) Issues
@@ -100,6 +100,6 @@ docker compose -f docker-compose.dev.yml down -v
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/bemindlabs/bmt-ai-os/issues)
+- [GitHub Issues](https://github.com/bemindlabs/bmt_ai_os/issues)
 - [FAQ](faq.md)
 - Security issues: security@bemind.tech

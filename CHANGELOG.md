@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026.4.9] — 2026-04-09
 
 ### Added
-- Project structure: `bmt-ai-os/` (runtime) and `bmt-ai-os-build/` (build infrastructure)
+- Project structure: `bmt_ai_os/` (runtime) and `bmt_ai_os-build/` (build infrastructure)
 - ARM64 Buildroot kernel defconfig with 37 packages
 - Docker Compose AI stack (Ollama + ChromaDB)
 - Python controller for AI stack orchestration

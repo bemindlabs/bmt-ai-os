@@ -43,7 +43,7 @@ jobs:
 
       # -- Docker Compose validation --
       - name: Validate Docker Compose config
-        run: docker compose -f bmt-ai-os/ai-stack/docker-compose.yml config --quiet
+        run: docker compose -f bmt_ai_os/ai-stack/docker-compose.yml config --quiet
 
       # -- ShellCheck for all shell scripts --
       - name: Install ShellCheck
@@ -56,10 +56,10 @@ jobs:
 
       # -- Python linting --
       - name: Lint Python (ruff check)
-        run: ruff check bmt-ai-os/controller/ tests/
+        run: ruff check bmt_ai_os/controller/ tests/
 
       - name: Check Python formatting (ruff format)
-        run: ruff format --check bmt-ai-os/controller/ tests/
+        run: ruff format --check bmt_ai_os/controller/ tests/
 
       # -- JSON validation --
       - name: Validate JSON files
@@ -73,8 +73,8 @@ jobs:
       # -- Buildroot defconfig syntax --
       - name: Validate Buildroot defconfig
         run: |
-          if [ -f bmt-ai-os/kernel/defconfig ]; then
-            grep -E '^(BR2_|#|$)' bmt-ai-os/kernel/defconfig > /dev/null
+          if [ -f bmt_ai_os/kernel/defconfig ]; then
+            grep -E '^(BR2_|#|$)' bmt_ai_os/kernel/defconfig > /dev/null
             echo "defconfig: OK"
           fi
 
@@ -161,8 +161,8 @@ jobs:
         id: cache-image
         uses: actions/cache@v4
         with:
-          path: output/images/bmt-ai-os-arm64.img
-          key: qemu-image-${{ hashFiles('bmt-ai-os/kernel/defconfig', 'scripts/build.sh') }}
+          path: output/images/bmt_ai_os-arm64.img
+          key: qemu-image-${{ hashFiles('bmt_ai_os/kernel/defconfig', 'scripts/build.sh') }}
           restore-keys: |
             qemu-image-
 
@@ -178,7 +178,7 @@ jobs:
             echo "::warning::Full image build failed — creating minimal test image"
             # Fallback: create a minimal bootable image for testing the pipeline
             mkdir -p output/images
-            qemu-img create -f raw output/images/bmt-ai-os-arm64.img 512M
+            qemu-img create -f raw output/images/bmt_ai_os-arm64.img 512M
             echo "Minimal placeholder image created"
           }
           echo "::endgroup::"
@@ -257,9 +257,9 @@ jobs:
           path: |
             buildroot-*/dl
             output/buildroot/build
-          key: buildroot-${{ hashFiles('bmt-ai-os/kernel/defconfig') }}-${{ github.sha }}
+          key: buildroot-${{ hashFiles('bmt_ai_os/kernel/defconfig') }}-${{ github.sha }}
           restore-keys: |
-            buildroot-${{ hashFiles('bmt-ai-os/kernel/defconfig') }}-
+            buildroot-${{ hashFiles('bmt_ai_os/kernel/defconfig') }}-
             buildroot-
 
       - name: Install build dependencies
@@ -283,7 +283,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bmt-ai-os-arm64-image
-          path: output/images/bmt-ai-os-arm64.img
+          name: bmt_ai_os-arm64-image
+          path: output/images/bmt_ai_os-arm64.img
           retention-days: 14
           compression-level: 6
