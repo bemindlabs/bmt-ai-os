@@ -42,8 +42,12 @@ bmt_ai_os
 *.bin
 *.safetensors
 
+# Cache
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
 # Test artifacts
 test-results/
-.pytest_cache/
 htmlcov/
 .coverage
