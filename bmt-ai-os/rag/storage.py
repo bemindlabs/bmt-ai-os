@@ -31,9 +31,7 @@ class ChromaStorage:
 
     def list_collections(self) -> list[dict[str, Any]]:
         """Return metadata for all collections."""
-        resp = requests.get(
-            f"{self.base_url}/api/v1/collections", timeout=10
-        )
+        resp = requests.get(f"{self.base_url}/api/v1/collections", timeout=10)
         resp.raise_for_status()
         return resp.json()
 

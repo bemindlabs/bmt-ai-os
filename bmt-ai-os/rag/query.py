@@ -174,9 +174,7 @@ class RAGQueryEngine:
         metadatas = (raw.get("metadatas") or [[]])[0]
         distances = (raw.get("distances") or [[]])[0]
 
-        for idx, (doc_id, text, meta, dist) in enumerate(
-            zip(ids, documents, metadatas, distances)
-        ):
+        for idx, (doc_id, text, meta, dist) in enumerate(zip(ids, documents, metadatas, distances)):
             meta = meta or {}
             filename = meta.get("filename", doc_id)
             chunks.append({"text": text, "filename": filename})

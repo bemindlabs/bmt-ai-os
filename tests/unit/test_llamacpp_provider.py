@@ -14,7 +14,7 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -24,7 +24,7 @@ from providers.base import (  # noqa: E402
     ProviderHealth,
     ProviderTimeoutError,
 )
-from providers.llamacpp import LlamaCppProvider  # noqa: E402
+from bmt_ai_os.providers.llamacpp import LlamaCppProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

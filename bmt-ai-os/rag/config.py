@@ -36,9 +36,7 @@ class RAGConfig:
 
     # LLM settings
     llm_model: str = field(
-        default_factory=lambda: os.getenv(
-            "BMT_RAG_LLM_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M"
-        )
+        default_factory=lambda: os.getenv("BMT_RAG_LLM_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
     )
     temperature: float = 0.7
     top_p: float = 0.9

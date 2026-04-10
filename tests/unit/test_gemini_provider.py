@@ -15,7 +15,7 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     ModelNotFoundError,
@@ -23,7 +23,7 @@ from providers.base import (  # noqa: E402
     ProviderTimeoutError,
     TokenUsage,
 )
-from providers.gemini_provider import (  # noqa: E402
+from bmt_ai_os.providers.gemini_provider import (  # noqa: E402
     GeminiProvider,
     _resolve_api_key,
 )
@@ -120,12 +120,12 @@ class TestApiKeyResolution:
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         secrets = tmp_path / "key"
         secrets.write_text("from-file\n")
-        with patch("providers.gemini_provider._SECRETS_PATH", str(secrets)):
+        with patch("bmt_ai_os.providers.gemini_provider._SECRETS_PATH", str(secrets)):
             assert _resolve_api_key(None) == "from-file"
 
     def test_no_key_returns_empty(self, monkeypatch):
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-        with patch("providers.gemini_provider._SECRETS_PATH", "/nonexistent"):
+        with patch("bmt_ai_os.providers.gemini_provider._SECRETS_PATH", "/nonexistent"):
             assert _resolve_api_key(None) == ""
 
 

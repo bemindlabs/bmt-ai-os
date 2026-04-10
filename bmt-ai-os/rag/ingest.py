@@ -26,8 +26,21 @@ logger = logging.getLogger(__name__)
 
 # Extensions considered "code" for chunker selection
 _CODE_EXTENSIONS: Set[str] = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".c", ".h", ".cpp", ".hpp",
-    ".rs", ".go", ".java", ".sh", ".bash", ".zsh",
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".rs",
+    ".go",
+    ".java",
+    ".sh",
+    ".bash",
+    ".zsh",
 }
 
 
@@ -133,7 +146,9 @@ class DocumentIngester:
 
         logger.info(
             "Ingestion complete: %d files, %d chunks, %d errors",
-            len(files), results["_total"], results["_errors"],
+            len(files),
+            results["_total"],
+            results["_errors"],
         )
         return results
 

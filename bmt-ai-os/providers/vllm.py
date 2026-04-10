@@ -7,8 +7,7 @@ import time
 from typing import Any, AsyncGenerator
 
 import aiohttp
-
-from providers.base import (
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -186,14 +185,10 @@ class VLLMProvider(LLMProvider):
                 async with session.post(url, json=payload) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Ollama embed fallback returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"Ollama embed fallback returned {resp.status}: {body}")
                     data = await resp.json()
         except aiohttp.ClientError as exc:
-            raise ProviderError(
-                f"Ollama embed fallback connection error: {exc}"
-            ) from exc
+            raise ProviderError(f"Ollama embed fallback connection error: {exc}") from exc
 
         embeddings = data.get("embeddings", [])
         if not embeddings:
@@ -208,14 +203,10 @@ class VLLMProvider(LLMProvider):
             async with aiohttp.ClientSession(timeout=self._timeout) as session:
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 404:
-                        raise ModelNotFoundError(
-                            f"Model not found: {payload.get('model')}"
-                        )
+                        raise ModelNotFoundError(f"Model not found: {payload.get('model')}")
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"vLLM returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"vLLM returned {resp.status}: {body}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
@@ -229,9 +220,7 @@ class VLLMProvider(LLMProvider):
                 async with session.get(url) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"vLLM returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"vLLM returned {resp.status}: {body}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
@@ -250,22 +239,16 @@ class VLLMProvider(LLMProvider):
                 async with session.post(url, json=payload) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"vLLM returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"vLLM returned {resp.status}: {body}")
                     async for line in resp.content:
                         line = line.decode("utf-8").strip()
                         if not line or not line.startswith("data: "):
                             continue
-                        raw = line[len("data: "):]
+                        raw = line[len("data: ") :]
                         if raw == "[DONE]":
                             break
                         data = json.loads(raw)
-                        delta = (
-                            data.get("choices", [{}])[0]
-                            .get("delta", {})
-                            .get("content", "")
-                        )
+                        delta = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                         if delta:
                             yield delta
         except aiohttp.ClientError as exc:

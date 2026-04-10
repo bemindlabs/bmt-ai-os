@@ -15,9 +15,9 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import EmbedResponse  # noqa: E402
-from providers.mistral_provider import _MISTRAL_PRICING, MistralProvider  # noqa: E402
-from providers.openai_provider import OpenAICompatibleProvider  # noqa: E402
+from bmt_ai_os.providers.base import EmbedResponse  # noqa: E402
+from bmt_ai_os.providers.mistral_provider import _MISTRAL_PRICING, MistralProvider  # noqa: E402
+from bmt_ai_os.providers.openai_provider import OpenAICompatibleProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -190,7 +190,7 @@ class TestAPIKeyLoading:
         secrets_file.write_text("  file-mistral-key  \n")
         os.environ.pop("MISTRAL_API_KEY", None)
         with patch(
-            "providers.openai_provider._SECRETS_DIR",
+            "bmt_ai_os.providers.config._SECRETS_DIR",
             tmp_path,
         ):
             p = MistralProvider()

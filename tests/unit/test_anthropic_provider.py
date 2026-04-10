@@ -15,12 +15,12 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.anthropic_provider import (  # noqa: E402
+from bmt_ai_os.providers.anthropic_provider import (  # noqa: E402
     _CLAUDE_MODELS,
     AnthropicProvider,
     RateLimitError,
 )
-from providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ProviderError,
     TokenUsage,
@@ -127,7 +127,7 @@ class TestAPIKeyLoading:
     def test_secrets_file_key(self, tmp_path):
         secrets_file = tmp_path / "ANTHROPIC_API_KEY"
         secrets_file.write_text("  file-key  \n")
-        with patch("providers.anthropic_provider._SECRETS_PATH", str(secrets_file)):
+        with patch("bmt_ai_os.providers.anthropic_provider._SECRETS_PATH", str(secrets_file)):
             # Clear env var so it falls through to file.
             os.environ.pop("ANTHROPIC_API_KEY", None)
             p = AnthropicProvider()
@@ -135,7 +135,7 @@ class TestAPIKeyLoading:
 
     def test_no_key_available(self):
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        with patch("providers.anthropic_provider._SECRETS_PATH", "/nonexistent/path"):
+        with patch("bmt_ai_os.providers.anthropic_provider._SECRETS_PATH", "/nonexistent/path"):
             p = AnthropicProvider()
             assert p._api_key == ""
 
@@ -341,7 +341,7 @@ class TestCostLogging:
     def test_log_cost_known_model(self, caplog):
         import logging
 
-        with caplog.at_level(logging.INFO, logger="providers.anthropic_provider"):
+        with caplog.at_level(logging.INFO, logger="bmt_ai_os.providers.anthropic_provider"):
             usage = TokenUsage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
             AnthropicProvider._log_cost("claude-sonnet-4-20250514", usage)
         assert "$" in caplog.text or "est." in caplog.text
@@ -349,7 +349,7 @@ class TestCostLogging:
     def test_log_cost_unknown_model(self, caplog):
         import logging
 
-        with caplog.at_level(logging.DEBUG, logger="providers.anthropic_provider"):
+        with caplog.at_level(logging.DEBUG, logger="bmt_ai_os.providers.anthropic_provider"):
             usage = TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150)
             AnthropicProvider._log_cost("unknown-model", usage)
         assert "no cost data" in caplog.text

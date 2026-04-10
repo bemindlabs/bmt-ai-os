@@ -12,11 +12,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 from typing import Any, AsyncIterator
 
 import aiohttp
-
 from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
@@ -184,9 +182,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 if resp.status == 429 or resp.status >= 500:
                     retry_after = resp.headers.get("Retry-After")
                     delay = (
-                        float(retry_after)
-                        if retry_after
-                        else self.retry_base_delay * (2 ** attempt)
+                        float(retry_after) if retry_after else self.retry_base_delay * (2**attempt)
                     )
                     logger.warning(
                         "Provider %s returned %d — retrying in %.1fs (attempt %d/%d)",
@@ -202,7 +198,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 return resp
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 last_exc = exc
-                delay = self.retry_base_delay * (2 ** attempt)
+                delay = self.retry_base_delay * (2**attempt)
                 logger.warning(
                     "Provider %s request error: %s — retrying in %.1fs",
                     self.name,
@@ -278,17 +274,13 @@ class OpenAICompatibleProvider(LLMProvider):
             return self._stream_chat(payload, model)
         return await self._non_stream_chat(payload, model)
 
-    async def _non_stream_chat(
-        self, payload: dict[str, Any], model: str
-    ) -> ChatResponse:
+    async def _non_stream_chat(self, payload: dict[str, Any], model: str) -> ChatResponse:
         t0 = self._now_ms()
         resp = await self._request_with_retry("POST", "/chat/completions", json_body=payload)
 
         if resp.status != 200:
             body = await resp.text()
-            raise RuntimeError(
-                f"Provider {self.name} chat error {resp.status}: {body}"
-            )
+            raise RuntimeError(f"Provider {self.name} chat error {resp.status}: {body}")
 
         data = await resp.json()
         latency = self._now_ms() - t0
@@ -309,9 +301,7 @@ class OpenAICompatibleProvider(LLMProvider):
             raw=data,
         )
 
-    async def _stream_chat(
-        self, payload: dict[str, Any], model: str
-    ) -> AsyncIterator[str]:
+    async def _stream_chat(self, payload: dict[str, Any], model: str) -> AsyncIterator[str]:
         payload["stream"] = True
         t0 = self._now_ms()
         session = await self._get_session()
@@ -320,9 +310,7 @@ class OpenAICompatibleProvider(LLMProvider):
         resp = await session.post(url, headers=self._headers(), json=payload)
         if resp.status != 200:
             body = await resp.text()
-            raise RuntimeError(
-                f"Provider {self.name} stream error {resp.status}: {body}"
-            )
+            raise RuntimeError(f"Provider {self.name} stream error {resp.status}: {body}")
 
         return self._iter_sse(resp, model, t0)
 
@@ -338,7 +326,7 @@ class OpenAICompatibleProvider(LLMProvider):
             line = line_bytes.decode("utf-8").strip()
             if not line or not line.startswith("data: "):
                 continue
-            data_str = line[len("data: "):]
+            data_str = line[len("data: ") :]
             if data_str == "[DONE]":
                 break
             try:
@@ -388,9 +376,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
         if resp.status != 200:
             body = await resp.text()
-            raise RuntimeError(
-                f"Provider {self.name} embed error {resp.status}: {body}"
-            )
+            raise RuntimeError(f"Provider {self.name} embed error {resp.status}: {body}")
 
         data = await resp.json()
         latency = self._now_ms() - t0
@@ -417,9 +403,7 @@ class OpenAICompatibleProvider(LLMProvider):
         resp = await self._request_with_retry("GET", "/models")
         if resp.status != 200:
             body = await resp.text()
-            raise RuntimeError(
-                f"Provider {self.name} list_models error {resp.status}: {body}"
-            )
+            raise RuntimeError(f"Provider {self.name} list_models error {resp.status}: {body}")
         data = await resp.json()
         return data.get("data", [])
 

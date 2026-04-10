@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from bmt_ai_os.providers.openai_provider import OpenAICompatibleProvider
 
-
 # Pricing as of 2026-Q2 (USD per million tokens)
 _MISTRAL_PRICING: dict[str, tuple[float, float]] = {
     "mistral-small-latest": (0.10, 0.30),

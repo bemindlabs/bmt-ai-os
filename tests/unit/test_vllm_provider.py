@@ -15,7 +15,7 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     ModelInfo,
@@ -23,7 +23,7 @@ from providers.base import (  # noqa: E402
     ProviderError,
     ProviderHealth,
 )
-from providers.vllm import VLLMProvider  # noqa: E402
+from bmt_ai_os.providers.vllm import VLLMProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -369,7 +369,7 @@ class TestVLLMTokenUsage:
 
 class TestVLLMRegistryIntegration:
     def test_register_and_retrieve(self):
-        from providers.registry import ProviderRegistry
+        from bmt_ai_os.providers.registry import ProviderRegistry
 
         reg = ProviderRegistry()
         provider = VLLMProvider()

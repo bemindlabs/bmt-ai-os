@@ -10,8 +10,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import aiohttp
-
-from providers.base import (
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -210,14 +209,12 @@ class AnthropicProvider(LLMProvider):
                         )
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"Anthropic returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"Anthropic returned {resp.status}: {body}")
                     async for line in resp.content:
                         decoded = line.decode("utf-8", errors="replace").strip()
                         if not decoded or not decoded.startswith("data: "):
                             continue
-                        json_str = decoded[len("data: "):]
+                        json_str = decoded[len("data: ") :]
                         if json_str == "[DONE]":
                             break
                         try:
@@ -257,23 +254,22 @@ class AnthropicProvider(LLMProvider):
                                 f"Rate limited (attempt {attempt + 1}/{_MAX_RETRIES})",
                                 retry_after=retry_after,
                             )
-                            wait = retry_after if retry_after else (2 ** attempt)
+                            wait = retry_after if retry_after else (2**attempt)
                             logger.warning(
                                 "Anthropic 429 — retrying in %.1fs (attempt %d/%d)",
-                                wait, attempt + 1, _MAX_RETRIES,
+                                wait,
+                                attempt + 1,
+                                _MAX_RETRIES,
                             )
                             import asyncio
+
                             await asyncio.sleep(wait)
                             continue
                         if resp.status == 401:
-                            raise ProviderError(
-                                "Anthropic authentication failed — check API key"
-                            )
+                            raise ProviderError("Anthropic authentication failed — check API key")
                         if resp.status != 200:
                             body = await resp.text()
-                            raise ProviderError(
-                                f"Anthropic returned {resp.status}: {body}"
-                            )
+                            raise ProviderError(f"Anthropic returned {resp.status}: {body}")
                         return await resp.json()
             except aiohttp.ServerTimeoutError as exc:
                 raise ProviderTimeoutError(str(exc)) from exc
@@ -334,16 +330,20 @@ class AnthropicProvider(LLMProvider):
         if not rates:
             logger.debug(
                 "Anthropic request: %d input, %d output tokens (no cost data for %s)",
-                usage.prompt_tokens, usage.completion_tokens, model,
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                model,
             )
             return
         input_cost = (usage.prompt_tokens / 1_000_000) * rates["input"]
         output_cost = (usage.completion_tokens / 1_000_000) * rates["output"]
         total_cost = input_cost + output_cost
         logger.info(
-            "Anthropic request: %d input, %d output tokens — est. $%.6f "
-            "(model=%s)",
-            usage.prompt_tokens, usage.completion_tokens, total_cost, model,
+            "Anthropic request: %d input, %d output tokens — est. $%.6f (model=%s)",
+            usage.prompt_tokens,
+            usage.completion_tokens,
+            total_cost,
+            model,
         )
 
     def build_url(self, path: str) -> str:

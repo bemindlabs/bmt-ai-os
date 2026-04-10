@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from providers.base import ProviderError, ProviderHealth
+from bmt_ai_os.providers.base import ProviderError, ProviderHealth
 
 if TYPE_CHECKING:
-    from providers.base import LLMProvider
+    from bmt_ai_os.providers.base import LLMProvider
 
 
 class ProviderRegistry:
@@ -103,9 +103,7 @@ class ProviderRegistry:
         out: dict[str, ProviderHealth] = {}
         for name, result in zip(names, results):
             if isinstance(result, BaseException):
-                out[name] = ProviderHealth(
-                    healthy=False, latency_ms=0.0, error=str(result)
-                )
+                out[name] = ProviderHealth(healthy=False, latency_ms=0.0, error=str(result))
             else:
                 out[name] = result
         return out

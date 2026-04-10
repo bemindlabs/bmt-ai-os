@@ -96,9 +96,7 @@ class OllamaLLM:
         """Streaming completion via Server-Sent Events (NDJSON)."""
         url = f"{self.base_url}/api/chat"
         start = time.monotonic()
-        with requests.post(
-            url, json=payload, stream=True, timeout=self.config.llm_timeout
-        ) as resp:
+        with requests.post(url, json=payload, stream=True, timeout=self.config.llm_timeout) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines(decode_unicode=True):
                 if not line:

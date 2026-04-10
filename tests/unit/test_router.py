@@ -45,9 +45,8 @@ class FakeProvider(LLMProvider):
             provider=name,
         )
         self._embed_response = embed_response or EmbedResponse(
-            embeddings=[[0.1, 0.2]],
+            embedding=[0.1, 0.2],
             model="m",
-            provider=name,
         )
         self._should_fail = should_fail
         self._fail_error = fail_error or RuntimeError(f"{name} down")

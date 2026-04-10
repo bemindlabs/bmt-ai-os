@@ -1,7 +1,7 @@
-<<<<<<< HEAD
 # BMT AI OS — Provider Configuration
 # Copy to /etc/bmt-ai-os/providers.yml for system-wide settings.
 # Override path via BMT_PROVIDERS_CONFIG environment variable.
+# Secrets should NOT be stored here. Use /etc/bmt-ai-os/secrets/ or env vars.
 
 active_provider: ollama
 
@@ -21,18 +21,21 @@ providers:
 
   ollama:
     enabled: true
+    type: local
     base_url: http://localhost:11434
     default_model: qwen2.5-coder:7b-instruct-q4_K_M
     timeout: 30
 
   vllm:
     enabled: false
+    type: local
     base_url: http://localhost:8001
     default_model: qwen2.5-coder-7b-instruct
     timeout: 60
 
   llama-cpp:
     enabled: false
+    type: local
     base_url: http://localhost:8002
     default_model: qwen2.5-coder-7b-instruct-q4_k_m.gguf
     timeout: 30
@@ -43,67 +46,40 @@ providers:
 
   openai:
     enabled: false
+    type: cloud
     base_url: https://api.openai.com/v1
-    api_key: ""
     default_model: gpt-4o
     timeout: 60
+    env_var: OPENAI_API_KEY
 
   anthropic:
     enabled: false
+    type: cloud
     base_url: https://api.anthropic.com
-    api_key: ""
     default_model: claude-sonnet-4-20250514
     timeout: 60
+    env_var: ANTHROPIC_API_KEY
 
   gemini:
     enabled: false
+    type: cloud
     base_url: https://generativelanguage.googleapis.com/v1beta
-    api_key: ""
     default_model: gemini-2.0-flash
     timeout: 60
+    env_var: GOOGLE_API_KEY
 
   groq:
     enabled: false
+    type: cloud
     base_url: https://api.groq.com/openai/v1
-    api_key: ""
     default_model: llama-3.3-70b-versatile
     timeout: 30
-
-  mistral:
-    enabled: false
-    base_url: https://api.mistral.ai/v1
-    api_key: ""
-    default_model: mistral-large-latest
-    timeout: 60
-=======
-# BMT AI OS — Provider configuration
-# Secrets should NOT be stored here. Use /etc/bmt-ai-os/secrets/ or env vars.
-
-providers:
-  ollama:
-    enabled: true
-    type: local
-    base_url: http://localhost:11434
-    default_model: qwen2.5-coder:7b
-
-  openai:
-    enabled: false
-    type: cloud
-    base_url: https://api.openai.com/v1
-    default_model: gpt-4o-mini
-    env_var: OPENAI_API_KEY
-
-  groq:
-    enabled: false
-    type: cloud
-    base_url: https://api.groq.com/openai/v1
-    default_model: llama-3.3-70b-versatile
     env_var: GROQ_API_KEY
 
   mistral:
     enabled: false
     type: cloud
     base_url: https://api.mistral.ai/v1
-    default_model: mistral-small-latest
+    default_model: mistral-large-latest
+    timeout: 60
     env_var: MISTRAL_API_KEY
->>>>>>> 89ca624 (feat(BMTOS-8a): implement cloud LLM provider: OpenAI)

@@ -15,8 +15,7 @@ import time
 from typing import Any, AsyncGenerator
 
 import aiohttp
-
-from providers.base import (
+from bmt_ai_os.providers.base import (
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -178,21 +177,15 @@ class LlamaCppProvider(LLMProvider):
             async with aiohttp.ClientSession(timeout=self._timeout) as session:
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 404:
-                        raise ModelNotFoundError(
-                            f"Model not found: {payload.get('model')}"
-                        )
+                        raise ModelNotFoundError(f"Model not found: {payload.get('model')}")
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"llama-server returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"llama-server returned {resp.status}: {body}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
         except aiohttp.ClientError as exc:
-            raise ProviderError(
-                f"llama-server connection error: {exc}"
-            ) from exc
+            raise ProviderError(f"llama-server connection error: {exc}") from exc
 
     async def _get(self, path: str) -> dict:
         url = f"{self._base_url}{path}"
@@ -201,16 +194,12 @@ class LlamaCppProvider(LLMProvider):
                 async with session.get(url) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"llama-server returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"llama-server returned {resp.status}: {body}")
                     return await resp.json()
         except aiohttp.ServerTimeoutError as exc:
             raise ProviderTimeoutError(str(exc)) from exc
         except aiohttp.ClientError as exc:
-            raise ProviderError(
-                f"llama-server connection error: {exc}"
-            ) from exc
+            raise ProviderError(f"llama-server connection error: {exc}") from exc
 
     async def _stream_chat(
         self,
@@ -228,28 +217,20 @@ class LlamaCppProvider(LLMProvider):
                 async with session.post(url, json=payload) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        raise ProviderError(
-                            f"llama-server returned {resp.status}: {body}"
-                        )
+                        raise ProviderError(f"llama-server returned {resp.status}: {body}")
                     async for raw_line in resp.content:
                         line = raw_line.decode("utf-8").strip()
                         if not line or not line.startswith("data: "):
                             continue
-                        data_str = line[len("data: "):]
+                        data_str = line[len("data: ") :]
                         if data_str == "[DONE]":
                             break
                         data = json.loads(data_str)
-                        delta = (
-                            data.get("choices", [{}])[0]
-                            .get("delta", {})
-                            .get("content", "")
-                        )
+                        delta = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                         if delta:
                             yield delta
         except aiohttp.ClientError as exc:
-            raise ProviderError(
-                f"llama-server stream error: {exc}"
-            ) from exc
+            raise ProviderError(f"llama-server stream error: {exc}") from exc
 
     # -- Helpers --------------------------------------------------------------
 

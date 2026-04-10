@@ -19,7 +19,7 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (  # noqa: E402
+from bmt_ai_os.providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -30,9 +30,9 @@ from providers.base import (  # noqa: E402
     ProviderTimeoutError,
     TokenUsage,
 )
-from providers.config import ProvidersConfig, ProviderSettings, load_config  # noqa: E402
-from providers.ollama import OllamaProvider  # noqa: E402
-from providers.registry import ProviderRegistry, reset_registry  # noqa: E402
+from bmt_ai_os.providers.config import ProvidersConfig, ProviderSettings, load_config  # noqa: E402
+from bmt_ai_os.providers.ollama import OllamaProvider  # noqa: E402
+from bmt_ai_os.providers.registry import ProviderRegistry, reset_registry  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

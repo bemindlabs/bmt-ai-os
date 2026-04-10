@@ -15,9 +15,9 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import ProviderError  # noqa: E402
-from providers.groq_provider import _GROQ_PRICING, GroqProvider  # noqa: E402
-from providers.openai_provider import OpenAICompatibleProvider  # noqa: E402
+from bmt_ai_os.providers.base import ProviderError  # noqa: E402
+from bmt_ai_os.providers.groq_provider import _GROQ_PRICING, GroqProvider  # noqa: E402
+from bmt_ai_os.providers.openai_provider import OpenAICompatibleProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -126,7 +126,7 @@ class TestAPIKeyLoading:
         secrets_file.write_text("  file-groq-key  \n")
         os.environ.pop("GROQ_API_KEY", None)
         with patch(
-            "providers.openai_provider._SECRETS_DIR",
+            "bmt_ai_os.providers.config._SECRETS_DIR",
             tmp_path,
         ):
             p = GroqProvider()

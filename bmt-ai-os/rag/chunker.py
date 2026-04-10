@@ -33,6 +33,7 @@ class Chunk:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _token_len(text: str) -> int:
     """Approximate token count (whitespace-split)."""
     return len(text.split())
@@ -57,14 +58,16 @@ def _merge_splits(
             return
         text = "\n".join(current_pieces)
         meta = dict(extra_meta) if extra_meta else {}
-        chunks.append(Chunk(
-            text=text,
-            source=source,
-            chunk_index=len(chunks),
-            start_char=char_cursor - sum(len(p) + 1 for p in current_pieces),
-            end_char=end_char,
-            metadata=meta,
-        ))
+        chunks.append(
+            Chunk(
+                text=text,
+                source=source,
+                chunk_index=len(chunks),
+                start_char=char_cursor - sum(len(p) + 1 for p in current_pieces),
+                end_char=end_char,
+                metadata=meta,
+            )
+        )
 
     for piece in pieces:
         piece_tokens = _token_len(piece)
@@ -96,6 +99,7 @@ def _merge_splits(
 # TextChunker
 # ---------------------------------------------------------------------------
 
+
 class TextChunker:
     """Split plain text by paragraph/sentence boundaries with overlap."""
 
@@ -122,6 +126,7 @@ class TextChunker:
 # MarkdownChunker
 # ---------------------------------------------------------------------------
 
+
 class MarkdownChunker:
     """Split Markdown respecting heading boundaries and code fences."""
 
@@ -138,14 +143,16 @@ class MarkdownChunker:
             if not section_text:
                 continue
             if _token_len(section_text) <= self.chunk_size:
-                all_chunks.append(Chunk(
-                    text=section_text,
-                    source=source,
-                    chunk_index=len(all_chunks),
-                    start_char=0,
-                    end_char=len(section_text),
-                    metadata={"heading": heading.strip() if heading else ""},
-                ))
+                all_chunks.append(
+                    Chunk(
+                        text=section_text,
+                        source=source,
+                        chunk_index=len(all_chunks),
+                        start_char=0,
+                        end_char=len(section_text),
+                        metadata={"heading": heading.strip() if heading else ""},
+                    )
+                )
             else:
                 sub = _merge_splits(
                     self._paragraph_split(body),
@@ -207,6 +214,7 @@ class MarkdownChunker:
 # CodeChunker
 # ---------------------------------------------------------------------------
 
+
 class CodeChunker:
     """Split source code by top-level function/class definitions.
 
@@ -263,7 +271,10 @@ class CodeChunker:
             segments = [text]
 
         return _merge_splits(
-            segments, self.chunk_size, self.overlap, source,
+            segments,
+            self.chunk_size,
+            self.overlap,
+            source,
             extra_meta={"language": "python"},
         )
 
@@ -296,7 +307,10 @@ class CodeChunker:
             segments = [text]
 
         return _merge_splits(
-            segments, self.chunk_size, self.overlap, source,
+            segments,
+            self.chunk_size,
+            self.overlap,
+            source,
             extra_meta={"language": language or _guess_language(source)},
         )
 
@@ -304,11 +318,21 @@ class CodeChunker:
 def _guess_language(path: str) -> str:
     """Guess programming language from file extension."""
     ext_map = {
-        ".py": "python", ".js": "javascript", ".ts": "typescript",
-        ".jsx": "javascript", ".tsx": "typescript",
-        ".c": "c", ".h": "c", ".cpp": "cpp", ".hpp": "cpp",
-        ".rs": "rust", ".go": "go", ".java": "java",
-        ".sh": "shell", ".bash": "shell", ".zsh": "shell",
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".jsx": "javascript",
+        ".tsx": "typescript",
+        ".c": "c",
+        ".h": "c",
+        ".cpp": "cpp",
+        ".hpp": "cpp",
+        ".rs": "rust",
+        ".go": "go",
+        ".java": "java",
+        ".sh": "shell",
+        ".bash": "shell",
+        ".zsh": "shell",
     }
     for ext, lang in ext_map.items():
         if path.endswith(ext):
