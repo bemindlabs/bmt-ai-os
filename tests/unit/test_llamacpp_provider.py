@@ -5,8 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -15,7 +14,7 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (
+from providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     LLMProvider,
@@ -24,22 +23,20 @@ from providers.base import (
     ProviderError,
     ProviderHealth,
     ProviderTimeoutError,
-    TokenUsage,
 )
-from providers.llamacpp import LlamaCppProvider
-
+from providers.llamacpp import LlamaCppProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(coro):
     """Run an async coroutine synchronously."""
     return asyncio.run(coro)
 
 
-def _mock_response(*, status: int = 200, json_data: dict | None = None,
-                   text: str = ""):
+def _mock_response(*, status: int = 200, json_data: dict | None = None, text: str = ""):
     """Create a mock aiohttp response."""
     resp = AsyncMock()
     resp.status = status
@@ -52,8 +49,8 @@ def _mock_response(*, status: int = 200, json_data: dict | None = None,
 # Constructor / URL tests
 # ---------------------------------------------------------------------------
 
-class TestLlamaCppConstruction:
 
+class TestLlamaCppConstruction:
     def test_default_base_url(self):
         p = LlamaCppProvider()
         assert p.build_url("/health") == "http://localhost:8002/health"
@@ -95,17 +92,15 @@ class TestLlamaCppConstruction:
 # chat() — non-streaming
 # ---------------------------------------------------------------------------
 
-class TestLlamaCppChat:
 
+class TestLlamaCppChat:
     @pytest.fixture
     def provider(self):
         return LlamaCppProvider()
 
     def test_chat_returns_response(self, provider):
         mock_json = {
-            "choices": [
-                {"message": {"role": "assistant", "content": "Hello!"}}
-            ],
+            "choices": [{"message": {"role": "assistant", "content": "Hello!"}}],
             "usage": {
                 "prompt_tokens": 10,
                 "completion_tokens": 5,
@@ -113,8 +108,7 @@ class TestLlamaCppChat:
             },
         }
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_post", new_callable=AsyncMock, return_value=mock_json):
             msgs = [ChatMessage(role="user", content="Hi")]
             result = _run(provider.chat(msgs))
 
@@ -132,8 +126,9 @@ class TestLlamaCppChat:
             "usage": {},
         }
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json) as mock_post:
+        with patch.object(
+            provider, "_post", new_callable=AsyncMock, return_value=mock_json
+        ) as mock_post:
             msgs = [ChatMessage(role="user", content="test")]
             _run(provider.chat(msgs))
 
@@ -147,8 +142,9 @@ class TestLlamaCppChat:
             "usage": {},
         }
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json) as mock_post:
+        with patch.object(
+            provider, "_post", new_callable=AsyncMock, return_value=mock_json
+        ) as mock_post:
             msgs = [ChatMessage(role="user", content="test")]
             _run(provider.chat(msgs, model="custom.gguf"))
 
@@ -159,8 +155,7 @@ class TestLlamaCppChat:
     def test_chat_empty_choices(self, provider):
         mock_json = {"choices": [], "usage": {}}
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_post", new_callable=AsyncMock, return_value=mock_json):
             msgs = [ChatMessage(role="user", content="test")]
             result = _run(provider.chat(msgs))
 
@@ -172,8 +167,9 @@ class TestLlamaCppChat:
             "usage": {},
         }
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json) as mock_post:
+        with patch.object(
+            provider, "_post", new_callable=AsyncMock, return_value=mock_json
+        ) as mock_post:
             msgs = [ChatMessage(role="user", content="test")]
             _run(provider.chat(msgs, temperature=0.2, max_tokens=512))
 
@@ -186,8 +182,8 @@ class TestLlamaCppChat:
 # embed()
 # ---------------------------------------------------------------------------
 
-class TestLlamaCppEmbed:
 
+class TestLlamaCppEmbed:
     @pytest.fixture
     def provider(self):
         return LlamaCppProvider()
@@ -200,8 +196,7 @@ class TestLlamaCppEmbed:
             ]
         }
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_post", new_callable=AsyncMock, return_value=mock_json):
             result = _run(provider.embed(["hello", "world"]))
 
         assert len(result) == 2
@@ -217,8 +212,7 @@ class TestLlamaCppEmbed:
             ]
         }
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_post", new_callable=AsyncMock, return_value=mock_json):
             result = _run(provider.embed(["first", "second"]))
 
         assert result[0] == [0.1, 0.2]
@@ -227,8 +221,7 @@ class TestLlamaCppEmbed:
     def test_embed_empty_raises(self, provider):
         mock_json = {"data": []}
 
-        with patch.object(provider, "_post", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_post", new_callable=AsyncMock, return_value=mock_json):
             with pytest.raises(ProviderError, match="no embeddings"):
                 _run(provider.embed(["test"]))
 
@@ -237,8 +230,8 @@ class TestLlamaCppEmbed:
 # list_models()
 # ---------------------------------------------------------------------------
 
-class TestLlamaCppListModels:
 
+class TestLlamaCppListModels:
     @pytest.fixture
     def provider(self):
         return LlamaCppProvider()
@@ -250,8 +243,7 @@ class TestLlamaCppListModels:
             ]
         }
 
-        with patch.object(provider, "_get", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_get", new_callable=AsyncMock, return_value=mock_json):
             result = _run(provider.list_models())
 
         assert len(result) == 1
@@ -261,8 +253,7 @@ class TestLlamaCppListModels:
     def test_list_models_empty_falls_back(self, provider):
         mock_json = {"data": []}
 
-        with patch.object(provider, "_get", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_get", new_callable=AsyncMock, return_value=mock_json):
             result = _run(provider.list_models())
 
         assert len(result) == 1
@@ -273,8 +264,8 @@ class TestLlamaCppListModels:
 # health_check()
 # ---------------------------------------------------------------------------
 
-class TestLlamaCppHealthCheck:
 
+class TestLlamaCppHealthCheck:
     @pytest.fixture
     def provider(self):
         return LlamaCppProvider()
@@ -282,8 +273,7 @@ class TestLlamaCppHealthCheck:
     def test_healthy(self, provider):
         mock_json = {"status": "ok"}
 
-        with patch.object(provider, "_get", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_get", new_callable=AsyncMock, return_value=mock_json):
             result = _run(provider.health_check())
 
         assert isinstance(result, ProviderHealth)
@@ -293,16 +283,19 @@ class TestLlamaCppHealthCheck:
     def test_unhealthy_status(self, provider):
         mock_json = {"status": "loading model"}
 
-        with patch.object(provider, "_get", new_callable=AsyncMock,
-                          return_value=mock_json):
+        with patch.object(provider, "_get", new_callable=AsyncMock, return_value=mock_json):
             result = _run(provider.health_check())
 
         assert result.healthy is False
         assert "loading model" in result.error
 
     def test_connection_error(self, provider):
-        with patch.object(provider, "_get", new_callable=AsyncMock,
-                          side_effect=ProviderError("connection refused")):
+        with patch.object(
+            provider,
+            "_get",
+            new_callable=AsyncMock,
+            side_effect=ProviderError("connection refused"),
+        ):
             result = _run(provider.health_check())
 
         assert result.healthy is False
@@ -313,8 +306,8 @@ class TestLlamaCppHealthCheck:
 # HTTP error handling
 # ---------------------------------------------------------------------------
 
-class TestLlamaCppHTTPErrors:
 
+class TestLlamaCppHTTPErrors:
     @pytest.fixture
     def provider(self):
         return LlamaCppProvider()
@@ -338,8 +331,9 @@ class TestLlamaCppHTTPErrors:
                 _run(provider.chat(msgs))
 
     def test_get_error_in_health_check(self, provider):
-        with patch.object(provider, "_get", new_callable=AsyncMock,
-                          side_effect=ProviderError("connect refused")):
+        with patch.object(
+            provider, "_get", new_callable=AsyncMock, side_effect=ProviderError("connect refused")
+        ):
             result = _run(provider.health_check())
         assert result.healthy is False
 
@@ -357,8 +351,8 @@ class TestLlamaCppHTTPErrors:
 # Usage parsing
 # ---------------------------------------------------------------------------
 
-class TestUsageParsing:
 
+class TestUsageParsing:
     def test_parse_usage_complete(self):
         data = {
             "usage": {

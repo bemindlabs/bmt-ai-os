@@ -11,7 +11,6 @@ from typing import Any
 
 import yaml
 
-
 _DEFAULT_COMPOSE_FILE = "/opt/bmt-ai-os/ai-stack/docker-compose.yml"
 _DEFAULT_CONFIG_PATHS = [
     Path("/etc/bmt-ai-os/controller.yml"),

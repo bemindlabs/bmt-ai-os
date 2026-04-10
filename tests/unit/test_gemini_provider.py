@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -17,25 +15,23 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (
+from providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
-    ModelInfo,
     ModelNotFoundError,
     ProviderError,
-    ProviderHealth,
     ProviderTimeoutError,
     TokenUsage,
 )
-from providers.gemini_provider import (
+from providers.gemini_provider import (  # noqa: E402
     GeminiProvider,
     _resolve_api_key,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(coro):
     """Run an async coroutine synchronously."""
@@ -66,10 +62,12 @@ def _patch_session_post(mock_resp):
             session_ctx = AsyncMock()
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=session_ctx)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-            session_ctx.post = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
+            session_ctx.post = MagicMock(
+                return_value=AsyncMock(
+                    __aenter__=AsyncMock(return_value=mock_resp),
+                    __aexit__=AsyncMock(return_value=False),
+                )
+            )
             self.session = session_ctx
             return self
 
@@ -90,10 +88,12 @@ def _patch_session_get(mock_resp):
             session_ctx = AsyncMock()
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=session_ctx)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-            session_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
+            session_ctx.get = MagicMock(
+                return_value=AsyncMock(
+                    __aenter__=AsyncMock(return_value=mock_resp),
+                    __aexit__=AsyncMock(return_value=False),
+                )
+            )
             self.session = session_ctx
             return self
 
@@ -107,8 +107,8 @@ def _patch_session_get(mock_resp):
 # API key resolution
 # ---------------------------------------------------------------------------
 
-class TestApiKeyResolution:
 
+class TestApiKeyResolution:
     def test_explicit_key(self):
         assert _resolve_api_key("explicit") == "explicit"
 
@@ -133,8 +133,8 @@ class TestApiKeyResolution:
 # Constructor / properties
 # ---------------------------------------------------------------------------
 
-class TestConstruction:
 
+class TestConstruction:
     def test_name(self):
         assert _make_provider().name == "gemini"
 
@@ -169,8 +169,8 @@ class TestConstruction:
 # Message conversion
 # ---------------------------------------------------------------------------
 
-class TestMessageConversion:
 
+class TestMessageConversion:
     def test_user_message(self):
         msgs = [ChatMessage("user", "Hello")]
         contents, sys_inst = GeminiProvider._convert_messages(msgs)
@@ -217,15 +217,17 @@ class TestMessageConversion:
 # Response helpers
 # ---------------------------------------------------------------------------
 
-class TestResponseHelpers:
 
+class TestResponseHelpers:
     def test_extract_text(self):
         data = {
-            "candidates": [{
-                "content": {
-                    "parts": [{"text": "Hello "}, {"text": "world"}],
-                },
-            }],
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [{"text": "Hello "}, {"text": "world"}],
+                    },
+                }
+            ],
         }
         assert GeminiProvider._extract_text(data) == "Hello world"
 
@@ -253,14 +255,16 @@ class TestResponseHelpers:
 # Chat (mocked HTTP)
 # ---------------------------------------------------------------------------
 
-class TestChat:
 
+class TestChat:
     def test_chat_success(self):
         provider = _make_provider()
         json_data = {
-            "candidates": [{
-                "content": {"parts": [{"text": "Hi there!"}]},
-            }],
+            "candidates": [
+                {
+                    "content": {"parts": [{"text": "Hi there!"}]},
+                }
+            ],
             "usageMetadata": {
                 "promptTokenCount": 5,
                 "candidatesTokenCount": 3,
@@ -286,10 +290,12 @@ class TestChat:
             "usageMetadata": {},
         }
         with _patch_session_post(_mock_response(json_data=json_data)):
-            result = _run(provider.chat(
-                [ChatMessage("user", "Hello")],
-                model="gemini-2.0-pro",
-            ))
+            result = _run(
+                provider.chat(
+                    [ChatMessage("user", "Hello")],
+                    model="gemini-2.0-pro",
+                )
+            )
         assert result.model == "gemini-2.0-pro"
 
     def test_chat_404_raises_model_not_found(self):
@@ -309,8 +315,8 @@ class TestChat:
 # Embed (mocked HTTP)
 # ---------------------------------------------------------------------------
 
-class TestEmbed:
 
+class TestEmbed:
     def test_embed_success(self):
         provider = _make_provider()
         json_data = {"embedding": {"values": [0.1, 0.2, 0.3]}}
@@ -331,8 +337,8 @@ class TestEmbed:
 # List models (mocked HTTP)
 # ---------------------------------------------------------------------------
 
-class TestListModels:
 
+class TestListModels:
     def test_list_models(self):
         provider = _make_provider()
         json_data = {
@@ -355,8 +361,8 @@ class TestListModels:
 # Health check
 # ---------------------------------------------------------------------------
 
-class TestHealthCheck:
 
+class TestHealthCheck:
     def test_healthy(self):
         provider = _make_provider()
         with patch.object(provider, "list_models", new_callable=AsyncMock, return_value=[]):
@@ -368,7 +374,8 @@ class TestHealthCheck:
     def test_unhealthy(self):
         provider = _make_provider()
         with patch.object(
-            provider, "list_models",
+            provider,
+            "list_models",
             new_callable=AsyncMock,
             side_effect=ProviderError("offline"),
         ):
@@ -381,16 +388,18 @@ class TestHealthCheck:
 # Rate-limit retry
 # ---------------------------------------------------------------------------
 
-class TestRateLimitRetry:
 
+class TestRateLimitRetry:
     def test_429_retries_then_succeeds(self):
         """First call returns 429, second returns 200."""
         provider = _make_provider()
         resp_429 = _mock_response(status=429, text="rate limited")
-        resp_200 = _mock_response(json_data={
-            "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
-            "usageMetadata": {},
-        })
+        resp_200 = _mock_response(
+            json_data={
+                "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
+                "usageMetadata": {},
+            }
+        )
 
         call_count = 0
 
@@ -406,8 +415,10 @@ class TestRateLimitRetry:
             async def __aexit__(self, *a):
                 pass
 
-        with patch("aiohttp.ClientSession") as mock_cls, \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("aiohttp.ClientSession") as mock_cls,
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             session_ctx = AsyncMock()
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=session_ctx)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -426,13 +437,17 @@ class TestRateLimitRetry:
         class FakePost:
             def __init__(self, *a, **kw):
                 pass
+
             async def __aenter__(self):
                 return resp_429
+
             async def __aexit__(self, *a):
                 pass
 
-        with patch("aiohttp.ClientSession") as mock_cls, \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("aiohttp.ClientSession") as mock_cls,
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             session_ctx = AsyncMock()
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=session_ctx)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -446,8 +461,8 @@ class TestRateLimitRetry:
 # Connection errors
 # ---------------------------------------------------------------------------
 
-class TestConnectionErrors:
 
+class TestConnectionErrors:
     def test_timeout_raises(self):
         provider = _make_provider()
         with patch("aiohttp.ClientSession") as mock_cls:

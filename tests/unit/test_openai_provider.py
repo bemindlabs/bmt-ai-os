@@ -2,24 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
-import os
-from pathlib import Path
-from typing import Any
 from unittest import mock
 
 import aiohttp
 import pytest
-import pytest_asyncio
-
 from bmt_ai_os.providers.base import ChatMessage, ChatResponse, EmbedResponse
 from bmt_ai_os.providers.openai_provider import (
     OpenAICompatibleProvider,
     OpenAIProvider,
     _RequestLog,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -60,9 +52,7 @@ class TestAPIKeyResolution:
         key_file = secrets_dir / "OPENAI_API_KEY"
         key_file.write_text("sk-from-file\n")
 
-        with mock.patch(
-            "bmt_ai_os.providers.config._SECRETS_DIR", secrets_dir
-        ):
+        with mock.patch("bmt_ai_os.providers.config._SECRETS_DIR", secrets_dir):
             p = OpenAIProvider()
             assert p._api_key == "sk-from-file"
 
@@ -120,9 +110,7 @@ class TestRequestFormatting:
         assert "Authorization" not in headers
 
     def test_url_construction(self, provider):
-        assert provider._url("/chat/completions") == (
-            "https://api.openai.com/v1/chat/completions"
-        )
+        assert provider._url("/chat/completions") == ("https://api.openai.com/v1/chat/completions")
         assert provider._url("/models") == "https://api.openai.com/v1/models"
 
 
@@ -331,9 +319,7 @@ class TestChatAndEmbed:
         api_response = {
             "id": "chatcmpl-abc",
             "model": "gpt-4o-mini",
-            "choices": [
-                {"message": {"role": "assistant", "content": "Hi there!"}, "index": 0}
-            ],
+            "choices": [{"message": {"role": "assistant", "content": "Hi there!"}, "index": 0}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         }
 
@@ -422,7 +408,6 @@ class TestChatAndEmbed:
 
 
 class TestHealthAndModels:
-
     @pytest.mark.asyncio
     async def test_health_check_true(self):
         p = OpenAIProvider(api_key="sk-test", max_retries=0)
@@ -475,9 +460,7 @@ class TestSubclassing:
         p = GroqProvider(api_key="gsk-test")
         assert p.name == "groq"
         assert p.base_url == "https://api.groq.com/openai/v1"
-        assert p._url("/chat/completions") == (
-            "https://api.groq.com/openai/v1/chat/completions"
-        )
+        assert p._url("/chat/completions") == ("https://api.groq.com/openai/v1/chat/completions")
         assert p._api_key == "gsk-test"
 
     def test_provider_defaults(self):

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -16,14 +15,14 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import ChatMessage, EmbedResponse
-from providers.openai_provider import OpenAICompatibleProvider
-from providers.mistral_provider import MistralProvider, _MISTRAL_PRICING
-
+from providers.base import EmbedResponse  # noqa: E402
+from providers.mistral_provider import _MISTRAL_PRICING, MistralProvider  # noqa: E402
+from providers.openai_provider import OpenAICompatibleProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def provider():
@@ -35,8 +34,8 @@ def provider():
 # Subclassing
 # ---------------------------------------------------------------------------
 
-class TestSubclassing:
 
+class TestSubclassing:
     def test_inherits_openai_compatible(self):
         assert issubclass(MistralProvider, OpenAICompatibleProvider)
 
@@ -59,8 +58,8 @@ class TestSubclassing:
 # URL and headers
 # ---------------------------------------------------------------------------
 
-class TestURLAndHeaders:
 
+class TestURLAndHeaders:
     def test_base_url(self, provider):
         assert provider.base_url == "https://api.mistral.ai/v1"
 
@@ -86,8 +85,8 @@ class TestURLAndHeaders:
 # Embed works (inherited from OpenAICompatibleProvider)
 # ---------------------------------------------------------------------------
 
-class TestEmbed:
 
+class TestEmbed:
     def test_embed_method_exists(self, provider):
         """Mistral inherits embed() from OpenAICompatibleProvider (not overridden)."""
         assert hasattr(provider, "embed")
@@ -102,16 +101,20 @@ class TestEmbed:
         """Test embed() calls the correct endpoint with correct payload."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "data": [
-                {"index": 0, "embedding": [0.1, 0.2, 0.3]}
-            ],
-            "model": "mistral-embed",
-            "usage": {"prompt_tokens": 5, "total_tokens": 5},
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": [{"index": 0, "embedding": [0.1, 0.2, 0.3]}],
+                "model": "mistral-embed",
+                "usage": {"prompt_tokens": 5, "total_tokens": 5},
+            }
+        )
 
         async def _run():
-            with patch.object(provider, "_request_with_retry", return_value=mock_response) as mock_req:
+            with patch.object(
+                provider,
+                "_request_with_retry",
+                return_value=mock_response,
+            ) as mock_req:
                 result = await provider.embed("Hello world")
                 mock_req.assert_called_once_with(
                     "POST",
@@ -131,14 +134,16 @@ class TestEmbed:
         """Test embed() with multiple texts returns a list."""
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "data": [
-                {"index": 0, "embedding": [0.1, 0.2]},
-                {"index": 1, "embedding": [0.3, 0.4]},
-            ],
-            "model": "mistral-embed",
-            "usage": {"prompt_tokens": 10, "total_tokens": 10},
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": [
+                    {"index": 0, "embedding": [0.1, 0.2]},
+                    {"index": 1, "embedding": [0.3, 0.4]},
+                ],
+                "model": "mistral-embed",
+                "usage": {"prompt_tokens": 10, "total_tokens": 10},
+            }
+        )
 
         async def _run():
             with patch.object(provider, "_request_with_retry", return_value=mock_response):
@@ -155,8 +160,8 @@ class TestEmbed:
 # API key loading
 # ---------------------------------------------------------------------------
 
-class TestAPIKeyLoading:
 
+class TestAPIKeyLoading:
     def test_explicit_key(self):
         p = MistralProvider(api_key="explicit-mistral-key")
         assert p._api_key == "explicit-mistral-key"
@@ -196,8 +201,8 @@ class TestAPIKeyLoading:
 # Cost estimation
 # ---------------------------------------------------------------------------
 
-class TestCostEstimation:
 
+class TestCostEstimation:
     def test_cost_known_model(self, provider):
         cost = provider._estimate_cost("mistral-small-latest", 1_000_000, 1_000_000)
         input_price, output_price = _MISTRAL_PRICING["mistral-small-latest"]
@@ -218,8 +223,8 @@ class TestCostEstimation:
 # Custom overrides
 # ---------------------------------------------------------------------------
 
-class TestOverrides:
 
+class TestOverrides:
     def test_override_base_url(self):
         p = MistralProvider(api_key="key", base_url="https://custom.mistral.example.com/v1")
         assert p.base_url == "https://custom.mistral.example.com/v1"

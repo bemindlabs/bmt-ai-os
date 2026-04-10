@@ -7,17 +7,16 @@ matching the OpenAI API format expected by Cursor, Copilot, and Cody.
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Fake provider for testing
 # ---------------------------------------------------------------------------
+
 
 class _FakeChatResponse:
     def __init__(self, content: str = "Hello!", model: str = "qwen2.5-coder:7b"):
@@ -37,12 +36,13 @@ class _FakeEmbedResponse:
 class _FakeProvider:
     name = "fake"
 
-    async def chat(self, messages, *, model=None, temperature=0.7,
-                   max_tokens=4096, stream=False):
+    async def chat(self, messages, *, model=None, temperature=0.7, max_tokens=4096, stream=False):
         if stream:
+
             async def _gen():
                 for chunk in ["Hel", "lo", "!"]:
                     yield chunk
+
             return _gen()
         return _FakeChatResponse()
 
@@ -61,6 +61,7 @@ class _FakeRegistry:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def app():
@@ -85,12 +86,16 @@ def client(app):
 # /v1/chat/completions
 # ---------------------------------------------------------------------------
 
+
 class TestChatCompletions:
     def test_basic_chat(self, client):
-        resp = client.post("/v1/chat/completions", json={
-            "model": "qwen2.5-coder:7b",
-            "messages": [{"role": "user", "content": "Say hi"}],
-        })
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "qwen2.5-coder:7b",
+                "messages": [{"role": "user", "content": "Say hi"}],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
 
@@ -106,18 +111,18 @@ class TestChatCompletions:
         assert data["usage"]["total_tokens"] == 15
 
     def test_streaming_chat(self, client):
-        resp = client.post("/v1/chat/completions", json={
-            "model": "qwen2.5-coder:7b",
-            "messages": [{"role": "user", "content": "Say hi"}],
-            "stream": True,
-        })
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "qwen2.5-coder:7b",
+                "messages": [{"role": "user", "content": "Say hi"}],
+                "stream": True,
+            },
+        )
         assert resp.status_code == 200
         assert "text/event-stream" in resp.headers["content-type"]
 
-        lines = [
-            line for line in resp.text.strip().split("\n")
-            if line.startswith("data: ")
-        ]
+        lines = [line for line in resp.text.strip().split("\n") if line.startswith("data: ")]
         assert len(lines) >= 3  # initial + chunks + done
 
         # Last line is [DONE]
@@ -133,9 +138,12 @@ class TestChatCompletions:
         assert "content" in first_content["choices"][0]["delta"]
 
     def test_missing_messages_returns_422(self, client):
-        resp = client.post("/v1/chat/completions", json={
-            "model": "test",
-        })
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "test",
+            },
+        )
         assert resp.status_code == 422
 
 
@@ -143,13 +151,17 @@ class TestChatCompletions:
 # /v1/completions
 # ---------------------------------------------------------------------------
 
+
 class TestCompletions:
     def test_basic_completion(self, client):
-        resp = client.post("/v1/completions", json={
-            "model": "qwen2.5-coder:7b",
-            "prompt": "def hello():",
-            "max_tokens": 100,
-        })
+        resp = client.post(
+            "/v1/completions",
+            json={
+                "model": "qwen2.5-coder:7b",
+                "prompt": "def hello():",
+                "max_tokens": 100,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
 
@@ -160,9 +172,12 @@ class TestCompletions:
         assert data["choices"][0]["finish_reason"] == "stop"
 
     def test_prompt_as_list(self, client):
-        resp = client.post("/v1/completions", json={
-            "prompt": ["line1", "line2"],
-        })
+        resp = client.post(
+            "/v1/completions",
+            json={
+                "prompt": ["line1", "line2"],
+            },
+        )
         assert resp.status_code == 200
 
 
@@ -170,12 +185,16 @@ class TestCompletions:
 # /v1/embeddings
 # ---------------------------------------------------------------------------
 
+
 class TestEmbeddings:
     def test_single_embedding(self, client):
-        resp = client.post("/v1/embeddings", json={
-            "input": "hello world",
-            "model": "nomic-embed",
-        })
+        resp = client.post(
+            "/v1/embeddings",
+            json={
+                "input": "hello world",
+                "model": "nomic-embed",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
 
@@ -187,9 +206,12 @@ class TestEmbeddings:
         assert "usage" in data
 
     def test_batch_embedding(self, client):
-        resp = client.post("/v1/embeddings", json={
-            "input": ["hello", "world"],
-        })
+        resp = client.post(
+            "/v1/embeddings",
+            json={
+                "input": ["hello", "world"],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["data"]) == 2
@@ -199,6 +221,7 @@ class TestEmbeddings:
 # ---------------------------------------------------------------------------
 # /v1/models
 # ---------------------------------------------------------------------------
+
 
 class TestListModels:
     def test_list_models(self, client):
@@ -217,6 +240,7 @@ class TestListModels:
 # Service unavailable
 # ---------------------------------------------------------------------------
 
+
 class TestServiceUnavailable:
     def test_no_provider_returns_503(self, app):
         with patch(
@@ -224,15 +248,19 @@ class TestServiceUnavailable:
             return_value=None,
         ):
             c = TestClient(app)
-            resp = c.post("/v1/chat/completions", json={
-                "messages": [{"role": "user", "content": "hi"}],
-            })
+            resp = c.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
             assert resp.status_code == 503
 
 
 # ---------------------------------------------------------------------------
 # Middleware tests
 # ---------------------------------------------------------------------------
+
 
 class TestAPIKeyMiddleware:
     def test_no_key_configured_passes(self):

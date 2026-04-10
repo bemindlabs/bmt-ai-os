@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-
-from providers.base import ChatMessage, ProviderError, ModelNotFoundError
+from providers.base import ChatMessage, ModelNotFoundError, ProviderError
 from providers.registry import get_registry
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
 
@@ -14,6 +13,7 @@ router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
 # ---------------------------------------------------------------------------
 # Request / response schemas
 # ---------------------------------------------------------------------------
+
 
 class SetActiveRequest(BaseModel):
     name: str
@@ -30,6 +30,7 @@ class ChatRequest(BaseModel):
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("")
 async def list_providers():
     """List all registered providers with their health status."""
@@ -40,11 +41,13 @@ async def list_providers():
     providers = []
     for name in names:
         health = health_map.get(name)
-        providers.append({
-            "name": name,
-            "active": name == registry.active_name,
-            "health": health.to_dict() if health else None,
-        })
+        providers.append(
+            {
+                "name": name,
+                "active": name == registry.active_name,
+                "health": health.to_dict() if health else None,
+            }
+        )
     return {"providers": providers}
 
 

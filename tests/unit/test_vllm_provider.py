@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -16,22 +15,20 @@ _BMT_PKG = _REPO_ROOT / "bmt-ai-os"
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_BMT_PKG))
 
-from providers.base import (
+from providers.base import (  # noqa: E402
     ChatMessage,
     ChatResponse,
     ModelInfo,
     ModelNotFoundError,
     ProviderError,
     ProviderHealth,
-    ProviderTimeoutError,
-    TokenUsage,
 )
-from providers.vllm import VLLMProvider
-
+from providers.vllm import VLLMProvider  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_chat_response(content: str = "Hello!", model: str = "test-model") -> dict:
     """Return a realistic vLLM /v1/chat/completions response."""
@@ -59,10 +56,7 @@ def _make_models_response(model_ids: list[str] | None = None) -> dict:
     model_ids = model_ids or ["Qwen/Qwen2.5-Coder-7B-Instruct"]
     return {
         "object": "list",
-        "data": [
-            {"id": mid, "object": "model", "owned_by": "vllm"}
-            for mid in model_ids
-        ],
+        "data": [{"id": mid, "object": "model", "owned_by": "vllm"} for mid in model_ids],
     }
 
 
@@ -126,8 +120,8 @@ class _FakeSession:
 # URL construction
 # ---------------------------------------------------------------------------
 
-class TestVLLMURLConstruction:
 
+class TestVLLMURLConstruction:
     def test_default_base_url(self):
         p = VLLMProvider()
         assert p.build_url("/v1/models") == "http://localhost:8001/v1/models"
@@ -149,8 +143,8 @@ class TestVLLMURLConstruction:
 # Provider name
 # ---------------------------------------------------------------------------
 
-class TestVLLMProviderName:
 
+class TestVLLMProviderName:
     def test_name_is_vllm(self):
         p = VLLMProvider()
         assert p.name == "vllm"
@@ -160,8 +154,8 @@ class TestVLLMProviderName:
 # Chat (non-streaming)
 # ---------------------------------------------------------------------------
 
-class TestVLLMChat:
 
+class TestVLLMChat:
     def test_chat_returns_response(self):
         provider = VLLMProvider()
         resp_data = _make_chat_response("Hi there")
@@ -190,9 +184,7 @@ class TestVLLMChat:
         fake_session = _FakeSession(fake_resp)
 
         with patch("aiohttp.ClientSession", return_value=fake_session):
-            result = asyncio.run(
-                provider.chat([ChatMessage(role="user", content="hi")])
-            )
+            result = asyncio.run(provider.chat([ChatMessage(role="user", content="hi")]))
 
         assert result.model == "my-model"
 
@@ -203,9 +195,7 @@ class TestVLLMChat:
 
         with patch("aiohttp.ClientSession", return_value=fake_session):
             with pytest.raises(ModelNotFoundError):
-                asyncio.run(
-                    provider.chat([ChatMessage(role="user", content="hi")])
-                )
+                asyncio.run(provider.chat([ChatMessage(role="user", content="hi")]))
 
     def test_chat_500_raises_provider_error(self):
         provider = VLLMProvider()
@@ -214,17 +204,15 @@ class TestVLLMChat:
 
         with patch("aiohttp.ClientSession", return_value=fake_session):
             with pytest.raises(ProviderError, match="vLLM returned 500"):
-                asyncio.run(
-                    provider.chat([ChatMessage(role="user", content="hi")])
-                )
+                asyncio.run(provider.chat([ChatMessage(role="user", content="hi")]))
 
 
 # ---------------------------------------------------------------------------
 # List models
 # ---------------------------------------------------------------------------
 
-class TestVLLMListModels:
 
+class TestVLLMListModels:
     def test_list_models(self):
         provider = VLLMProvider()
         resp_data = _make_models_response(["model-a", "model-b"])
@@ -244,8 +232,8 @@ class TestVLLMListModels:
 # Health check
 # ---------------------------------------------------------------------------
 
-class TestVLLMHealthCheck:
 
+class TestVLLMHealthCheck:
     def test_healthy(self):
         provider = VLLMProvider()
         resp_data = _make_models_response()
@@ -275,8 +263,8 @@ class TestVLLMHealthCheck:
 # Embeddings
 # ---------------------------------------------------------------------------
 
-class TestVLLMEmbed:
 
+class TestVLLMEmbed:
     def test_embed_via_vllm(self):
         provider = VLLMProvider()
         resp_data = _make_embeddings_response([[0.1, 0.2], [0.3, 0.4]])
@@ -328,7 +316,7 @@ class TestVLLMEmbed:
         provider = VLLMProvider()
         resp_data = {"data": []}
         fake_resp = _FakeResponse(200, resp_data)
-        fake_session = _FakeSession(fake_resp)
+        _fake_session = _FakeSession(fake_resp)
 
         # Both vLLM and Ollama fail
         class _FailSession:
@@ -352,8 +340,8 @@ class TestVLLMEmbed:
 # Token usage parsing
 # ---------------------------------------------------------------------------
 
-class TestVLLMTokenUsage:
 
+class TestVLLMTokenUsage:
     def test_parse_usage(self):
         data = {
             "usage": {
@@ -378,8 +366,8 @@ class TestVLLMTokenUsage:
 # Registry integration
 # ---------------------------------------------------------------------------
 
-class TestVLLMRegistryIntegration:
 
+class TestVLLMRegistryIntegration:
     def test_register_and_retrieve(self):
         from providers.registry import ProviderRegistry
 
