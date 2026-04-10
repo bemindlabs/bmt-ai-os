@@ -8,15 +8,15 @@
 menu "BMT AI OS Packages"
 
 comment "AI Inference"
-source "$BMT_AI_OS_PATH/package/ollama/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/ollama/Config.in"
 
 comment "Vector Store"
-source "$BMT_AI_OS_PATH/package/chromadb/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/chromadb/Config.in"
 
 comment "AI Stack Controller"
-source "$BMT_AI_OS_PATH/package/bmt-controller/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/bmt-controller/Config.in"
 
 comment "Hardware Acceleration (select per BSP)"
-source "$BMT_AI_OS_PATH/package/bmt-npu-stub/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/bmt-npu-stub/Config.in"
 
 endmenu

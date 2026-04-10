@@ -6,4 +6,4 @@
 # package/<name>/<name>.mk.
 
 # Include all BMT AI OS package makefiles discovered under package/
-include $(sort $(wildcard $(BMT_AI_OS_PATH)/package/*/*.mk))
+include $(sort $(wildcard $(BR2_EXTERNAL_BMT_AI_OS_PATH)/package/*/*.mk))
