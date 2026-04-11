@@ -281,6 +281,22 @@ class BMTAIOSController:
         # Register LLM providers from running services
         self._register_providers()
 
+        # Auto-discover local inference endpoints not already registered
+        import asyncio
+
+        from .discovery import run_discovery
+
+        try:
+            discovered = asyncio.run(run_discovery())
+            if discovered:
+                logger.info(
+                    "Auto-discovery found %d provider(s): %s",
+                    len(discovered),
+                    [d.name for d in discovered],
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Provider auto-discovery failed: %s", exc)
+
         # Start background health checks
         self.start_health_checks()
 

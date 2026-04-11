@@ -44,7 +44,31 @@ export interface Provider {
   name: string;
   healthy: boolean;
   active?: boolean;
+  discovered?: boolean;
+  latency_ms?: number;
+  latency_history?: number[];
+  error_count?: number;
+  cooldown_remaining_s?: number;
+  last_success_ts?: number | null;
   [key: string]: unknown;
+}
+
+export interface DiscoveredProvider {
+  name: string;
+  port: number;
+  base_url: string;
+  provider_type: string;
+  latency_ms: number;
+  already_registered: boolean;
+  registered_now: boolean;
+  discovered: true;
+  error: string | null;
+  discovered_at: number;
+}
+
+export interface DiscoverResponse {
+  discovered: DiscoveredProvider[];
+  count: number;
 }
 
 export interface ProvidersResponse {
@@ -126,16 +150,29 @@ export async function fetchProviders(): Promise<ProvidersResponse> {
   );
   return {
     ...raw,
-    providers: raw.providers.map((p) => ({
-      ...p,
-      name: p.name as string,
-      healthy:
-        typeof p.healthy === "boolean"
-          ? p.healthy
-          : !!(p.health as Record<string, unknown> | undefined)?.healthy,
-      active: p.active as boolean | undefined,
-    })),
+    providers: raw.providers.map((p) => {
+      const health = p.health as Record<string, unknown> | undefined;
+      return {
+        ...p,
+        name: p.name as string,
+        healthy:
+          typeof p.healthy === "boolean"
+            ? p.healthy
+            : !!(health?.healthy),
+        active: p.active as boolean | undefined,
+        discovered: p.discovered as boolean | undefined,
+        latency_ms: (health?.latency_ms as number | undefined) ?? (p.latency_ms as number | undefined),
+        latency_history: p.latency_history as number[] | undefined,
+        error_count: p.error_count as number | undefined,
+        cooldown_remaining_s: p.cooldown_remaining_s as number | undefined,
+        last_success_ts: p.last_success_ts as number | null | undefined,
+      };
+    }),
   };
+}
+
+export async function discoverProviders(): Promise<DiscoverResponse> {
+  return apiFetch<DiscoverResponse>("/api/v1/providers/discover");
 }
 
 export async function setActiveProvider(name: string): Promise<unknown> {
