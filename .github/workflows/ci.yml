@@ -9,7 +9,7 @@
 #   2. smoke-tests        — Pytest smoke tests (no QEMU, no Docker daemon)
 #   3. unit-tests         — Full unit test suite (857+ tests)
 #   4. e2e-tests          — End-to-end controller tests (28+ tests)
-#   5. security-tests     — Security/auth hardening tests (31+ tests)
+#   5. security-tests     — Security/auth hardening tests (tests/smoke/test_security.py)
 #   6. load-tests         — Load/stress tests (12+, main branch only)
 #   7. integration-test   — Build image, boot QEMU ARM64, run integration tests
 #   8. build-image        — Full Buildroot ARM64 image build (cached)
