@@ -3,7 +3,7 @@
     {
       "id": "BMTOS-EPIC-1",
       "title": "Multi-Provider LLM Support",
-      "description": "Abstraction layer supporting multiple LLM backends — local-first (Ollama, vLLM, llama.cpp) with optional cloud fallback (OpenAI, Anthropic, Google, Mistral, Groq). Includes provider interface, routing, and fallback chain.",
+      "description": "Abstraction layer supporting multiple LLM backends \u2014 local-first (Ollama, vLLM, llama.cpp) with optional cloud fallback (OpenAI, Anthropic, Google, Mistral, Groq). Includes provider interface, routing, and fallback chain.",
       "status": "completed",
       "priority": "high",
       "stories": [
@@ -29,7 +29,7 @@
     {
       "id": "BMTOS-EPIC-2",
       "title": "AI Coding CLI & Agent Support",
-      "description": "Pre-installed, auto-configured AI coding tools — CLIs (Claude Code, Aider, Continue, Tabby, Open Interpreter), IDE plugins (Cursor, Copilot, Cody), and code agents (SWE-agent, Codex CLI, Mentat). All wired to the local LLM provider layer with RAG-enhanced project context.",
+      "description": "Pre-installed, auto-configured AI coding tools \u2014 CLIs (Claude Code, Aider, Continue, Tabby, Open Interpreter), IDE plugins (Cursor, Copilot, Cody), and code agents (SWE-agent, Codex CLI, Mentat). All wired to the local LLM provider layer with RAG-enhanced project context.",
       "status": "completed",
       "priority": "high",
       "stories": [
@@ -75,7 +75,7 @@
       ],
       "acceptance_criteria": [
         "Buildroot produces bootable ARM64 image for at least one Tier 1 target",
-        "Full boot sequence: kernel → init → containerd → AI stack → controller",
+        "Full boot sequence: kernel \u2192 init \u2192 containerd \u2192 AI stack \u2192 controller",
         "QEMU-based CI pipeline validates every commit",
         "Container networking and service discovery functional",
         "Security hardened: non-root containers, secrets management",
@@ -154,11 +154,11 @@
         "PyTorch ARM64-native with CUDA support on Jetson",
         "LoRA fine-tune a 1.5B model on Jetson Orin (8GB) in under 1 hour",
         "QLoRA fine-tune same model using <2GB VRAM",
-        "Data preparation: docs → instruction-tuning dataset via CLI",
+        "Data preparation: docs \u2192 instruction-tuning dataset via CLI",
         "Jupyter Lab for interactive training experiments",
         "TensorBoard for training visualization",
         "Export fine-tuned model directly to Ollama for serving",
-        "Full pipeline: prepare data → train → export → serve in one workflow"
+        "Full pipeline: prepare data \u2192 train \u2192 export \u2192 serve in one workflow"
       ],
       "total_points": 36,
       "created_at": "2026-04-09"
@@ -186,23 +186,40 @@
       "id": "BMTOS-EPIC-8",
       "title": "Production Readiness & Security Hardening",
       "description": "Address critical and high-priority findings from the production readiness evaluation. Fix auth defaults, error handling, input validation, CI gaps, secrets management, and test coverage.",
-      "status": "planned",
+      "status": "completed",
       "priority": "critical",
       "stories": [
-        "BMTOS-54", "BMTOS-55", "BMTOS-56", "BMTOS-57", "BMTOS-58",
-        "BMTOS-59", "BMTOS-60", "BMTOS-61", "BMTOS-62", "BMTOS-63",
-        "BMTOS-64", "BMTOS-65", "BMTOS-66", "BMTOS-67", "BMTOS-68"
+        "BMTOS-54",
+        "BMTOS-55",
+        "BMTOS-56",
+        "BMTOS-57",
+        "BMTOS-58",
+        "BMTOS-59",
+        "BMTOS-60",
+        "BMTOS-61",
+        "BMTOS-62",
+        "BMTOS-63",
+        "BMTOS-64",
+        "BMTOS-65",
+        "BMTOS-66",
+        "BMTOS-67",
+        "BMTOS-68"
       ]
     },
     {
       "id": "BMTOS-EPIC-9",
       "title": "AI Assistant Memory & Conversations",
       "description": "Transform BMT AI OS from a stateless LLM proxy into a conversational AI assistant with persistent sessions, context engine, memory search, and RAG-integrated chat. Inspired by OpenClaw's memory architecture.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
-        "BMTOS-69", "BMTOS-70", "BMTOS-71", "BMTOS-72",
-        "BMTOS-73", "BMTOS-74", "BMTOS-75"
+        "BMTOS-69",
+        "BMTOS-70",
+        "BMTOS-71",
+        "BMTOS-72",
+        "BMTOS-73",
+        "BMTOS-74",
+        "BMTOS-75"
       ],
       "acceptance_criteria": [
         "Chat completions persist conversation history in SQLite",

@@ -1470,7 +1470,7 @@
       "type": "story",
       "priority": "critical",
       "points": 3,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "security",
         "auth"
@@ -1482,7 +1482,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-55",
@@ -1491,7 +1492,7 @@
       "type": "story",
       "priority": "critical",
       "points": 5,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "quality",
         "error-handling"
@@ -1504,7 +1505,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-56",
@@ -1513,7 +1515,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "security",
         "api"
@@ -1526,7 +1528,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-57",
@@ -1535,7 +1538,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "security",
         "rag"
@@ -1548,7 +1551,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-58",
@@ -1557,7 +1561,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "security",
         "secrets"
@@ -1570,7 +1574,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-59",
@@ -1579,7 +1584,7 @@
       "type": "story",
       "priority": "critical",
       "points": 3,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "ci",
         "testing"
@@ -1593,7 +1598,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-60",
@@ -1602,7 +1608,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "security",
         "auth"
@@ -1615,7 +1621,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-61",
@@ -1624,7 +1631,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "fleet",
         "persistence"
@@ -1637,7 +1644,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-62",
@@ -1646,7 +1654,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "ci",
         "security"
@@ -1659,7 +1667,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-63",
@@ -1668,7 +1677,7 @@
       "type": "story",
       "priority": "medium",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "ci"
       ],
@@ -1678,7 +1687,9 @@
         "ShellCheck errors are non-fatal warnings (keep || true)"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-64",
@@ -1687,7 +1698,7 @@
       "type": "story",
       "priority": "medium",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "security",
         "auth"
@@ -1699,7 +1710,9 @@
         "Clear error message on validation failure"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-65",
@@ -1708,7 +1721,7 @@
       "type": "story",
       "priority": "high",
       "points": 13,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "testing"
       ],
@@ -1721,7 +1734,8 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-66",
@@ -1730,7 +1744,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "docs",
         "operations"
@@ -1743,7 +1757,9 @@
         "Troubleshooting guide for common issues (OOM, thermal, model eviction)"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-67",
@@ -1752,7 +1768,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "quality",
         "plugins"
@@ -1763,7 +1779,9 @@
         "Multiple PluginManager instances with different state files don't deadlock"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-68",
@@ -1772,7 +1790,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "security",
         "ota"
@@ -1784,7 +1802,9 @@
         "Signature verification tested in unit tests"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-69",
@@ -1793,7 +1813,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "chat",
         "persistence",
@@ -1810,7 +1830,8 @@
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-9",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-70",
@@ -1819,7 +1840,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "chat",
         "context",
@@ -1837,7 +1858,8 @@
       ],
       "epic_id": "BMTOS-EPIC-9",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-71",
@@ -1846,7 +1868,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "in_progress",
+      "status": "done",
       "labels": [
         "chat",
         "rag",
@@ -1864,7 +1886,8 @@
       ],
       "epic_id": "BMTOS-EPIC-9",
       "created_at": "2026-04-11",
-      "updated_at": "2026-04-11"
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-72",
@@ -1873,7 +1896,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "rag",
         "search",
@@ -1888,7 +1911,9 @@
       ],
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-73",
@@ -1897,7 +1922,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "chat",
         "api",
@@ -1914,7 +1939,9 @@
         "BMTOS-69"
       ],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-74",
@@ -1923,7 +1950,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "memory",
         "consolidation"
@@ -1939,7 +1966,9 @@
         "BMTOS-72"
       ],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-75",
@@ -1948,7 +1977,7 @@
       "type": "story",
       "priority": "low",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "channels",
         "messaging",
@@ -1965,7 +1994,9 @@
         "BMTOS-69"
       ],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     }
   ],
   "next_id": 76
