@@ -1,0 +1,63 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(docker build:*)",
+      "Bash(docker push:*)",
+      "Bash(docker run:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker images:*)",
+      "Bash(docker logs:*)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(python3:*)",
+      "Bash(uvx ruff:*)",
+      "Bash(trivy:*)",
+      "Bash(semgrep:*)",
+      "Bash(pre-commit:*)",
+      "Bash(make:*)",
+      "Bash(curl:*)",
+      "Edit",
+      "Write",
+      "Read",
+      "Grep",
+      "Glob"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(docker system prune -a)"
+    ]
+  },
+  "env": {
+    "PYTHONPATH": "${CLAUDE_PROJECT_DIR}",
+    "BMT_COMPOSE_FILE": "${CLAUDE_PROJECT_DIR}/bmt_ai_os/ai-stack/docker-compose.yml"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Writing to project files'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx ruff check --fix ${CLAUDE_PROJECT_DIR}/bmt_ai_os/ ${CLAUDE_PROJECT_DIR}/tests/ 2>/dev/null || true",
+            "timeout": 30,
+            "async": true,
+            "statusMessage": "Running ruff auto-fix..."
+          }
+        ]
+      }
+    ]
+  }
+}
