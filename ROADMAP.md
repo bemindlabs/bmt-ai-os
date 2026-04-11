@@ -1,8 +1,8 @@
 # BMT AI OS Roadmap
 
-**Current Version:** `2026.4.9` | **Version Format:** `YYYY.M.D`
+**Current Version:** `2026.4.11` | **Version Format:** `YYYY.M.D`
 
-> 48 stories | 292 points | 6 epics | 8 phases | **41 stories done (245 pts, 84%)**
+> 48 stories | 292 points | 6 epics | 8 phases | **48 stories done (292 pts, 100%)**
 
 ## Overview
 
@@ -12,7 +12,7 @@ Phase 2 ████████████████████████
 Phase 3 ████████████████████████████████████████████████ ✅ 36 pts  Coding Tools
 Phase 4 ████████████████████████████████████████████████ ✅ 52 pts  Dashboard
 Phase 5 ████████████████████████████████████████████████ ✅ 36 pts  Training
-Phase 6 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   29 pts  Hardware BSPs
+Phase 6 ████████████████████████████████████████████████ ✅ 29 pts  Hardware BSPs
 Phase 7 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   26 pts  Tooling
 Phase 8 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   TBD    Production
 ```
@@ -127,16 +127,16 @@ LoRA/QLoRA fine-tuning pipeline for edge hardware.
 
 ## Phase 6 — Hardware Board Support Packages
 
-**Epic:** BMTOS-EPIC-4 | **Points:** 29 | **Priority:** High
+**Epic:** BMTOS-EPIC-4 | **Points:** 29 | **Priority:** High | **Status: COMPLETE**
 
 Board-specific support for Tier 1 hardware targets.
 
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-43 | Add Apple Silicon BSP (Asahi Linux, CPU-first) | 8 | High |
-| BMTOS-26 | Add Jetson Orin board support package | 8 | High |
-| BMTOS-27 | Add Rockchip RK3588 board support package | 8 | High |
-| BMTOS-28 | Add Raspberry Pi 5 + Hailo AI HAT+ 2 board support package | 5 | Medium |
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-43 | Add Apple Silicon BSP (Asahi Linux, CPU-first) | 8 | Done |
+| BMTOS-26 | Add Jetson Orin board support package | 8 | Done |
+| BMTOS-27 | Add Rockchip RK3588 board support package | 8 | Done |
+| BMTOS-28 | Add Raspberry Pi 5 + Hailo AI HAT+ 2 board support package | 5 | Done |
 
 **Milestone:** Flash BMT AI OS on any Tier 1 board. Apple Silicon leads with fastest CPU inference (30-50 tok/s). NPU/GPU acceleration on other boards. Performance benchmarks published.
 
