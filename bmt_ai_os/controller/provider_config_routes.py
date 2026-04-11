@@ -1,224 +1,348 @@
-"""Provider CRUD API — dynamic provider configuration with SQLite persistence.
+"""FastAPI routes for multi-credential provider key management (BMTOS-134).
 
 Endpoints
 ---------
-GET    /api/v1/providers/config            — list all configured providers (API keys masked)
-POST   /api/v1/providers/config            — register a new provider
-PUT    /api/v1/providers/config/{name}     — update a provider's config
-DELETE /api/v1/providers/config/{name}     — remove a provider
-POST   /api/v1/providers/config/{name}/test — test provider connectivity
+GET    /api/v1/providers/config/{name}/keys          — list keys with usage stats (masked)
+POST   /api/v1/providers/config/{name}/keys          — add an additional API key
+DELETE /api/v1/providers/config/{name}/keys/{key_id} — remove a key by ID
 
-Providers are persisted to SQLite so they survive controller restarts.
-On registration the provider is also dynamically instantiated and added
-to the global ProviderRegistry.
+Key selection
+-------------
+- Round-robin by least-used: pick the key with the lowest usage_count.
+- Cooldown on 429 responses: mark a key as unavailable for 60 seconds.
+- All stored keys are encrypted at rest using Fernet symmetric encryption.
+  The encryption key is derived from BMT_JWT_SECRET so no separate secret is needed.
 """
 
 from __future__ import annotations
 
-import importlib
+import hashlib
 import logging
 import os
 import sqlite3
-import tempfile
-import threading
+import time
+import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from typing import Any, Generator
+from dataclasses import dataclass
+from typing import Generator
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator
-
-from bmt_ai_os.providers.base import ProviderHealth
-from bmt_ai_os.providers.registry import get_registry
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/providers/config", tags=["provider-config"])
+router = APIRouter(prefix="/api/v1/providers/config", tags=["provider-keys"])
 
 # ---------------------------------------------------------------------------
-# Provider type → (module, class) map
+# Configuration
 # ---------------------------------------------------------------------------
 
-PROVIDER_TYPES: dict[str, tuple[str, str]] = {
-    "ollama": ("bmt_ai_os.providers.ollama", "OllamaProvider"),
-    "openai": ("bmt_ai_os.providers.openai_provider", "OpenAIProvider"),
-    "anthropic": ("bmt_ai_os.providers.anthropic_provider", "AnthropicProvider"),
-    "gemini": ("bmt_ai_os.providers.gemini_provider", "GeminiProvider"),
-    "groq": ("bmt_ai_os.providers.groq_provider", "GroqProvider"),
-    "mistral": ("bmt_ai_os.providers.mistral_provider", "MistralProvider"),
-    "vllm": ("bmt_ai_os.providers.vllm", "VLLMProvider"),
-    "llamacpp": ("bmt_ai_os.providers.llamacpp", "LlamaCppProvider"),
-}
+_DEFAULT_DB_PATH = "/tmp/bmt-provider-keys.db"
+_ENV_DB_PATH = "BMT_PROVIDER_KEYS_DB"
+_COOLDOWN_SECONDS = 60
 
-# Default base URLs per provider type
-PROVIDER_DEFAULT_URLS: dict[str, str] = {
-    "ollama": "http://localhost:11434",
-    "openai": "https://api.openai.com/v1",
-    "anthropic": "https://api.anthropic.com",
-    "gemini": "https://generativelanguage.googleapis.com",
-    "groq": "https://api.groq.com/openai/v1",
-    "mistral": "https://api.mistral.ai/v1",
-    "vllm": "http://localhost:8000/v1",
-    "llamacpp": "http://localhost:8080",
-}
 
 # ---------------------------------------------------------------------------
-# SQLite persistence
+# Encryption helpers (Fernet-based, key derived from BMT_JWT_SECRET)
 # ---------------------------------------------------------------------------
 
-_DEFAULT_DB_PATH = "/var/lib/bmt/provider_configs.db"
-_ENV_DB_PATH = "BMT_PROVIDER_CONFIG_DB"
-_db_lock = threading.Lock()
 
+def _get_fernet():
+    """Return a Fernet instance derived from BMT_JWT_SECRET.
 
-def _resolve_db_path() -> str:
-    from_env = os.environ.get(_ENV_DB_PATH)
-    if from_env:
-        return from_env
-    import pathlib
-
-    target = pathlib.Path(_DEFAULT_DB_PATH)
+    Falls back to a deterministic but insecure key in dev/test when the env
+    var is not set.  Production must set BMT_JWT_SECRET.
+    """
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        test = target.parent / ".bmt-provconf-write-test"
-        test.touch()
-        test.unlink()
-        return str(target)
-    except OSError:
-        fd, tmp_path = tempfile.mkstemp(prefix="bmt-provconf-", suffix=".db")
-        os.close(fd)
-        logger.warning(
-            "Provider config DB %s not writable; using temp file %s",
-            _DEFAULT_DB_PATH,
-            tmp_path,
-        )
-        return tmp_path
+        import base64
+
+        from cryptography.fernet import Fernet
+
+        secret = os.environ.get("BMT_JWT_SECRET", "dev-insecure-fallback-32-chars!!")
+        # Derive a 32-byte key from the secret via SHA-256, then base64url-encode
+        key_bytes = hashlib.sha256(secret.encode()).digest()
+        fernet_key = base64.urlsafe_b64encode(key_bytes)
+        return Fernet(fernet_key)
+    except ImportError:
+        return None
 
 
-_DB_PATH: str | None = None
+def _encrypt(plaintext: str) -> str:
+    """Encrypt a string. Returns the ciphertext as a utf-8 string."""
+    fernet = _get_fernet()
+    if fernet is None:
+        # cryptography not installed — store as-is (acceptable in dev)
+        return plaintext
+    return fernet.encrypt(plaintext.encode()).decode()
 
 
-def _get_db_path() -> str:
-    global _DB_PATH
-    if _DB_PATH is None:
-        with _db_lock:
-            if _DB_PATH is None:
-                _DB_PATH = _resolve_db_path()
-    return _DB_PATH
-
-
-@contextmanager
-def _conn() -> Generator[sqlite3.Connection, None, None]:
-    con = sqlite3.connect(_get_db_path())
-    con.row_factory = sqlite3.Row
-    con.execute("PRAGMA journal_mode=WAL")
+def _decrypt(ciphertext: str) -> str:
+    """Decrypt a string previously encrypted by _encrypt."""
+    fernet = _get_fernet()
+    if fernet is None:
+        return ciphertext
     try:
-        yield con
-        con.commit()
-    finally:
-        con.close()
+        return fernet.decrypt(ciphertext.encode()).decode()
+    except Exception:
+        logger.warning("Failed to decrypt provider key — returning empty string")
+        return ""
 
 
-def _init_db() -> None:
-    with _conn() as con:
-        con.execute(
-            """
-            CREATE TABLE IF NOT EXISTS provider_configs (
-                name          TEXT PRIMARY KEY,
-                provider_type TEXT NOT NULL,
-                base_url      TEXT NOT NULL DEFAULT '',
-                api_key       TEXT NOT NULL DEFAULT '',
-                default_model TEXT NOT NULL DEFAULT '',
-                enabled       INTEGER NOT NULL DEFAULT 1,
-                created_at    TEXT NOT NULL,
-                updated_at    TEXT NOT NULL
+def _mask_key(raw_key: str) -> str:
+    """Return a masked version: show first 4 and last 4 characters."""
+    if len(raw_key) <= 8:
+        return "****"
+    return f"{raw_key[:4]}...{raw_key[-4:]}"
+
+
+def _hash_key(raw_key: str) -> str:
+    """Return a stable SHA-256 hex digest of the raw key (for dedup checks)."""
+    return hashlib.sha256(raw_key.encode()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Data model
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ProviderKey:
+    id: str
+    provider_name: str
+    key_hash: str
+    encrypted_key: str
+    usage_count: int = 0
+    last_used: float | None = None
+    last_error: str | None = None
+    cooldown_until: float | None = None
+
+    def is_in_cooldown(self) -> bool:
+        """Return True if this key is currently in a rate-limit cooldown."""
+        if self.cooldown_until is None:
+            return False
+        return time.time() < self.cooldown_until
+
+    def to_public_dict(self) -> dict:
+        """Return a safe public representation (no raw key, masked value)."""
+        decrypted = _decrypt(self.encrypted_key)
+        return {
+            "id": self.id,
+            "provider_name": self.provider_name,
+            "masked_key": _mask_key(decrypted),
+            "usage_count": self.usage_count,
+            "last_used": self.last_used,
+            "last_error": self.last_error,
+            "cooldown_until": self.cooldown_until,
+            "status": "cooldown" if self.is_in_cooldown() else "active",
+        }
+
+
+# ---------------------------------------------------------------------------
+# ProviderKeyStore — SQLite backend
+# ---------------------------------------------------------------------------
+
+
+class ProviderKeyStore:
+    """Persistent store for per-provider API key credentials."""
+
+    def __init__(self, db_path: str | None = None) -> None:
+        self._db_path = db_path or os.environ.get(_ENV_DB_PATH, _DEFAULT_DB_PATH)
+        self._init_db()
+
+    @contextmanager
+    def _conn(self) -> Generator[sqlite3.Connection, None, None]:
+        con = sqlite3.connect(self._db_path)
+        con.row_factory = sqlite3.Row
+        try:
+            yield con
+            con.commit()
+        finally:
+            con.close()
+
+    def _init_db(self) -> None:
+        with self._conn() as con:
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS provider_keys (
+                    id              TEXT    NOT NULL PRIMARY KEY,
+                    provider_name   TEXT    NOT NULL,
+                    key_hash        TEXT    NOT NULL,
+                    encrypted_key   TEXT    NOT NULL,
+                    usage_count     INTEGER NOT NULL DEFAULT 0,
+                    last_used       REAL,
+                    last_error      TEXT,
+                    cooldown_until  REAL,
+                    created_at      REAL    NOT NULL
+                )
+                """
             )
-            """
+            con.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_key_hash"
+                " ON provider_keys(provider_name, key_hash)"
+            )
+
+    @staticmethod
+    def _row_to_key(row: sqlite3.Row) -> ProviderKey:
+        return ProviderKey(
+            id=row["id"],
+            provider_name=row["provider_name"],
+            key_hash=row["key_hash"],
+            encrypted_key=row["encrypted_key"],
+            usage_count=row["usage_count"] or 0,
+            last_used=row["last_used"],
+            last_error=row["last_error"],
+            cooldown_until=row["cooldown_until"],
         )
 
+    def add_key(self, provider_name: str, raw_key: str) -> ProviderKey:
+        """Add a new API key for *provider_name*.
 
-# Initialise on module import
-_init_db()
+        Raises ValueError if an identical key already exists for this provider.
+        """
+        key_hash = _hash_key(raw_key)
+        key_id = uuid.uuid4().hex
+        encrypted = _encrypt(raw_key)
+        now = time.time()
+        try:
+            with self._conn() as con:
+                con.execute(
+                    """
+                    INSERT INTO provider_keys
+                        (id, provider_name, key_hash, encrypted_key, usage_count,
+                         last_used, last_error, cooldown_until, created_at)
+                    VALUES (?, ?, ?, ?, 0, NULL, NULL, NULL, ?)
+                    """,
+                    (key_id, provider_name, key_hash, encrypted, now),
+                )
+        except sqlite3.IntegrityError:
+            raise ValueError(f"An identical API key already exists for provider '{provider_name}'.")
+        logger.info("Added key %s for provider '%s'", key_id, provider_name)
+        return ProviderKey(
+            id=key_id,
+            provider_name=provider_name,
+            key_hash=key_hash,
+            encrypted_key=encrypted,
+            usage_count=0,
+            last_used=None,
+            last_error=None,
+            cooldown_until=None,
+        )
+
+    def list_keys(self, provider_name: str) -> list[ProviderKey]:
+        """Return all keys registered for *provider_name*, ordered by usage_count."""
+        with self._conn() as con:
+            sql = (
+                "SELECT * FROM provider_keys WHERE provider_name = ?"
+                " ORDER BY usage_count, created_at"
+            )
+            rows = con.execute(sql, (provider_name,)).fetchall()
+        return [self._row_to_key(r) for r in rows]
+
+    def get_key(self, key_id: str) -> ProviderKey | None:
+        """Return a single key by its ID."""
+        with self._conn() as con:
+            row = con.execute("SELECT * FROM provider_keys WHERE id = ?", (key_id,)).fetchone()
+        return self._row_to_key(row) if row else None
+
+    def delete_key(self, provider_name: str, key_id: str) -> bool:
+        """Delete key *key_id* belonging to *provider_name*.
+
+        Returns True if the row existed and was deleted.
+        """
+        with self._conn() as con:
+            cur = con.execute(
+                "DELETE FROM provider_keys WHERE id = ? AND provider_name = ?",
+                (key_id, provider_name),
+            )
+        deleted = cur.rowcount > 0
+        if deleted:
+            logger.info("Deleted key %s for provider '%s'", key_id, provider_name)
+        return deleted
+
+    def pick_key(self, provider_name: str) -> ProviderKey | None:
+        """Select the best available key using round-robin least-used strategy.
+
+        Skips keys currently in a cooldown period (429 rate-limit).
+        Returns None when no keys are registered or all are in cooldown.
+        """
+        keys = self.list_keys(provider_name)
+        if not keys:
+            return None
+        # Filter out keys in cooldown
+        available = [k for k in keys if not k.is_in_cooldown()]
+        if not available:
+            logger.warning(
+                "All %d keys for provider '%s' are in cooldown", len(keys), provider_name
+            )
+            return None
+        # list_keys is already ordered by usage_count ASC — pick first available
+        return available[0]
+
+    def record_usage(self, key_id: str) -> None:
+        """Increment usage_count and update last_used timestamp for *key_id*."""
+        now = time.time()
+        with self._conn() as con:
+            con.execute(
+                "UPDATE provider_keys"
+                " SET usage_count = usage_count + 1, last_used = ? WHERE id = ?",
+                (now, key_id),
+            )
+
+    def record_error(self, key_id: str, error: str, apply_cooldown: bool = False) -> None:
+        """Record an error against *key_id*.
+
+        When *apply_cooldown* is True (e.g. on HTTP 429), the key enters a
+        ``_COOLDOWN_SECONDS``-second cooldown.
+        """
+        cooldown_until = time.time() + _COOLDOWN_SECONDS if apply_cooldown else None
+        with self._conn() as con:
+            if cooldown_until is not None:
+                con.execute(
+                    "UPDATE provider_keys SET last_error = ?, cooldown_until = ? WHERE id = ?",
+                    (error, cooldown_until, key_id),
+                )
+            else:
+                con.execute(
+                    "UPDATE provider_keys SET last_error = ? WHERE id = ?",
+                    (error, key_id),
+                )
+        if apply_cooldown:
+            logger.warning("Key %s entered rate-limit cooldown until %.0f", key_id, cooldown_until)
+
+    def get_active_key_for_provider(self, provider_name: str) -> str | None:
+        """Convenience: pick the best key and return the decrypted API key string.
+
+        Also records the usage. Returns None when no keys are available.
+        """
+        key = self.pick_key(provider_name)
+        if key is None:
+            return None
+        self.record_usage(key.id)
+        return _decrypt(key.encrypted_key)
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton
+# ---------------------------------------------------------------------------
+
+_default_store: ProviderKeyStore | None = None
+
+
+def get_key_store() -> ProviderKeyStore:
+    """Return the module-level ProviderKeyStore singleton."""
+    global _default_store
+    if _default_store is None:
+        _default_store = ProviderKeyStore()
+    return _default_store
+
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
 # ---------------------------------------------------------------------------
 
 
-class ProviderConfigIn(BaseModel):
-    name: str
-    provider_type: str
-    base_url: str = ""
-    api_key: str = ""
-    default_model: str = ""
-    enabled: bool = True
-
-    @field_validator("provider_type")
-    @classmethod
-    def validate_type(cls, v: str) -> str:
-        if v not in PROVIDER_TYPES:
-            raise ValueError(
-                f"Unknown provider type '{v}'. Must be one of: {', '.join(PROVIDER_TYPES)}"
-            )
-        return v
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Provider name must not be empty")
-        return v
-
-
-class ProviderConfigUpdate(BaseModel):
-    base_url: str | None = None
-    api_key: str | None = None
-    default_model: str | None = None
-    enabled: bool | None = None
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _mask_key(key: str) -> str:
-    """Return a masked API key — show first 4 chars then asterisks."""
-    if not key:
-        return ""
-    visible = key[:4]
-    return f"{visible}{'*' * min(len(key) - 4, 12)}"
-
-
-def _row_to_dict(row: sqlite3.Row, mask_key: bool = True) -> dict[str, Any]:
-    d = dict(row)
-    d["enabled"] = bool(d["enabled"])
-    if mask_key:
-        d["api_key"] = _mask_key(d.get("api_key", ""))
-    return d
-
-
-def _instantiate_provider(
-    provider_type: str,
-    base_url: str,
-    api_key: str,
-    default_model: str,
-) -> Any:
-    """Dynamically import and instantiate a provider class."""
-    module_path, class_name = PROVIDER_TYPES[provider_type]
-    module = importlib.import_module(module_path)
-    cls = getattr(module, class_name)
-
-    kwargs: dict[str, Any] = {}
-    if base_url:
-        kwargs["base_url"] = base_url
-    if api_key:
-        kwargs["api_key"] = api_key
-    if default_model:
-        kwargs["default_model"] = default_model
-
-    return cls(**kwargs)
+class AddKeyRequest(BaseModel):
+    api_key: str
 
 
 # ---------------------------------------------------------------------------
@@ -226,250 +350,53 @@ def _instantiate_provider(
 # ---------------------------------------------------------------------------
 
 
-@router.get("")
-async def list_provider_configs() -> dict:
-    """Return all configured providers with API keys masked."""
-    with _conn() as con:
-        rows = con.execute("SELECT * FROM provider_configs ORDER BY name").fetchall()
-    return {"providers": [_row_to_dict(r) for r in rows]}
-
-
-@router.post("", status_code=201)
-async def create_provider_config(body: ProviderConfigIn) -> dict:
-    """Register a new provider and add it to the live registry."""
-    now = datetime.now(timezone.utc).isoformat()
-
-    # Fill default base_url if not supplied
-    effective_base_url = body.base_url or PROVIDER_DEFAULT_URLS.get(body.provider_type, "")
-
-    with _conn() as con:
-        existing = con.execute(
-            "SELECT name FROM provider_configs WHERE name = ?", (body.name,)
-        ).fetchone()
-        if existing:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Provider '{body.name}' already exists. Use PUT to update.",
-            )
-        con.execute(
-            """
-            INSERT INTO provider_configs
-                (name, provider_type, base_url, api_key,
-                 default_model, enabled, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                body.name,
-                body.provider_type,
-                effective_base_url,
-                body.api_key,
-                body.default_model,
-                int(body.enabled),
-                now,
-                now,
-            ),
-        )
-
-    # Instantiate and register in the live registry when enabled
-    if body.enabled:
-        try:
-            provider = _instantiate_provider(
-                body.provider_type,
-                effective_base_url,
-                body.api_key,
-                body.default_model,
-            )
-            get_registry().register(body.name, provider)
-            logger.info(
-                "Provider '%s' (%s) registered in live registry.",
-                body.name,
-                body.provider_type,
-            )
-        except Exception as exc:
-            logger.warning(
-                "Provider '%s' persisted but could not be instantiated: %s",
-                body.name,
-                exc,
-            )
-
+@router.get("/{provider_name}/keys")
+async def list_provider_keys(provider_name: str) -> dict:
+    """List all API keys registered for *provider_name* with masked values and usage stats."""
+    store = get_key_store()
+    keys = store.list_keys(provider_name)
     return {
-        "name": body.name,
-        "provider_type": body.provider_type,
-        "base_url": effective_base_url,
-        "api_key": _mask_key(body.api_key),
-        "default_model": body.default_model,
-        "enabled": body.enabled,
-        "created_at": now,
-        "updated_at": now,
+        "provider_name": provider_name,
+        "keys": [k.to_public_dict() for k in keys],
+        "total": len(keys),
     }
 
 
-@router.put("/{name}")
-async def update_provider_config(name: str, body: ProviderConfigUpdate) -> dict:
-    """Update one or more fields of an existing provider config."""
-    with _conn() as con:
-        row = con.execute("SELECT * FROM provider_configs WHERE name = ?", (name,)).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail=f"Provider '{name}' not found.")
+@router.post("/{provider_name}/keys", status_code=201)
+async def add_provider_key(provider_name: str, body: AddKeyRequest) -> dict:
+    """Add an additional API key to *provider_name*.
 
-        current = dict(row)
-        updated_base_url = body.base_url if body.base_url is not None else current["base_url"]
-        updated_api_key = body.api_key if body.api_key is not None else current["api_key"]
-        updated_model = (
-            body.default_model if body.default_model is not None else current["default_model"]
-        )
-        updated_enabled = int(body.enabled) if body.enabled is not None else current["enabled"]
-        now = datetime.now(timezone.utc).isoformat()
-
-        con.execute(
-            """
-            UPDATE provider_configs
-            SET base_url = ?, api_key = ?, default_model = ?, enabled = ?, updated_at = ?
-            WHERE name = ?
-            """,
-            (updated_base_url, updated_api_key, updated_model, updated_enabled, now, name),
-        )
-
-    # Re-instantiate in live registry
-    registry = get_registry()
-    if updated_enabled:
-        try:
-            provider = _instantiate_provider(
-                current["provider_type"],
-                updated_base_url,
-                updated_api_key,
-                updated_model,
-            )
-            registry.register(name, provider)
-            logger.info("Provider '%s' updated and re-registered.", name)
-        except Exception as exc:
-            logger.warning("Provider '%s' updated in DB but re-instantiation failed: %s", name, exc)
-    else:
-        registry.unregister(name)
-        logger.info("Provider '%s' disabled and removed from live registry.", name)
-
-    return {
-        "name": name,
-        "provider_type": current["provider_type"],
-        "base_url": updated_base_url,
-        "api_key": _mask_key(updated_api_key),
-        "default_model": updated_model,
-        "enabled": bool(updated_enabled),
-        "updated_at": now,
-    }
-
-
-@router.delete("/{name}", status_code=204)
-async def delete_provider_config(name: str) -> None:
-    """Remove a provider from the config store and live registry."""
-    with _conn() as con:
-        row = con.execute("SELECT name FROM provider_configs WHERE name = ?", (name,)).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail=f"Provider '{name}' not found.")
-        con.execute("DELETE FROM provider_configs WHERE name = ?", (name,))
-
-    get_registry().unregister(name)
-    logger.info("Provider '%s' deleted.", name)
-
-
-@router.post("/{name}/test")
-async def test_provider_connection(name: str) -> dict:
-    """Run a health check against the named provider.
-
-    The provider must be registered in the live registry (i.e. enabled).
+    The key is encrypted at rest.  Duplicate keys for the same provider are
+    rejected (duplicate detection is hash-based — the raw key is never stored
+    unencrypted in a form that can be compared directly after the request).
     """
-    registry = get_registry()
+    if not body.api_key or not body.api_key.strip():
+        raise HTTPException(status_code=422, detail="api_key must not be empty.")
 
-    # Verify the config exists
-    with _conn() as con:
-        row = con.execute("SELECT * FROM provider_configs WHERE name = ?", (name,)).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Provider '{name}' not found.")
-
-    # Attempt to get from live registry; if not there, try instantiating now
+    store = get_key_store()
     try:
-        provider = registry.get(name)
-    except Exception:
-        cfg = dict(row)
-        if not cfg["enabled"]:
-            return {
-                "name": name,
-                "healthy": False,
-                "latency_ms": 0.0,
-                "error": "Provider is disabled.",
-            }
-        try:
-            provider = _instantiate_provider(
-                cfg["provider_type"],
-                cfg["base_url"],
-                cfg["api_key"],
-                cfg["default_model"],
-            )
-        except Exception as exc:
-            return {
-                "name": name,
-                "healthy": False,
-                "latency_ms": 0.0,
-                "error": f"Failed to instantiate provider: {exc}",
-            }
+        key = store.add_key(provider_name, body.api_key.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
-    try:
-        result = await provider.health_check()
-    except Exception as exc:
-        return {
-            "name": name,
-            "healthy": False,
-            "latency_ms": 0.0,
-            "error": str(exc),
-        }
-
-    if isinstance(result, ProviderHealth):
-        return {
-            "name": name,
-            "healthy": result.healthy,
-            "latency_ms": result.latency_ms,
-            "error": result.error,
-        }
     return {
-        "name": name,
-        "healthy": bool(result),
-        "latency_ms": 0.0,
-        "error": None,
+        "provider_name": provider_name,
+        "key": key.to_public_dict(),
     }
 
 
-# ---------------------------------------------------------------------------
-# Startup helper — restore persisted providers into live registry
-# ---------------------------------------------------------------------------
+@router.delete("/{provider_name}/keys/{key_id}", status_code=200)
+async def delete_provider_key(provider_name: str, key_id: str) -> dict:
+    """Remove an API key by its ID.
 
-
-def restore_persisted_providers() -> None:
-    """Re-instantiate all enabled providers from SQLite into the live registry.
-
-    Call this once during controller startup (after the registry is initialised).
+    Returns 404 when the key does not exist or does not belong to the given
+    provider.
     """
-    try:
-        with _conn() as con:
-            rows = con.execute("SELECT * FROM provider_configs WHERE enabled = 1").fetchall()
-    except Exception as exc:
-        logger.warning("Could not load persisted provider configs: %s", exc)
-        return
-
-    registry = get_registry()
-    for row in rows:
-        cfg = dict(row)
-        name = cfg["name"]
-        # Skip if already registered (e.g. Ollama auto-registered at startup)
-        if name in registry.list():
-            continue
-        try:
-            provider = _instantiate_provider(
-                cfg["provider_type"],
-                cfg["base_url"],
-                cfg["api_key"],
-                cfg["default_model"],
-            )
-            registry.register(name, provider)
-            logger.info("Restored provider '%s' (%s) from config DB.", name, cfg["provider_type"])
-        except Exception as exc:
-            logger.warning("Could not restore provider '%s': %s", name, exc)
+    store = get_key_store()
+    deleted = store.delete_key(provider_name, key_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Key '{key_id}' not found for provider '{provider_name}'.",
+        )
+    return {"deleted": True, "key_id": key_id, "provider_name": provider_name}

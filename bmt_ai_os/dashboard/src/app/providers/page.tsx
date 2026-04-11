@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProviderSwitcher } from "./provider-switcher";
-import { SetupWizardTrigger } from "./setup-wizard-trigger";
+import { ProviderKeyManager } from "./provider-key-manager";
 
 // ---------------------------------------------------------------------------
 // Latency colour helpers
@@ -232,7 +232,35 @@ export default function ProvidersPage() {
         {providers.map((p) => {
           const isActive = activeProvider ? p.name === activeProvider : !!p.active;
           return (
-            <ProviderCard key={p.name} p={p} isActive={isActive} />
+            <Card key={p.name}>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="capitalize">{p.name}</CardTitle>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge
+                      variant={p.healthy ? "default" : "destructive"}
+                    >
+                      {p.healthy ? "healthy" : "unhealthy"}
+                    </Badge>
+                    {isActive && (
+                      <Badge variant="secondary">active</Badge>
+                    )}
+                  </div>
+                </div>
+                <CardDescription>
+                  {p.healthy
+                    ? "Responding normally"
+                    : "Not responding"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ProviderSwitcher
+                  providerName={p.name}
+                  isActive={isActive}
+                />
+                <ProviderKeyManager providerName={p.name} />
+              </CardContent>
+            </Card>
           );
         })}
       </div>
