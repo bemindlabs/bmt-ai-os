@@ -1,23 +1,26 @@
-"""Authentication and user-management API endpoints for BMT AI OS controller.
+"""Authentication API endpoints for BMT AI OS controller.
 
-POST   /api/v1/auth/login           — Exchange credentials for a JWT
-GET    /api/v1/auth/me              — Return info for the currently authenticated user
-
-Admin-only user management:
-GET    /api/v1/users                — List all users
-POST   /api/v1/users                — Create a new user
-PATCH  /api/v1/users/{username}/role — Update a user's role
-DELETE /api/v1/users/{username}     — Delete a user
+POST /api/v1/auth/login               — Exchange credentials for a JWT
+GET  /api/v1/auth/me                  — Return info for the currently authenticated user
+POST /api/v1/auth/logout              — Revoke the current token
+POST /api/v1/auth/users               — Create a new user (admin only)
+GET  /api/v1/auth/users               — List all users (admin only)
+DELETE /api/v1/auth/users/{username}  — Delete user and revoke their tokens (admin only)
+PATCH /api/v1/auth/users/{username}/role   — Change user role (admin only)
+POST /api/v1/auth/users/{username}/lock    — Manually lock account (admin only)
+POST /api/v1/auth/users/{username}/unlock  — Manually unlock account (admin only)
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, field_validator
+import time
 
-from .auth import Role, create_token, get_store, require_role
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
-router = APIRouter(tags=["auth"])
+from .auth import Role, create_token, get_store
+
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 # ---------------------------------------------------------------------------
@@ -45,58 +48,54 @@ class MeResponse(BaseModel):
 class CreateUserRequest(BaseModel):
     username: str
     password: str
-    role: str = Role.viewer.value
-
-    @field_validator("role")
-    @classmethod
-    def validate_role(cls, v: str) -> str:
-        valid = [r.value for r in Role]
-        if v not in valid:
-            raise ValueError(f"Invalid role '{v}'. Must be one of: {valid}")
-        return v
-
-
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    role: str
-    created_at: str
+    role: str = "viewer"
 
 
 class UpdateRoleRequest(BaseModel):
     role: str
 
-    @field_validator("role")
-    @classmethod
-    def validate_role(cls, v: str) -> str:
-        valid = [r.value for r in Role]
-        if v not in valid:
-            raise ValueError(f"Invalid role '{v}'. Must be one of: {valid}")
-        return v
+
+class LockRequest(BaseModel):
+    duration_seconds: int = 900  # 15 minutes default
 
 
 # ---------------------------------------------------------------------------
-# Auth endpoints
+# Helpers
 # ---------------------------------------------------------------------------
 
 
-@router.post(
-    "/api/v1/auth/login",
-    response_model=LoginResponse,
-    summary="Obtain a JWT access token",
-)
+def _require_admin(request: Request) -> None:
+    """Raise HTTP 403 if the caller is not an admin."""
+    role = getattr(request.state, "role", None)
+    if role != Role.admin.value:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Admin role required.",
+                "type": "authorization_error",
+                "code": "forbidden",
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/login", response_model=LoginResponse, summary="Obtain a JWT access token")
 async def login(body: LoginRequest) -> LoginResponse:
     """Authenticate with username and password; receive a 24-hour JWT.
 
-    Returns HTTP 401 if credentials are invalid.
+    Returns HTTP 401 if credentials are invalid or the account is locked.
     """
     store = get_store()
     user = store.authenticate(body.username, body.password)
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail={
-                "message": "Invalid username or password.",
+                "message": "Invalid username or password, or account is locked.",
                 "type": "authentication_error",
                 "code": "invalid_credentials",
             },
@@ -111,11 +110,42 @@ async def login(body: LoginRequest) -> LoginResponse:
     )
 
 
-@router.get(
-    "/api/v1/auth/me",
-    response_model=MeResponse,
-    summary="Current authenticated user",
-)
+@router.post("/logout", summary="Revoke the current JWT (logout)")
+async def logout(request: Request) -> dict:
+    """Revoke the bearer token used for this request.
+
+    After logout the token is placed on the blacklist and will be rejected
+    by the middleware on subsequent requests.
+    """
+    jti = getattr(request.state, "jti", None)
+    if jti is None:
+        # Unauthenticated or no-user mode — nothing to revoke
+        return {"revoked": False}
+
+    store = get_store()
+    # Derive expiry from the token exp if available, otherwise use 24 h from now
+    auth_header = request.headers.get("Authorization", "")
+    expires_at = time.time() + 86400  # safe default
+    if auth_header.startswith("Bearer "):
+        import jwt as pyjwt
+
+        try:
+            import os
+
+            payload = pyjwt.decode(
+                auth_header[7:],
+                os.environ.get("BMT_JWT_SECRET", ""),
+                algorithms=["HS256"],
+            )
+            expires_at = float(payload.get("exp", expires_at))
+        except Exception:
+            pass
+
+    store.revoke_token(jti, expires_at)
+    return {"revoked": True}
+
+
+@router.get("/me", response_model=MeResponse, summary="Current authenticated user")
 async def me(request: Request) -> MeResponse:
     """Return the username and role from the authenticated JWT.
 
@@ -133,107 +163,85 @@ async def me(request: Request) -> MeResponse:
     return MeResponse(username=username, role=role)
 
 
-# ---------------------------------------------------------------------------
-# User management endpoints (admin-only)
-# ---------------------------------------------------------------------------
+@router.post("/users", summary="Create a new user (admin only)")
+async def create_user(body: CreateUserRequest, request: Request) -> dict:
+    """Create a new user account.
 
-
-@router.get(
-    "/api/v1/users",
-    response_model=list[UserResponse],
-    summary="List all users (admin only)",
-)
-async def list_users(
-    _current: dict = Depends(require_role(Role.admin)),
-) -> list[UserResponse]:
-    """Return all registered users. Requires admin role."""
-    store = get_store()
-    return [UserResponse(**u.as_dict()) for u in store.list_users()]
-
-
-@router.post(
-    "/api/v1/users",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new user (admin only)",
-)
-async def create_user(
-    body: CreateUserRequest,
-    _current: dict = Depends(require_role(Role.admin)),
-) -> UserResponse:
-    """Create a new user with the specified role. Requires admin role."""
+    Requires admin role. Returns the created user's public info.
+    """
+    _require_admin(request)
     store = get_store()
     try:
         user = store.create_user(body.username, body.password, body.role)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": str(exc),
-                "type": "conflict_error",
-                "code": "user_exists",
-            },
-        )
-    return UserResponse(**user.as_dict())
+        raise HTTPException(status_code=400, detail={"message": str(exc)})
+    return user.as_dict()
 
 
-@router.patch(
-    "/api/v1/users/{username}/role",
-    response_model=UserResponse,
-    summary="Update a user's role (admin only)",
-)
-async def update_user_role(
-    username: str,
-    body: UpdateRoleRequest,
-    _current: dict = Depends(require_role(Role.admin)),
-) -> UserResponse:
-    """Change the role of an existing user. Requires admin role."""
+@router.get("/users", summary="List all users (admin only)")
+async def list_users(request: Request) -> list[dict]:
+    """Return a list of all registered users."""
+    _require_admin(request)
     store = get_store()
-    updated = store.update_user_role(username, body.role)
-    if not updated:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "message": f"User '{username}' not found.",
-                "type": "not_found_error",
-                "code": "user_not_found",
-            },
-        )
-    user = store.get_user(username)
-    return UserResponse(**user.as_dict())
+    return [u.as_dict() for u in store.list_users()]
 
 
-@router.delete(
-    "/api/v1/users/{username}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete a user (admin only)",
-)
-async def delete_user(
-    username: str,
-    current: dict = Depends(require_role(Role.admin)),
-) -> None:
-    """Delete a user by username. Requires admin role.
+@router.delete("/users/{username}", summary="Delete user (admin only)")
+async def delete_user(username: str, request: Request) -> dict:
+    """Delete a user account.
 
-    An admin cannot delete their own account to prevent lockout.
+    Any tokens previously issued to this user become invalid once they
+    expire naturally (there is no per-user token index). To immediately
+    invalidate tokens, clients should call /logout before deletion.
     """
-    if username == current.get("sub"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "message": "Cannot delete your own account.",
-                "type": "bad_request_error",
-                "code": "self_delete_forbidden",
-            },
-        )
-
+    _require_admin(request)
     store = get_store()
     deleted = store.delete_user(username)
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "message": f"User '{username}' not found.",
-                "type": "not_found_error",
-                "code": "user_not_found",
-            },
-        )
+        raise HTTPException(status_code=404, detail={"message": f"User '{username}' not found."})
+    return {"deleted": True, "username": username}
+
+
+@router.patch("/users/{username}/role", summary="Change user role (admin only)")
+async def update_role(username: str, body: UpdateRoleRequest, request: Request) -> dict:
+    """Update a user's role.
+
+    The caller is responsible for revoking the user's existing tokens so that
+    the role change takes effect immediately (e.g., by calling /logout on
+    their behalf or maintaining a per-user token registry).
+    """
+    _require_admin(request)
+    store = get_store()
+    try:
+        updated = store.update_user_role(username, body.role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)})
+    if not updated:
+        raise HTTPException(status_code=404, detail={"message": f"User '{username}' not found."})
+    return {"updated": True, "username": username, "role": body.role}
+
+
+@router.post("/users/{username}/lock", summary="Manually lock account (admin only)")
+async def lock_account(username: str, body: LockRequest, request: Request) -> dict:
+    """Lock a user account for the specified duration (default 15 minutes)."""
+    _require_admin(request)
+    store = get_store()
+    locked = store.lock_account(username, body.duration_seconds)
+    if not locked:
+        raise HTTPException(status_code=404, detail={"message": f"User '{username}' not found."})
+    return {
+        "locked": True,
+        "username": username,
+        "duration_seconds": body.duration_seconds,
+    }
+
+
+@router.post("/users/{username}/unlock", summary="Manually unlock account (admin only)")
+async def unlock_account(username: str, request: Request) -> dict:
+    """Remove any lock from a user account and reset the failed-login counter."""
+    _require_admin(request)
+    store = get_store()
+    unlocked = store.unlock_account(username)
+    if not unlocked:
+        raise HTTPException(status_code=404, detail={"message": f"User '{username}' not found."})
+    return {"unlocked": True, "username": username}

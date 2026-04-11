@@ -4,6 +4,8 @@ Provides:
 - SQLite-backed user store with bcrypt password hashing
 - JWT token issuance and verification (PyJWT)
 - Three-tier RBAC: admin / operator / viewer
+- Token blacklist for explicit revocation (jti-based)
+- Account lockout after repeated failed logins
 - JWTAuthMiddleware that falls through to legacy APIKeyMiddleware when no
   users exist and BMT_API_KEY is configured (backward compatible)
 """
@@ -16,6 +18,7 @@ import re
 import sqlite3
 import sys
 import time
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -53,6 +56,10 @@ _ENV_BMT_ENV = "BMT_ENV"
 _DEFAULT_ADMIN_USERNAME = "admin"
 _DEFAULT_ADMIN_PASSWORD = "admin"
 
+# Account lockout settings
+_MAX_FAILED_LOGINS = 10
+_LOCKOUT_SECONDS = 900  # 15 minutes
+
 # Paths that never require authentication
 _EXEMPT_PREFIXES = (
     "/healthz",
@@ -61,6 +68,13 @@ _EXEMPT_PREFIXES = (
     "/redoc",
     "/metrics",
     "/api/v1/auth/login",  # token acquisition must be exempt
+)
+
+# Paths that require a valid JWT but bypass RBAC write-restrictions.
+# Any authenticated user (regardless of role) may call these.
+_AUTH_SELF_SERVICE_PREFIXES = (
+    "/api/v1/auth/logout",
+    "/api/v1/auth/me",
 )
 
 
@@ -145,6 +159,8 @@ class User:
     password_hash: str
     role: Role
     created_at: str
+    failed_logins: int = 0
+    locked_until: float | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -152,7 +168,14 @@ class User:
             "username": self.username,
             "role": self.role.value,
             "created_at": self.created_at,
+            "locked": self.is_locked(),
         }
+
+    def is_locked(self) -> bool:
+        """Return True if the account is currently locked."""
+        if self.locked_until is None:
+            return False
+        return time.time() < self.locked_until
 
 
 # ---------------------------------------------------------------------------
@@ -184,11 +207,29 @@ class UserStore:
             con.execute(
                 """
                 CREATE TABLE IF NOT EXISTS users (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username    TEXT    NOT NULL UNIQUE,
-                    password_hash TEXT  NOT NULL,
-                    role        TEXT    NOT NULL DEFAULT 'viewer',
-                    created_at  TEXT    NOT NULL
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username        TEXT    NOT NULL UNIQUE,
+                    password_hash   TEXT    NOT NULL,
+                    role            TEXT    NOT NULL DEFAULT 'viewer',
+                    created_at      TEXT    NOT NULL,
+                    failed_logins   INTEGER NOT NULL DEFAULT 0,
+                    locked_until    REAL
+                )
+                """
+            )
+            # Migrate: add columns to existing DBs that lack them
+            existing_cols = {row[1] for row in con.execute("PRAGMA table_info(users)").fetchall()}
+            if "failed_logins" not in existing_cols:
+                con.execute("ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0")
+            if "locked_until" not in existing_cols:
+                con.execute("ALTER TABLE users ADD COLUMN locked_until REAL")
+
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS token_blacklist (
+                    jti         TEXT    PRIMARY KEY,
+                    revoked_at  REAL    NOT NULL,
+                    expires_at  REAL    NOT NULL
                 )
                 """
             )
@@ -201,6 +242,8 @@ class UserStore:
             password_hash=row["password_hash"],
             role=Role(row["role"]),
             created_at=row["created_at"],
+            failed_logins=row["failed_logins"] if row["failed_logins"] is not None else 0,
+            locked_until=row["locked_until"],
         )
 
     # --- Public API ---
@@ -251,14 +294,47 @@ class UserStore:
         )
 
     def authenticate(self, username: str, password: str) -> User | None:
-        """Return the User if credentials are valid, else None."""
+        """Return the User if credentials are valid, else None.
+
+        Tracks failed attempts and locks the account after _MAX_FAILED_LOGINS
+        consecutive failures for _LOCKOUT_SECONDS.
+        """
         user = self.get_user(username)
         if user is None:
             # Constant-time dummy check to prevent timing attacks
             bcrypt.checkpw(b"dummy", bcrypt.hashpw(b"dummy", bcrypt.gensalt()))
             return None
+
+        # Reject immediately if the account is locked
+        if user.is_locked():
+            logger.warning("Authentication rejected for locked account '%s'", username)
+            return None
+
         if bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+            # Successful login — reset failure counter
+            with self._conn() as con:
+                con.execute(
+                    "UPDATE users SET failed_logins = 0, locked_until = NULL WHERE username = ?",
+                    (username,),
+                )
             return user
+
+        # Failed login — increment counter and possibly lock
+        new_count = user.failed_logins + 1
+        locked_until: float | None = None
+        if new_count >= _MAX_FAILED_LOGINS:
+            locked_until = time.time() + _LOCKOUT_SECONDS
+            logger.warning(
+                "Account '%s' locked for %d seconds after %d failed attempts",
+                username,
+                _LOCKOUT_SECONDS,
+                new_count,
+            )
+        with self._conn() as con:
+            con.execute(
+                "UPDATE users SET failed_logins = ?, locked_until = ? WHERE username = ?",
+                (new_count, locked_until, username),
+            )
         return None
 
     def get_user(self, username: str) -> User | None:
@@ -274,7 +350,13 @@ class UserStore:
         return [self._row_to_user(r) for r in rows]
 
     def delete_user(self, username: str) -> bool:
-        """Delete user by username. Returns True if the user existed."""
+        """Delete user by username. Returns True if the user existed.
+
+        Also revokes all active tokens belonging to this user by inserting
+        their jtis into the blacklist would require storing jti-to-user
+        mappings; instead, deletion is recorded so callers can also call
+        revoke_tokens_for_user() if they maintain that mapping.
+        """
         with self._conn() as con:
             cur = con.execute("DELETE FROM users WHERE username = ?", (username,))
         deleted = cur.rowcount > 0
@@ -287,6 +369,82 @@ class UserStore:
         with self._conn() as con:
             count = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         return count > 0
+
+    def update_user_role(self, username: str, new_role: Role | str) -> bool:
+        """Change a user's role. Returns True if the user was found and updated.
+
+        Callers should also revoke existing tokens for the user so that role
+        changes take effect immediately.
+        """
+        if isinstance(new_role, str):
+            try:
+                new_role = Role(new_role)
+            except ValueError:
+                valid = [r.value for r in Role]
+                raise ValueError(f"Invalid role '{new_role}'. Must be one of: {valid}")
+
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET role = ? WHERE username = ?",
+                (new_role.value, username),
+            )
+        updated = cur.rowcount > 0
+        if updated:
+            logger.info("Updated role for user '%s' to '%s'", username, new_role.value)
+        return updated
+
+    def lock_account(self, username: str, duration_seconds: int = _LOCKOUT_SECONDS) -> bool:
+        """Manually lock an account for *duration_seconds*. Returns True if found."""
+        locked_until = time.time() + duration_seconds
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET locked_until = ? WHERE username = ?",
+                (locked_until, username),
+            )
+        updated = cur.rowcount > 0
+        if updated:
+            logger.info("Manually locked account '%s'", username)
+        return updated
+
+    def unlock_account(self, username: str) -> bool:
+        """Remove any lock from an account. Returns True if the user was found."""
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET locked_until = NULL, failed_logins = 0 WHERE username = ?",
+                (username,),
+            )
+        updated = cur.rowcount > 0
+        if updated:
+            logger.info("Unlocked account '%s'", username)
+        return updated
+
+    # --- Token blacklist ---
+
+    def revoke_token(self, jti: str, expires_at: float) -> None:
+        """Add *jti* to the blacklist so it cannot be used for authentication."""
+        with self._conn() as con:
+            con.execute(
+                "INSERT OR IGNORE INTO token_blacklist (jti, revoked_at, expires_at)"
+                " VALUES (?,?,?)",
+                (jti, time.time(), expires_at),
+            )
+        logger.debug("Revoked token jti=%s", jti)
+
+    def is_token_revoked(self, jti: str) -> bool:
+        """Return True if *jti* is in the blacklist."""
+        with self._conn() as con:
+            row = con.execute("SELECT 1 FROM token_blacklist WHERE jti = ?", (jti,)).fetchone()
+        return row is not None
+
+    def purge_expired_blacklist_entries(self) -> int:
+        """Remove blacklist entries whose tokens have already expired.
+
+        Returns the number of rows removed.
+        """
+        now = time.time()
+        with self._conn() as con:
+            cur = con.execute("DELETE FROM token_blacklist WHERE expires_at < ?", (now,))
+        return cur.rowcount
 
 
 # ---------------------------------------------------------------------------
@@ -309,24 +467,38 @@ def _jwt_secret() -> str:
 
 
 def create_token(user: User) -> str:
-    """Issue a signed JWT for *user* valid for 24 hours."""
+    """Issue a signed JWT for *user* valid for 24 hours.
+
+    The token includes a unique ``jti`` (JWT ID) claim that can be placed on
+    the blacklist to revoke it before natural expiry.
+    """
     now = int(time.time())
     payload = {
         "sub": user.username,
         "role": user.role.value,
         "iat": now,
         "exp": now + _JWT_EXPIRY_SECONDS,
+        "jti": str(uuid.uuid4()),
     }
     return jwt.encode(payload, _jwt_secret(), algorithm=_JWT_ALGORITHM)
 
 
-def verify_token(token: str) -> dict:
+def verify_token(token: str, store: UserStore | None = None) -> dict:
     """Decode and validate *token*.
 
     Returns the payload dict on success.
     Raises jwt.PyJWTError (or subclass) on any validation failure.
+    Raises jwt.InvalidTokenError with message 'Token has been revoked' when
+    the token's jti is on the blacklist.
     """
-    return jwt.decode(token, _jwt_secret(), algorithms=[_JWT_ALGORITHM])
+    payload = jwt.decode(token, _jwt_secret(), algorithms=[_JWT_ALGORITHM])
+
+    # Check blacklist when a store is available
+    jti = payload.get("jti")
+    if jti and store is not None and store.is_token_revoked(jti):
+        raise jwt.InvalidTokenError("Token has been revoked.")
+
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -372,9 +544,14 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         token = auth_header[7:]
 
         try:
-            payload = verify_token(token)
+            payload = verify_token(token, store=self._store)
         except jwt.ExpiredSignatureError:
             return _auth_error("Token has expired.", code="token_expired")
+        except jwt.InvalidTokenError as exc:
+            if "revoked" in str(exc).lower():
+                return _auth_error("Token has been revoked.", code="token_revoked")
+            logger.warning("JWT validation failed: %s", exc)
+            return _auth_error("Invalid token.", code="invalid_token")
         except jwt.PyJWTError as exc:
             logger.warning("JWT validation failed: %s", exc)
             return _auth_error("Invalid token.", code="invalid_token")
@@ -382,6 +559,11 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         # Attach user info to request state for downstream handlers
         request.state.user = payload.get("sub")
         request.state.role = payload.get("role", Role.viewer.value)
+        request.state.jti = payload.get("jti")
+
+        # Self-service auth paths bypass RBAC (any authenticated user may call them)
+        if any(path.startswith(p) for p in _AUTH_SELF_SERVICE_PREFIXES):
+            return await call_next(request)
 
         # Enforce RBAC
         role = Role(request.state.role)
