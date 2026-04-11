@@ -68,6 +68,14 @@ async def healthz() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/v1/logs")
+async def get_logs() -> list:
+    """Return recent request logs from middleware."""
+    from .middleware import get_recent_logs
+
+    return get_recent_logs()
+
+
 @app.get("/api/models")
 async def list_ollama_models() -> dict:
     """List models from Ollama in native format (name, size, digest, modified_at)."""
