@@ -107,5 +107,10 @@ nav:
     - Port Map: reference/port-map.md
     - Troubleshooting: reference/troubleshooting.md
     - FAQ: reference/faq.md
+  - Operations:
+    - Deployment Runbook: operations/deployment-runbook.md
+    - Monitoring Guide: operations/monitoring-guide.md
+    - Backup and Restore: operations/backup-restore.md
+    - Troubleshooting: operations/troubleshooting.md
   - Security:
     - Security Policy: security/security-policy.md
