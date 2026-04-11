@@ -16,7 +16,8 @@ from .prometheus import router as prometheus_router
 from .provider_config_routes import router as provider_config_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
-from .ssh_key_routes import router as ssh_key_router
+from .ssh_ws import router as ssh_ws_router
+from .terminal_ws import router as terminal_ws_router
 from .training_routes import router as training_router
 from .user_routes import router as user_router
 
@@ -60,12 +61,8 @@ from bmt_ai_os.fleet.routes import router as fleet_router  # noqa: E402
 app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(ssh_key_router)
 app.include_router(training_router)
-app.include_router(terminal_router)
-
-# File manager routes (BMTOS-116)
-from bmt_ai_os.controller.file_routes import router as file_router  # noqa: E402
-
-app.include_router(file_router, prefix="/api/v1")
+app.include_router(terminal_ws_router)
+app.include_router(ssh_ws_router)
 
 # MCP server (Model Context Protocol — Claude Code integration)
 from bmt_ai_os.mcp.server import mcp_router  # noqa: E402
