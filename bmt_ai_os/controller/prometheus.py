@@ -105,7 +105,6 @@ async def prometheus_metrics() -> Response:
     # using the global error count as a proportion.
     total: int = summary["total_requests"]
     error_count: int = summary["error_count"]
-    success_count: int = total - error_count
 
     requests_by_provider: dict[str, int] = summary["requests_by_provider"]
     for provider, count in requests_by_provider.items():

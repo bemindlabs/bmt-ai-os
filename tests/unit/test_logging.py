@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
-
-import pytest
 import json
 import logging
 import sys
 from pathlib import Path
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Direct module load to avoid heavy transitive imports from bmt_ai_os.__init__
@@ -272,7 +272,7 @@ class TestSetupLogging:
 
         log_file = tmp_path / f"{name}.log"
         assert log_file.exists()
-        lines = [l for l in log_file.read_text().splitlines() if l.strip()]
+        lines = [line for line in log_file.read_text().splitlines() if line.strip()]
         assert len(lines) >= 1
         doc = json.loads(lines[-1])
         assert doc["service"] == name
@@ -347,7 +347,7 @@ class TestCLILogs:
         )
         assert result.exit_code == 0
         # Each output line must be valid JSON
-        output_lines = [l for l in result.output.splitlines() if l.strip()]
+        output_lines = [line for line in result.output.splitlines() if line.strip()]
         assert len(output_lines) == 3
         for line in output_lines:
             doc = json.loads(line)
@@ -368,7 +368,7 @@ class TestCLILogs:
             ["logs", "--service", "controller", "--tail", "5", "--log-dir", str(tmp_path)],
         )
         assert result.exit_code == 0
-        output_lines = [l for l in result.output.splitlines() if l.strip()]
+        output_lines = [line for line in result.output.splitlines() if line.strip()]
         assert len(output_lines) == 5
 
     def test_logs_last_n_lines_returned(self, tmp_path):
