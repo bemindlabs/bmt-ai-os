@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import time
+
 from fastapi import FastAPI
 
+from .metrics import get_collector
 from .middleware import apply_middleware
 from .openai_compat import router as openai_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
+
+_CONTROLLER_VERSION = "2026.4.11"
 
 _controller = None
 
@@ -39,3 +44,29 @@ app.include_router(provider_router)
 @app.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/v1/metrics")
+async def metrics_summary() -> dict:
+    """Return collected request and health-check metrics for the controller."""
+    return get_collector().get_summary()
+
+
+@app.get("/api/v1/status")
+async def system_status() -> dict:
+    """Overall system status: version, uptime, and per-service health."""
+    ctrl = get_controller()
+
+    if ctrl is not None:
+        uptime_seconds = round(time.time() - ctrl._start_time, 1)
+        services = ctrl.get_status()
+    else:
+        uptime_seconds = None
+        services = []
+
+    return {
+        "version": _CONTROLLER_VERSION,
+        "status": "running",
+        "uptime_seconds": uptime_seconds,
+        "services": services,
+    }

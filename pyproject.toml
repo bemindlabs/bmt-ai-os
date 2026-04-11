@@ -10,12 +10,17 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 dependencies = [
     "aiohttp>=3.9",
+    "click>=8.0",
     "docker>=7.0",
     "fastapi>=0.115",
     "pydantic>=2.0",
     "pyyaml>=6.0",
+    "requests>=2.31",
     "uvicorn>=0.34",
 ]
+
+[project.scripts]
+bmt-ai-os = "bmt_ai_os.cli:main"
 
 [project.optional-dependencies]
 dev = [

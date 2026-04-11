@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v2026.4.11] — 2026-04-11
+
+### Added
+- EPIC-4 board support packages: Apple Silicon (CPU-first), Jetson Orin Nano Super (CUDA), RK3588 (RKNN), Pi 5 + Hailo AI HAT+ 2 (HailoRT)
+- Security scan script for static analysis of OS image and container layers
+- Docker Hub push workflow for pre-built AI stack images
+- Phase 7 tooling: build pipeline improvements, QEMU benchmark harness, release automation
+
+### Changed
+- Python package renamed from `bmt_ai_os` (runtime dir) to canonical import path; build infrastructure directory confirmed as `bmt-ai-os-build/`
+- Version bumped to 2026.4.11
+
 ## [v2026.4.10] — 2026-04-10
 
 ### Added
