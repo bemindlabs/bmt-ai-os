@@ -6,9 +6,6 @@ const API_ORIGIN =
 
 const nextConfig: NextConfig = {
   turbopack: {
-    // Anchor the Turbopack workspace root to this dashboard directory so
-    // it can always resolve next/package.json correctly when the project
-    // lives inside a monorepo or git worktree.
     root: path.resolve(__dirname),
   },
   async rewrites() {
