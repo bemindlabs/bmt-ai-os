@@ -329,7 +329,7 @@ class AnthropicProvider(LLMProvider):
         """Log estimated cost for the request."""
         rates = _COST_PER_M_TOKENS.get(model)
         if not rates:
-            logger.debug(
+            logger.debug(  # nosemgrep: python-logger-credential-disclosure
                 "Anthropic request: %d input, %d output tokens (no cost data for %s)",
                 usage.prompt_tokens,
                 usage.completion_tokens,
@@ -339,7 +339,7 @@ class AnthropicProvider(LLMProvider):
         input_cost = (usage.prompt_tokens / 1_000_000) * rates["input"]
         output_cost = (usage.completion_tokens / 1_000_000) * rates["output"]
         total_cost = input_cost + output_cost
-        logger.info(
+        logger.info(  # nosemgrep: python-logger-credential-disclosure
             "Anthropic request: %d input, %d output tokens — est. $%.6f (model=%s)",
             usage.prompt_tokens,
             usage.completion_tokens,

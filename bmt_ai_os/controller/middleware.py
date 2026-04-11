@@ -100,17 +100,35 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 
 
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://localhost:*",
+    "vscode-webview://*",
+    "cursor://*",
+    "app://*",
+    "tauri://*",
+]
+
+_ENV_CORS_ORIGINS = "BMT_CORS_ORIGINS"
+
+
 def add_cors(app: FastAPI) -> None:
-    """Configure permissive CORS so IDEs on any origin can reach the API.
+    """Configure CORS for IDE and local access.
 
     IDE plugins (Cursor, VS Code extensions for Copilot/Cody) connect from
-    various origins including ``vscode-webview://``, ``cursor://``, and
-    ``http://localhost:*``.  We allow all origins since the API is intended
-    to serve as a local or LAN backend.
+    various origins. Allowed origins are configurable via ``BMT_CORS_ORIGINS``
+    (comma-separated). Defaults to localhost + IDE schemes.
     """
+    env_origins = os.environ.get(_ENV_CORS_ORIGINS)
+    if env_origins:
+        origins = [o.strip() for o in env_origins.split(",")]
+    else:
+        origins = _DEFAULT_CORS_ORIGINS
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
