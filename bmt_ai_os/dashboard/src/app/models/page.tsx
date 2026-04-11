@@ -75,7 +75,7 @@ export default async function ModelsPage() {
       </Card>
 
       {/* Pull new model */}
-      <PullModelForm />
+      <PullModelForm installedModels={models.map((m) => m.name)} />
     </div>
   );
 }
