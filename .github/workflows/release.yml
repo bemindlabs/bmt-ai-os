@@ -23,6 +23,9 @@ jobs:
       contents: read
       packages: write
     steps:
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
       - uses: actions/checkout@v4
 
       - name: Extract version from tag
