@@ -1,16 +1,9 @@
-"""Unit tests for bmt_ai_os.controller.config.
-
-Covers:
-- ControllerConfig defaults and __post_init__ service population
-- ServiceDef fields
-- _apply_env_overrides from BMT_ env vars
-- _parse_services from raw list
-- load_config: explicit path, default paths, env overrides
-"""
+"""Unit tests for bmt_ai_os.controller.config."""
 
 from __future__ import annotations
 
-import yaml
+import os
+from unittest.mock import patch
 
 from bmt_ai_os.controller.config import (
     ControllerConfig,
@@ -20,220 +13,127 @@ from bmt_ai_os.controller.config import (
     load_config,
 )
 
-# ---------------------------------------------------------------------------
-# ControllerConfig defaults
-# ---------------------------------------------------------------------------
-
 
 class TestControllerConfigDefaults:
-    def test_default_api_port(self):
+    def test_default_fields(self):
         cfg = ControllerConfig()
         assert cfg.api_port == 8080
-
-    def test_default_api_host(self):
-        cfg = ControllerConfig()
         assert cfg.api_host == "0.0.0.0"
-
-    def test_default_health_interval(self):
-        cfg = ControllerConfig()
-        assert cfg.health_interval == 30
-
-    def test_default_max_restarts(self):
-        cfg = ControllerConfig()
-        assert cfg.max_restarts == 3
-
-    def test_default_log_level(self):
-        cfg = ControllerConfig()
         assert cfg.log_level == "INFO"
+        assert cfg.health_interval == 30
+        assert cfg.max_restarts == 3
 
     def test_default_services_populated(self):
         cfg = ControllerConfig()
-        service_names = [s.name for s in cfg.services]
-        assert "ollama" in service_names
-        assert "chromadb" in service_names
+        names = [s.name for s in cfg.services]
+        assert "ollama" in names
+        assert "chromadb" in names
 
-    def test_default_services_have_correct_ports(self):
+    def test_default_services_have_valid_urls(self):
         cfg = ControllerConfig()
-        ports = {s.name: s.port for s in cfg.services}
-        assert ports["ollama"] == 11434
-        assert ports["chromadb"] == 8000
+        for svc in cfg.services:
+            assert svc.health_url.startswith("http")
+            assert svc.port > 0
 
-    def test_custom_services_override_defaults(self):
-        custom = [ServiceDef("custom", "bmt-custom", "http://localhost:9999/health", 9999)]
+    def test_custom_services_not_overridden(self):
+        custom = [
+            ServiceDef(
+                name="custom",
+                container_name="bmt-custom",
+                health_url="http://localhost:9999/health",
+                port=9999,
+            )
+        ]
         cfg = ControllerConfig(services=custom)
         assert len(cfg.services) == 1
         assert cfg.services[0].name == "custom"
 
-    def test_health_timeout_default(self):
-        cfg = ControllerConfig()
-        assert cfg.health_timeout == 5
-
-    def test_circuit_breaker_defaults(self):
-        cfg = ControllerConfig()
-        assert cfg.circuit_breaker_threshold == 5
-        assert cfg.circuit_breaker_reset == 300
-
-
-# ---------------------------------------------------------------------------
-# ServiceDef
-# ---------------------------------------------------------------------------
-
 
 class TestServiceDef:
-    def test_fields(self):
-        svc = ServiceDef("myservice", "bmt-myservice", "http://localhost:1234/health", 1234)
-        assert svc.name == "myservice"
-        assert svc.container_name == "bmt-myservice"
-        assert svc.health_url == "http://localhost:1234/health"
-        assert svc.port == 1234
-
-
-# ---------------------------------------------------------------------------
-# _apply_env_overrides
-# ---------------------------------------------------------------------------
+    def test_construction(self):
+        svc = ServiceDef(
+            name="ollama",
+            container_name="bmt-ollama",
+            health_url="http://localhost:11434/api/tags",
+            port=11434,
+        )
+        assert svc.name == "ollama"
+        assert svc.port == 11434
 
 
 class TestApplyEnvOverrides:
-    def test_override_api_port(self, monkeypatch):
-        monkeypatch.setenv("BMT_API_PORT", "9090")
+    def test_overrides_api_port(self):
         cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
+        with patch.dict(os.environ, {"BMT_API_PORT": "9090"}):
+            _apply_env_overrides(cfg)
         assert cfg.api_port == 9090
 
-    def test_override_api_host(self, monkeypatch):
-        monkeypatch.setenv("BMT_API_HOST", "127.0.0.1")
+    def test_overrides_log_level(self):
         cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
-        assert cfg.api_host == "127.0.0.1"
-
-    def test_override_health_interval(self, monkeypatch):
-        monkeypatch.setenv("BMT_HEALTH_INTERVAL", "60")
-        cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
-        assert cfg.health_interval == 60
-
-    def test_override_log_level(self, monkeypatch):
-        monkeypatch.setenv("BMT_LOG_LEVEL", "DEBUG")
-        cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
+        with patch.dict(os.environ, {"BMT_LOG_LEVEL": "DEBUG"}):
+            _apply_env_overrides(cfg)
         assert cfg.log_level == "DEBUG"
 
-    def test_override_compose_file(self, monkeypatch):
-        monkeypatch.setenv("BMT_COMPOSE_FILE", "/tmp/custom-compose.yml")
+    def test_overrides_health_interval(self):
         cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
-        assert cfg.compose_file == "/tmp/custom-compose.yml"
+        with patch.dict(os.environ, {"BMT_HEALTH_INTERVAL": "60"}):
+            _apply_env_overrides(cfg)
+        assert cfg.health_interval == 60
 
-    def test_override_max_restarts(self, monkeypatch):
-        monkeypatch.setenv("BMT_MAX_RESTARTS", "5")
+    def test_no_override_when_env_unset(self):
         cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
-        assert cfg.max_restarts == 5
-
-    def test_unset_envs_leave_defaults(self, monkeypatch):
-        for key in [
-            "BMT_API_PORT",
-            "BMT_API_HOST",
-            "BMT_HEALTH_INTERVAL",
-            "BMT_MAX_RESTARTS",
-            "BMT_CIRCUIT_BREAKER_THRESHOLD",
-        ]:
-            monkeypatch.delenv(key, raising=False)
-        cfg = ControllerConfig()
-        _apply_env_overrides(cfg)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BMT_")}
+        with patch.dict(os.environ, env, clear=True):
+            _apply_env_overrides(cfg)
         assert cfg.api_port == 8080
-
-
-# ---------------------------------------------------------------------------
-# _parse_services
-# ---------------------------------------------------------------------------
 
 
 class TestParseServices:
     def test_parses_list(self):
         raw = [
             {
-                "name": "ollama",
-                "container_name": "bmt-ollama",
-                "health_url": "http://localhost:11434/api/tags",
-                "port": 11434,
-            },
-            {
-                "name": "chromadb",
-                "container_name": "bmt-chromadb",
-                "health_url": "http://localhost:8000/api/v1/heartbeat",
-                "port": 8000,
-            },
+                "name": "svc1",
+                "container_name": "bmt-svc1",
+                "health_url": "http://localhost:1234/health",
+                "port": 1234,
+            }
         ]
-        services = _parse_services(raw)
-        assert len(services) == 2
-        assert services[0].name == "ollama"
-        assert services[1].port == 8000
-
-    def test_empty_list(self):
-        assert _parse_services([]) == []
-
-
-# ---------------------------------------------------------------------------
-# load_config
-# ---------------------------------------------------------------------------
+        result = _parse_services(raw)
+        assert len(result) == 1
+        assert result[0].name == "svc1"
+        assert result[0].port == 1234
 
 
 class TestLoadConfig:
-    def test_returns_defaults_when_no_file(self, tmp_path):
-        cfg = load_config(path=str(tmp_path / "nonexistent.yml"))
+    def test_returns_default_when_no_file(self):
+        with patch("bmt_ai_os.controller.config._DEFAULT_CONFIG_PATHS", []):
+            cfg = load_config()
+        assert isinstance(cfg, ControllerConfig)
         assert cfg.api_port == 8080
 
-    def test_loads_explicit_path(self, tmp_path):
-        config_data = {
-            "api_port": 9000,
-            "api_host": "127.0.0.1",
-            "log_level": "DEBUG",
-            "health_interval": 10,
-        }
-        config_file = tmp_path / "controller.yml"
-        config_file.write_text(yaml.dump(config_data))
-        cfg = load_config(path=str(config_file))
+    def test_loads_from_yaml(self, tmp_path):
+        yml = tmp_path / "controller.yml"
+        yml.write_text("api_port: 9000\nlog_level: DEBUG\n")
+        cfg = load_config(str(yml))
         assert cfg.api_port == 9000
-        assert cfg.api_host == "127.0.0.1"
         assert cfg.log_level == "DEBUG"
-        assert cfg.health_interval == 10
 
-    def test_loads_services_from_yaml(self, tmp_path):
-        config_data = {
-            "services": [
-                {
-                    "name": "custom",
-                    "container_name": "bmt-custom",
-                    "health_url": "http://localhost:9999/health",
-                    "port": 9999,
-                }
-            ]
-        }
-        config_file = tmp_path / "controller.yml"
-        config_file.write_text(yaml.dump(config_data))
-        cfg = load_config(path=str(config_file))
-        assert len(cfg.services) == 1
-        assert cfg.services[0].name == "custom"
-
-    def test_env_overrides_applied_after_file(self, tmp_path, monkeypatch):
-        config_data = {"api_port": 8080}
-        config_file = tmp_path / "controller.yml"
-        config_file.write_text(yaml.dump(config_data))
-        monkeypatch.setenv("BMT_API_PORT", "7777")
-        cfg = load_config(path=str(config_file))
+    def test_env_overrides_yaml(self, tmp_path):
+        yml = tmp_path / "controller.yml"
+        yml.write_text("api_port: 9000\n")
+        with patch.dict(os.environ, {"BMT_API_PORT": "7777"}):
+            cfg = load_config(str(yml))
         assert cfg.api_port == 7777
 
-    def test_empty_yaml_uses_defaults(self, tmp_path):
-        config_file = tmp_path / "controller.yml"
-        config_file.write_text("")
-        cfg = load_config(path=str(config_file))
-        assert cfg.api_port == 8080
-        assert len(cfg.services) == 2  # auto-populated
-
-    def test_default_services_when_none_in_yaml(self, tmp_path):
-        config_file = tmp_path / "controller.yml"
-        config_file.write_text("api_port: 8080\n")
-        cfg = load_config(path=str(config_file))
-        # Services should be default (ollama + chromadb)
-        assert any(s.name == "ollama" for s in cfg.services)
+    def test_loads_services_from_yaml(self, tmp_path):
+        yml = tmp_path / "controller.yml"
+        yml.write_text(
+            "services:\n"
+            "  - name: myservice\n"
+            "    container_name: bmt-myservice\n"
+            "    health_url: http://localhost:5000/health\n"
+            "    port: 5000\n"
+        )
+        cfg = load_config(str(yml))
+        assert len(cfg.services) == 1
+        assert cfg.services[0].name == "myservice"

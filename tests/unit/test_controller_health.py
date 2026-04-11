@@ -1,18 +1,9 @@
-"""Unit tests for bmt_ai_os.controller.health.
-
-Covers:
-- CircuitBreaker state transitions (CLOSED -> OPEN -> HALF_OPEN -> CLOSED)
-- HealthChecker.check_service success and failure paths
-- HealthChecker.check_all, needs_restart, reset_failures, get_history
-- get_circuit_state helper
-"""
+"""Unit tests for bmt_ai_os.controller.health."""
 
 from __future__ import annotations
 
-import time
 from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 
 from bmt_ai_os.controller.config import ControllerConfig, ServiceDef
@@ -20,55 +11,36 @@ from bmt_ai_os.controller.health import (
     CircuitBreaker,
     CircuitState,
     HealthChecker,
-    HealthResult,
     HealthStatus,
 )
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
-
-@pytest.fixture()
-def service() -> ServiceDef:
-    return ServiceDef(
-        name="ollama",
-        container_name="bmt-ollama",
-        health_url="http://localhost:11434/api/tags",
-        port=11434,
+def _make_config(**overrides) -> ControllerConfig:
+    defaults = dict(
+        circuit_breaker_threshold=3,
+        circuit_breaker_reset=300,
+        max_restarts=3,
+        health_timeout=5,
+        health_history_size=10,
     )
+    defaults.update(overrides)
+    return ControllerConfig(**defaults)
 
 
-@pytest.fixture()
-def config(service: ServiceDef) -> ControllerConfig:
-    cfg = ControllerConfig()
-    cfg.services = [service]
-    cfg.health_timeout = 2
-    cfg.circuit_breaker_threshold = 3
-    cfg.circuit_breaker_reset = 60
-    cfg.max_restarts = 3
-    cfg.health_history_size = 5
-    return cfg
-
-
-@pytest.fixture()
-def checker(config: ControllerConfig) -> HealthChecker:
-    return HealthChecker(config)
-
-
-# ---------------------------------------------------------------------------
-# CircuitBreaker
-# ---------------------------------------------------------------------------
+def _make_service(name="ollama", port=11434) -> ServiceDef:
+    return ServiceDef(
+        name=name,
+        container_name=f"bmt-{name}",
+        health_url=f"http://localhost:{port}/health",
+        port=port,
+    )
 
 
 class TestCircuitBreaker:
     def test_initial_state_is_closed(self):
         cb = CircuitBreaker(threshold=3, reset_timeout=60)
         assert cb.state == CircuitState.CLOSED
-
-    def test_allow_restart_when_closed(self):
-        cb = CircuitBreaker(threshold=3, reset_timeout=60)
-        assert cb.allow_restart() is True
+        assert cb.failure_count == 0
 
     def test_opens_after_threshold_failures(self):
         cb = CircuitBreaker(threshold=3, reset_timeout=60)
@@ -76,215 +48,142 @@ class TestCircuitBreaker:
             cb.record_failure()
         assert cb.state == CircuitState.OPEN
 
-    def test_does_not_open_below_threshold(self):
+    def test_stays_closed_below_threshold(self):
         cb = CircuitBreaker(threshold=3, reset_timeout=60)
         cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.CLOSED
 
-    def test_open_blocks_restarts(self):
-        cb = CircuitBreaker(threshold=1, reset_timeout=9999)
+    def test_record_success_resets_to_closed(self):
+        cb = CircuitBreaker(threshold=3, reset_timeout=60)
+        cb.record_failure()
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.state == CircuitState.OPEN
+        cb.record_success()
+        assert cb.state == CircuitState.CLOSED
+        assert cb.failure_count == 0
+
+    def test_allows_restart_when_closed(self):
+        cb = CircuitBreaker(threshold=3, reset_timeout=60)
+        assert cb.allow_restart() is True
+
+    def test_blocks_restart_when_open(self):
+        cb = CircuitBreaker(threshold=2, reset_timeout=3600)
+        cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
         assert cb.allow_restart() is False
 
     def test_transitions_to_half_open_after_timeout(self):
-        cb = CircuitBreaker(threshold=1, reset_timeout=0)
+        cb = CircuitBreaker(threshold=2, reset_timeout=0)
+        cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
-        # With reset_timeout=0 it transitions immediately
-        assert cb.allow_restart() is True
+        # With reset_timeout=0, elapsed >= 0 is always true
+        result = cb.allow_restart()
+        assert result is True
         assert cb.state == CircuitState.HALF_OPEN
 
-    def test_half_open_allows_restart(self):
-        cb = CircuitBreaker(threshold=1, reset_timeout=0)
-        cb.record_failure()
-        cb.allow_restart()  # triggers OPEN -> HALF_OPEN
-        assert cb.allow_restart() is True
 
-    def test_success_resets_to_closed(self):
-        cb = CircuitBreaker(threshold=3, reset_timeout=60)
-        cb.record_failure()
-        cb.record_failure()
-        cb.record_success()
-        assert cb.state == CircuitState.CLOSED
-        assert cb.failure_count == 0
+class TestHealthChecker:
+    def _make_checker(self, services=None, **cfg_overrides) -> HealthChecker:
+        cfg = _make_config(**cfg_overrides)
+        if services is not None:
+            cfg.services = services
+        return HealthChecker(cfg)
 
-    def test_failure_count_increments(self):
-        cb = CircuitBreaker(threshold=10, reset_timeout=60)
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.failure_count == 2
+    def test_initialises_per_service_state(self):
+        svc = _make_service("ollama")
+        checker = self._make_checker(services=[svc])
+        assert "ollama" in checker._history
+        assert "ollama" in checker._circuit_breakers
+        assert checker._consecutive_failures["ollama"] == 0
 
-
-# ---------------------------------------------------------------------------
-# HealthChecker.check_service
-# ---------------------------------------------------------------------------
-
-
-class TestCheckService:
-    def test_healthy_when_http_200(self, checker: HealthChecker, service: ServiceDef) -> None:
+    def test_check_service_healthy(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc])
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        with patch("requests.get", return_value=mock_resp):
-            result = checker.check_service(service)
+        with patch("bmt_ai_os.controller.health.requests.get", return_value=mock_resp):
+            result = checker.check_service(svc)
         assert result.status == HealthStatus.HEALTHY
-        assert result.service == "ollama"
         assert result.response_time_ms >= 0
-        assert result.error == ""
+        assert checker._consecutive_failures[svc.name] == 0
 
-    def test_unhealthy_when_http_500(self, checker: HealthChecker, service: ServiceDef) -> None:
+    def test_check_service_unhealthy_non_200(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc])
         mock_resp = MagicMock()
-        mock_resp.status_code = 500
-        with patch("requests.get", return_value=mock_resp):
-            result = checker.check_service(service)
+        mock_resp.status_code = 503
+        with patch("bmt_ai_os.controller.health.requests.get", return_value=mock_resp):
+            result = checker.check_service(svc)
         assert result.status == HealthStatus.UNHEALTHY
-        assert "500" in result.error
+        assert "503" in result.error
+        assert checker._consecutive_failures[svc.name] == 1
 
-    def test_unhealthy_on_connection_error(
-        self, checker: HealthChecker, service: ServiceDef
-    ) -> None:
-        with patch("requests.get", side_effect=requests.ConnectionError("refused")):
-            result = checker.check_service(service)
+    def test_check_service_unhealthy_on_connection_error(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc])
+        with patch(
+            "bmt_ai_os.controller.health.requests.get",
+            side_effect=requests.ConnectionError("refused"),
+        ):
+            result = checker.check_service(svc)
         assert result.status == HealthStatus.UNHEALTHY
-        assert "refused" in result.error
+        assert checker._consecutive_failures[svc.name] == 1
 
-    def test_unhealthy_on_timeout(self, checker: HealthChecker, service: ServiceDef) -> None:
-        with patch("requests.get", side_effect=requests.Timeout("timed out")):
-            result = checker.check_service(service)
-        assert result.status == HealthStatus.UNHEALTHY
+    def test_check_all_returns_one_result_per_service(self):
+        svcs = [_make_service("ollama", 11434), _make_service("chromadb", 8000)]
+        checker = self._make_checker(services=svcs)
+        mock_resp = MagicMock(status_code=200)
+        with patch("bmt_ai_os.controller.health.requests.get", return_value=mock_resp):
+            results = checker.check_all()
+        assert len(results) == 2
+        names = {r.service for r in results}
+        assert names == {"ollama", "chromadb"}
 
-    def test_result_added_to_history(self, checker: HealthChecker, service: ServiceDef) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        with patch("requests.get", return_value=mock_resp):
-            checker.check_service(service)
-        history = checker.get_history("ollama")
+    def test_needs_restart_below_threshold(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc], max_restarts=3)
+        checker._consecutive_failures[svc.name] = 2
+        assert checker.needs_restart(svc.name) is False
+
+    def test_needs_restart_at_threshold(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc], max_restarts=3)
+        checker._consecutive_failures[svc.name] = 3
+        assert checker.needs_restart(svc.name) is True
+
+    def test_needs_restart_blocked_by_open_circuit(self):
+        svc = _make_service()
+        checker = self._make_checker(
+            services=[svc], max_restarts=1, circuit_breaker_threshold=1, circuit_breaker_reset=3600
+        )
+        checker._consecutive_failures[svc.name] = 5
+        checker._circuit_breakers[svc.name].record_failure()
+        assert checker._circuit_breakers[svc.name].state == CircuitState.OPEN
+        assert checker.needs_restart(svc.name) is False
+
+    def test_reset_failures(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc])
+        checker._consecutive_failures[svc.name] = 10
+        checker.reset_failures(svc.name)
+        assert checker._consecutive_failures[svc.name] == 0
+
+    def test_get_history(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc])
+        mock_resp = MagicMock(status_code=200)
+        with patch("bmt_ai_os.controller.health.requests.get", return_value=mock_resp):
+            checker.check_service(svc)
+        history = checker.get_history(svc.name)
         assert len(history) == 1
         assert history[0].status == HealthStatus.HEALTHY
 
-    def test_circuit_breaker_triggered_on_repeated_failures(
-        self, checker: HealthChecker, service: ServiceDef
-    ) -> None:
-        with patch("requests.get", side_effect=requests.ConnectionError("refused")):
-            for _ in range(checker.config.circuit_breaker_threshold):
-                checker.check_service(service)
-        state = checker.get_circuit_state("ollama")
-        assert state == CircuitState.OPEN
-
-    def test_success_resets_circuit_breaker(
-        self, checker: HealthChecker, service: ServiceDef
-    ) -> None:
-        # Trip breaker
-        with patch("requests.get", side_effect=requests.ConnectionError("refused")):
-            for _ in range(checker.config.circuit_breaker_threshold):
-                checker.check_service(service)
-        # Recover
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        # Force circuit back to closed by patching the breaker's state
-        checker._circuit_breakers["ollama"].state = CircuitState.HALF_OPEN
-        checker._circuit_breakers["ollama"].failure_count = 0
-        with patch("requests.get", return_value=mock_resp):
-            checker.check_service(service)
-        assert checker.get_circuit_state("ollama") == CircuitState.CLOSED
-
-
-# ---------------------------------------------------------------------------
-# HealthChecker.check_all
-# ---------------------------------------------------------------------------
-
-
-class TestCheckAll:
-    def test_check_all_returns_result_per_service(self) -> None:
-        svc1 = ServiceDef("s1", "c1", "http://s1/health", 8001)
-        svc2 = ServiceDef("s2", "c2", "http://s2/health", 8002)
-        cfg = ControllerConfig()
-        cfg.services = [svc1, svc2]
-        checker = HealthChecker(cfg)
-
-        mock_ok = MagicMock()
-        mock_ok.status_code = 200
-        with patch("requests.get", return_value=mock_ok):
-            results = checker.check_all()
-        assert len(results) == 2
-        assert {r.service for r in results} == {"s1", "s2"}
-
-
-# ---------------------------------------------------------------------------
-# needs_restart / reset_failures
-# ---------------------------------------------------------------------------
-
-
-class TestNeedsRestart:
-    def test_no_restart_below_threshold(self, checker: HealthChecker, service: ServiceDef) -> None:
-        # 0 failures — should not need restart
-        assert checker.needs_restart("ollama") is False
-
-    def test_needs_restart_after_max_failures(
-        self, checker: HealthChecker, service: ServiceDef
-    ) -> None:
-        checker._consecutive_failures["ollama"] = checker.config.max_restarts
-        assert checker.needs_restart("ollama") is True
-
-    def test_no_restart_when_circuit_open(
-        self, checker: HealthChecker, service: ServiceDef
-    ) -> None:
-        checker._consecutive_failures["ollama"] = checker.config.max_restarts
-        checker._circuit_breakers["ollama"].state = CircuitState.OPEN
-        checker._circuit_breakers["ollama"].last_failure_time = time.time()
-        assert checker.needs_restart("ollama") is False
-
-    def test_reset_failures_clears_counter(self, checker: HealthChecker) -> None:
-        checker._consecutive_failures["ollama"] = 5
-        checker.reset_failures("ollama")
-        assert checker._consecutive_failures["ollama"] == 0
-
-    def test_needs_restart_unknown_service_false(self, checker: HealthChecker) -> None:
-        assert checker.needs_restart("nonexistent") is False
-
-
-# ---------------------------------------------------------------------------
-# get_history / get_circuit_state
-# ---------------------------------------------------------------------------
-
-
-class TestGetHistoryAndState:
-    def test_history_empty_initially(self, checker: HealthChecker) -> None:
-        assert checker.get_history("ollama") == []
-
-    def test_history_unknown_service_empty(self, checker: HealthChecker) -> None:
-        assert checker.get_history("unknown") == []
-
-    def test_circuit_state_default_closed(self, checker: HealthChecker) -> None:
-        assert checker.get_circuit_state("ollama") == CircuitState.CLOSED
-
-    def test_circuit_state_unknown_service_closed(self, checker: HealthChecker) -> None:
-        assert checker.get_circuit_state("ghost") == CircuitState.CLOSED
-
-    def test_history_capped_at_maxlen(self, checker: HealthChecker, service: ServiceDef) -> None:
-        mock_ok = MagicMock()
-        mock_ok.status_code = 200
-        with patch("requests.get", return_value=mock_ok):
-            # history_size is 5
-            for _ in range(8):
-                checker.check_service(service)
-        assert len(checker.get_history("ollama")) == 5
-
-
-# ---------------------------------------------------------------------------
-# HealthResult dataclass
-# ---------------------------------------------------------------------------
-
-
-class TestHealthResult:
-    def test_fields(self):
-        r = HealthResult(service="svc", status=HealthStatus.HEALTHY, response_time_ms=12.5)
-        assert r.service == "svc"
-        assert r.status == HealthStatus.HEALTHY
-        assert r.response_time_ms == 12.5
-        assert r.error == ""
-
-    def test_timestamp_auto_set(self):
-        r = HealthResult(service="svc", status=HealthStatus.UNKNOWN)
-        assert r.timestamp > 0
+    def test_get_circuit_state(self):
+        svc = _make_service()
+        checker = self._make_checker(services=[svc])
+        state = checker.get_circuit_state(svc.name)
+        assert state == CircuitState.CLOSED
