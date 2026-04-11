@@ -159,6 +159,23 @@ uvx ruff format --check bmt_ai_os/ tests/
 ./scripts/build.sh --target qemu
 ```
 
+## Branching Strategy
+
+```
+main          ← production-ready, protected (requires PR + review)
+  ↑
+develop       ← integration branch, protected (no force-push/delete)
+  ↑
+feature/*     ← short-lived feature branches (auto-deleted on merge)
+fix/*         ← bug fix branches
+scrum/*       ← scrum data updates
+```
+
+- **main**: Stable releases only. Squash-merge from `develop` via PR.
+- **develop**: All feature work merges here first. Direct push allowed.
+- **feature/\***: Branch from `develop`, merge back via PR or direct merge. Auto-deleted after merge.
+- Never push directly to `main`. Always go through `develop` → PR → `main`.
+
 ## Releases
 
 Release notes and build artifacts in `releases/` (gitignored).
