@@ -1546,6 +1546,128 @@ def update_status(state_file: str | None) -> None:
     click.echo(f"  State file     : {sm.path}")
 
 
+@update.command("run")
+@click.option(
+    "--server",
+    default=_DEFAULT_OTA_SERVER,
+    show_default=True,
+    envvar="BMT_OTA_SERVER_URL",
+    help="Release-info endpoint URL.",
+)
+@click.option(
+    "--compose-file",
+    default=None,
+    envvar="BMT_COMPOSE_FILE",
+    help="Docker Compose file for container image updates.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Use file-backed slot store instead of a real block device.",
+)
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+@click.option(
+    "--skip-containers",
+    is_flag=True,
+    default=False,
+    help="Skip the docker compose pull stage.",
+)
+def update_run(
+    server: str,
+    compose_file: str | None,
+    dry_run: bool,
+    state_file: str | None,
+    skip_containers: bool,
+) -> None:
+    """Full system update: OS rootfs + container images.
+
+    Performs three steps in sequence:
+
+    \b
+    1. Checks the release server for a newer OS image.
+    2. Downloads and writes it to the standby A/B partition.
+    3. Pulls updated Docker container images (docker compose pull).
+
+    Model data and ChromaDB data on /data are preserved automatically
+    because they live on a separate data partition that is never modified
+    during an update.
+
+    After the next reboot, run `bmt-ai-os update confirm` to mark the
+    new partition as healthy and disable automatic rollback.
+
+    Example: bmt-ai-os update run --dry-run
+    """
+    import os as _os
+
+    from bmt_ai_os.ota.state import StateManager
+    from bmt_ai_os.update.orchestrator import UpdateOrchestrator
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+
+    # Resolve compose file: CLI flag > env > config default.
+    resolved_compose = compose_file or _os.environ.get(
+        "BMT_COMPOSE_FILE",
+        str(
+            next(
+                (
+                    p
+                    for p in [
+                        "/opt/bmt_ai_os/ai-stack/docker-compose.yml",
+                        "bmt_ai_os/ai-stack/docker-compose.yml",
+                    ]
+                    if __import__("pathlib").Path(p).exists()
+                ),
+                "/opt/bmt_ai_os/ai-stack/docker-compose.yml",
+            )
+        ),
+    )
+
+    click.echo("BMT AI OS — Full System Update")
+    click.echo("=" * 45)
+    click.echo(f"  Server        : {server}")
+    click.echo(f"  Compose file  : {resolved_compose}")
+    click.echo(f"  Dry run       : {'yes' if dry_run else 'no'}")
+    click.echo(f"  Skip containers: {'yes' if skip_containers else 'no'}")
+    click.echo()
+
+    orchestrator = UpdateOrchestrator(
+        server_url=server,
+        compose_file="" if skip_containers else resolved_compose,
+        state_manager=sm,
+        dry_run=dry_run,
+    )
+
+    result = orchestrator.run()
+
+    # Print stage results.
+    for stage in result.stages:
+        if stage.skipped:
+            status_label = "SKIP"
+        elif stage.success:
+            status_label = "OK  "
+        else:
+            status_label = "FAIL"
+        click.echo(f"  [{status_label}] {stage.name}: {stage.message}")
+
+    click.echo()
+    if result.success:
+        if result.new_version:
+            click.echo(f"Update to version {result.new_version} applied successfully.")
+            click.echo("Reboot the device, then run `bmt-ai-os update confirm`.")
+        else:
+            click.echo("System is already up to date.  No reboot required.")
+    else:
+        failed = [s.name for s in result.stages if not s.success and not s.skipped]
+        click.echo(f"Update failed at stage(s): {', '.join(failed)}", err=True)
+        sys.exit(1)
+
+
 @update.command("rollback")
 @click.option(
     "--state-file",
