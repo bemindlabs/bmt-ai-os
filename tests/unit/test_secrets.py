@@ -208,11 +208,7 @@ class TestReadSecretPriority:
 
 class TestAuthUsesReadSecret:
     def test_jwt_secret_from_file(self, tmp_path, monkeypatch):
-        """JWT secret from file is no longer supported — env var only.
-
-        This test verifies that without BMT_JWT_SECRET env var set,
-        _jwt_secret() raises RuntimeError even if a secrets file exists.
-        """
+        """JWT secret can be loaded from /run/secrets/BMT_JWT_SECRET file."""
         secret_file = tmp_path / "BMT_JWT_SECRET"
         secret_file.write_text("FileJwtSecret1X-for-unit-test-32!")
 
@@ -222,8 +218,7 @@ class TestAuthUsesReadSecret:
         monkeypatch.setattr(secrets_mod, "_SECRETS_DIR", tmp_path)
         monkeypatch.delenv("BMT_JWT_SECRET", raising=False)
 
-        with pytest.raises(RuntimeError, match="JWT secret not configured"):
-            auth_mod._jwt_secret()
+        assert auth_mod._jwt_secret() == "FileJwtSecret1X-for-unit-test-32!"
 
     def test_jwt_secret_from_env(self, tmp_path, monkeypatch):
         import bmt_ai_os.controller.auth as auth_mod

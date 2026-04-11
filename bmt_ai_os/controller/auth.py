@@ -463,12 +463,15 @@ class UserStore:
 # JWT token utilities
 # ---------------------------------------------------------------------------
 
+from bmt_ai_os.secret_files import read_secret  # noqa: E402
+
 
 def _jwt_secret() -> str:
-    secret = os.environ.get(_ENV_JWT_SECRET)
+    secret = read_secret(_ENV_JWT_SECRET)
     if not secret:
         raise RuntimeError(
-            f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable."
+            f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable "
+            f"or mount it as /run/secrets/{_ENV_JWT_SECRET}."
         )
     if len(secret) < _JWT_SECRET_MIN_LENGTH:
         raise RuntimeError(
@@ -692,10 +695,12 @@ def validate_startup_security() -> None:
     Prints a descriptive error to stderr and raises SystemExit(1) on failure
     so the process terminates before binding any ports.
     """
-    secret = os.environ.get(_ENV_JWT_SECRET, "")
+    secret = read_secret(_ENV_JWT_SECRET) or ""
     if not secret:
         print(
-            f"FATAL: {_ENV_JWT_SECRET} environment variable is not set.\n"
+            f"FATAL: {_ENV_JWT_SECRET} is not configured.\n"
+            f"       Set the {_ENV_JWT_SECRET} environment variable or mount it as\n"
+            f"       /run/secrets/{_ENV_JWT_SECRET}.\n"
             "       Generate a secret with: "
             'python3 -c "import secrets; print(secrets.token_hex(32))"',
             file=sys.stderr,
