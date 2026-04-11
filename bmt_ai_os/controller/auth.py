@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sqlite3
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -39,6 +41,17 @@ _ENV_API_KEY = "BMT_API_KEY"
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_SECONDS = 86400  # 24 hours
+_JWT_SECRET_MIN_LENGTH = 32
+
+# Password complexity requirements
+_PASSWORD_MIN_LENGTH = 12
+_PASSWORD_REQUIRES_UPPERCASE = re.compile(r"[A-Z]")
+_PASSWORD_REQUIRES_LOWERCASE = re.compile(r"[a-z]")
+_PASSWORD_REQUIRES_DIGIT = re.compile(r"\d")
+
+_ENV_BMT_ENV = "BMT_ENV"
+_DEFAULT_ADMIN_USERNAME = "admin"
+_DEFAULT_ADMIN_PASSWORD = "admin"
 
 # Paths that never require authentication
 _EXEMPT_PREFIXES = (
@@ -91,6 +104,33 @@ def _role_allows(role: Role, method: str, path: str) -> bool:
             if path.startswith(prefix):
                 return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Password complexity validation
+# ---------------------------------------------------------------------------
+
+
+def validate_password_complexity(password: str) -> None:
+    """Raise ValueError if *password* does not meet complexity requirements.
+
+    Requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter (A-Z)
+    - At least one lowercase letter (a-z)
+    - At least one digit (0-9)
+    """
+    errors: list[str] = []
+    if len(password) < _PASSWORD_MIN_LENGTH:
+        errors.append(f"at least {_PASSWORD_MIN_LENGTH} characters")
+    if not _PASSWORD_REQUIRES_UPPERCASE.search(password):
+        errors.append("at least one uppercase letter (A-Z)")
+    if not _PASSWORD_REQUIRES_LOWERCASE.search(password):
+        errors.append("at least one lowercase letter (a-z)")
+    if not _PASSWORD_REQUIRES_DIGIT.search(password):
+        errors.append("at least one digit (0-9)")
+    if errors:
+        raise ValueError("Password must contain " + ", ".join(errors) + ".")
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +205,21 @@ class UserStore:
 
     # --- Public API ---
 
-    def create_user(self, username: str, password: str, role: Role | str = Role.viewer) -> User:
+    def create_user(
+        self,
+        username: str,
+        password: str,
+        role: Role | str = Role.viewer,
+        skip_complexity: bool = False,
+    ) -> User:
         """Create a new user with a bcrypt-hashed password.
 
-        Raises ValueError if the username already exists or the role is invalid.
+        Raises ValueError if the username already exists, the role is invalid,
+        or the password does not meet complexity requirements.
+
+        Pass ``skip_complexity=True`` only for internal/test fixtures where
+        complexity enforcement is intentionally bypassed (e.g. default-admin
+        bootstrap in dev mode).
         """
         if isinstance(role, str):
             try:
@@ -176,6 +227,9 @@ class UserStore:
             except ValueError:
                 valid = [r.value for r in Role]
                 raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
+
+        if not skip_complexity:
+            validate_password_complexity(password)
 
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         created_at = datetime.now(timezone.utc).isoformat()
@@ -245,6 +299,11 @@ def _jwt_secret() -> str:
     if not secret:
         raise RuntimeError(
             f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable."
+        )
+    if len(secret) < _JWT_SECRET_MIN_LENGTH:
+        raise RuntimeError(
+            f"{_ENV_JWT_SECRET} must be at least {_JWT_SECRET_MIN_LENGTH} characters long "
+            f"(got {len(secret)})."
         )
     return secret
 
@@ -373,3 +432,80 @@ def _get_default_store() -> UserStore:
 def get_store() -> UserStore:
     """Return the module-level UserStore singleton."""
     return _get_default_store()
+
+
+# ---------------------------------------------------------------------------
+# Startup security validation
+# ---------------------------------------------------------------------------
+
+
+def ensure_default_admin(store: UserStore | None = None) -> None:
+    """Bootstrap a default admin user when no users exist.
+
+    In production (BMT_ENV != 'dev'), the default admin/admin credentials are
+    explicitly rejected — the operator must pre-seed a real admin user or set
+    BMT_ENV=dev to allow a temporary insecure default.
+
+    Raises RuntimeError in production when no users exist (would require
+    default credentials), directing the operator to create a proper admin.
+    """
+    _store = store or _get_default_store()
+
+    if _store.has_users():
+        return  # users already exist — nothing to bootstrap
+
+    is_dev = os.environ.get(_ENV_BMT_ENV, "").lower() == "dev"
+
+    if not is_dev:
+        print(
+            "FATAL: No users found in the auth store and BMT_ENV is not 'dev'.\n"
+            "       Default admin/admin credentials are not permitted in production.\n"
+            "       Create an initial admin user or set BMT_ENV=dev for development.",
+            file=sys.stderr,
+        )
+        raise RuntimeError(
+            "Default admin credentials rejected in production. "
+            "Create a real admin user or set BMT_ENV=dev."
+        )
+
+    # Dev mode only — create insecure default admin with complexity bypass
+    logger.warning(
+        "BMT_ENV=dev: bootstrapping default admin/admin credentials. "
+        "Change the password before deploying to production."
+    )
+    _store.create_user(
+        _DEFAULT_ADMIN_USERNAME,
+        _DEFAULT_ADMIN_PASSWORD,
+        Role.admin,
+        skip_complexity=True,
+    )
+
+
+def validate_startup_security() -> None:
+    """Validate security-critical configuration at controller startup.
+
+    Checks performed (in order):
+    1. BMT_JWT_SECRET is set and at least 32 characters long.
+
+    Prints a descriptive error to stderr and raises SystemExit(1) on failure
+    so the process terminates before binding any ports.
+    """
+    secret = os.environ.get(_ENV_JWT_SECRET, "")
+    if not secret:
+        print(
+            f"FATAL: {_ENV_JWT_SECRET} environment variable is not set.\n"
+            "       Generate a secret with: "
+            'python3 -c "import secrets; print(secrets.token_hex(32))"',
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if len(secret) < _JWT_SECRET_MIN_LENGTH:
+        print(
+            f"FATAL: {_ENV_JWT_SECRET} is too short "
+            f"({len(secret)} chars, minimum {_JWT_SECRET_MIN_LENGTH}).\n"
+            "       Generate a secret with: "
+            'python3 -c "import secrets; print(secrets.token_hex(32))"',
+            file=sys.stderr,
+        )
+        sys.exit(1)
