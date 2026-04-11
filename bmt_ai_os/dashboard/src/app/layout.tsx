@@ -5,6 +5,11 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AuthProvider } from "@/components/auth-provider";
+import { ThemeProvider, ThemeToggle } from "@/components/theme-toggle";
+import {
+  NotificationProvider,
+  NotificationCenter,
+} from "@/components/notification-center";
 
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
 
@@ -22,6 +27,8 @@ export default function RootLayout({
       className={`${inter.variable} dark h-full antialiased`}
     >
       <body className="flex h-full bg-background text-foreground">
+        <ThemeProvider>
+        <NotificationProvider>
         <AuthProvider>
           {/* Sidebar */}
           <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -52,6 +59,8 @@ export default function RootLayout({
                 <Badge variant="outline" className="text-xs">
                   Online
                 </Badge>
+                <ThemeToggle />
+                <NotificationCenter />
               </div>
             </header>
 
@@ -59,6 +68,8 @@ export default function RootLayout({
             <main className="flex-1 overflow-y-auto p-6">{children}</main>
           </div>
         </AuthProvider>
+        </NotificationProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
