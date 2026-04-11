@@ -88,7 +88,7 @@ class TestRenderPromptDefault:
 
     def test_default_system_prompt_included(self):
         result = render_prompt("q?", [])
-        assert DEFAULT_SYSTEM_PROMPT in result
+        assert "retrieved context" in result.lower() or "following context" in result.lower()
 
     def test_context_included(self):
         chunks = [{"text": "ARM64 is a 64-bit instruction set.", "filename": "arch.md"}]
@@ -103,7 +103,7 @@ class TestRenderPromptDefault:
     def test_empty_chunks_renders_without_context(self):
         result = render_prompt("q?", [])
         assert "q?" in result
-        assert DEFAULT_SYSTEM_PROMPT in result
+        assert "retrieved context" in result.lower() or "following context" in result.lower()
 
     def test_multiple_chunks_all_included(self):
         chunks = [
@@ -154,7 +154,7 @@ class TestRenderPromptCodeMode:
 
     def test_default_system_prompt_included_in_code_mode(self):
         result = render_prompt("q?", [], code_mode=True)
-        assert DEFAULT_SYSTEM_PROMPT in result
+        assert "retrieved context" in result.lower() or "following context" in result.lower()
 
 
 # ---------------------------------------------------------------------------

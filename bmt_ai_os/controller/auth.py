@@ -71,6 +71,7 @@ _EXEMPT_PREFIXES = (
     "/api/v1/fleet/health",  # fleet health check
     "/api/v1/fleet/summary",  # read-only fleet summary
     "/api/v1/fleet/devices",  # read-only device list
+    "/api/v1/training",  # training job management (read-only dashboard access)
 )
 
 

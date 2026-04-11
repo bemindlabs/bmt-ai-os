@@ -2439,7 +2439,125 @@
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-11",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-87",
+      "title": "Add persona system with SOUL.md and IDENTITY.md workspace files",
+      "description": "Implement OpenClaw-style persona via markdown files. SOUL.md defines personality/tone, IDENTITY.md defines name/role/avatar. Files loaded from agent workspace directory, assembled into system prompt with priority ordering.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "persona",
+        "agents"
+      ],
+      "acceptance_criteria": [
+        "SOUL.md file defines assistant personality and tone",
+        "IDENTITY.md file defines name, role, avatar metadata",
+        "Files loaded from /data/bmt_ai_os/agents/{id}/ workspace",
+        "Priority ordering: agents(10) \u2192 soul(20) \u2192 identity(30) \u2192 user(40) \u2192 tools(50) \u2192 memory(70)",
+        "Budget constraints: 20K chars per file, 150K total"
+      ],
+      "epic_id": "BMTOS-EPIC-12",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-88",
+      "title": "Auto-inject persona system prompt in OpenAI-compatible API",
+      "description": "When no system message is provided by the client, auto-inject the agent's assembled persona as the first system message. Configurable via BMT_DEFAULT_PERSONA env var.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "persona",
+        "api"
+      ],
+      "acceptance_criteria": [
+        "Auto-inject persona when client sends no system message",
+        "Skip injection when client provides their own system message",
+        "BMT_DEFAULT_PERSONA env var selects persona workspace",
+        "RAG prompts use persona-aware template instead of hardcoded"
+      ],
+      "dependencies": [
+        "BMTOS-87"
+      ],
+      "epic_id": "BMTOS-EPIC-12",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-89",
+      "title": "Add persona editor to dashboard settings page",
+      "description": "Dashboard UI for editing SOUL.md and IDENTITY.md content. Includes preset persona library (coding assistant, general helper, creative writer) and live preview.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "persona",
+        "dashboard"
+      ],
+      "acceptance_criteria": [
+        "Settings page section for persona configuration",
+        "Textarea editor for SOUL.md content",
+        "Preset personas: coding assistant, general helper, creative writer",
+        "Save persona to agent workspace directory",
+        "Live preview of system prompt assembly"
+      ],
+      "dependencies": [
+        "BMTOS-87"
+      ],
+      "epic_id": "BMTOS-EPIC-12",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-90",
+      "title": "Support multi-agent personas with isolated workspaces",
+      "description": "Each agent gets its own workspace directory with its own SOUL.md. Route messages to agents by session key or API parameter. Different agents can have completely different personalities.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "persona",
+        "agents",
+        "multi-agent"
+      ],
+      "acceptance_criteria": [
+        "Multiple agents defined in controller config",
+        "Each agent has isolated workspace with own SOUL.md",
+        "Agent selection via agent_id parameter in chat API",
+        "Per-agent model and thinking level defaults"
+      ],
+      "dependencies": [
+        "BMTOS-87"
+      ],
+      "epic_id": "BMTOS-EPIC-12",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-91",
+      "title": "Add persona presets library (coding, general, creative)",
+      "description": "Ship default SOUL.md templates for common use cases. Include coding assistant (precise, code-focused), general helper (friendly, balanced), and creative writer (expressive, imaginative).",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "persona",
+        "content"
+      ],
+      "acceptance_criteria": [
+        "3 preset SOUL.md templates shipped with the OS",
+        "Coding assistant: precise, technical, cites docs",
+        "General helper: friendly, balanced, conversational",
+        "Creative writer: expressive, imaginative, storytelling",
+        "CLI command to apply preset: bmt-ai-os persona set <preset>"
+      ],
+      "epic_id": "BMTOS-EPIC-12",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 84
+  "next_id": 92
 }

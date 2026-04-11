@@ -470,6 +470,121 @@ def providers() -> None:
 
 
 # ---------------------------------------------------------------------------
+# persona
+# ---------------------------------------------------------------------------
+
+_PERSONA_PRESETS = ("coding", "general", "creative")
+
+
+@main.group()
+def persona() -> None:
+    """Manage agent personas (SOUL.md templates)."""
+
+
+@persona.command("list")
+def persona_list() -> None:
+    """List available persona presets."""
+    from pathlib import Path
+
+    presets_dir = Path(__file__).parent / "persona" / "presets"
+    click.echo("Available persona presets:\n")
+    col_w = [12, 60]
+    click.echo("  " + "  ".join([_fmt_col("PRESET", col_w[0]), _fmt_col("FILE", col_w[1])]))
+    click.echo("  " + _separator(col_w))
+    for name in _PERSONA_PRESETS:
+        preset_file = presets_dir / f"{name}.md"
+        exists = "yes" if preset_file.is_file() else "missing"
+        click.echo(
+            "  "
+            + "  ".join([_fmt_col(name, col_w[0]), _fmt_col(str(preset_file), col_w[1])])
+            + f"  [{exists}]"
+        )
+    click.echo("\nUse 'bmt-ai-os persona set <preset>' to copy a preset to your workspace.")
+
+
+@persona.command("set")
+@click.argument("preset", type=click.Choice(list(_PERSONA_PRESETS), case_sensitive=False))
+@click.option(
+    "--workspace",
+    "-w",
+    default=None,
+    help=(
+        "Target workspace directory.  Defaults to BMT_PERSONA_DIR env var or "
+        "~/.bmt-ai-os/personas/<preset>/."
+    ),
+)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing SOUL.md without prompting.",
+)
+def persona_set(preset: str, workspace: str | None, force: bool) -> None:
+    """Copy a preset SOUL.md to the target workspace.
+
+    PRESET must be one of: coding, general, creative.
+
+    Examples:
+
+      bmt-ai-os persona set coding
+
+      bmt-ai-os persona set creative --workspace /data/bmt_ai_os/agents/default
+    """
+    import shutil
+    from pathlib import Path
+
+    presets_dir = Path(__file__).parent / "persona" / "presets"
+    src = presets_dir / f"{preset}.md"
+
+    if not src.is_file():
+        click.echo(f"Error: preset file not found: {src}", err=True)
+        sys.exit(1)
+
+    # Resolve target workspace
+    if workspace:
+        target_dir = Path(workspace)
+    else:
+        env_dir = os.environ.get("BMT_PERSONA_DIR", "").strip()
+        if env_dir:
+            target_dir = Path(env_dir)
+        else:
+            default_persona = os.environ.get("BMT_DEFAULT_PERSONA", "").strip() or preset
+            target_dir = Path.home() / ".bmt-ai-os" / "personas" / default_persona
+
+    dest = target_dir / "SOUL.md"
+
+    if dest.exists() and not force:
+        click.confirm(f"SOUL.md already exists at {dest}. Overwrite?", abort=True, default=False)
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    click.echo(f"Persona '{preset}' installed to: {dest}")
+    click.echo(
+        f"Set BMT_DEFAULT_PERSONA={preset} (or BMT_PERSONA_DIR={target_dir}) to activate it."
+    )
+
+
+@persona.command("show")
+@click.argument("preset", type=click.Choice(list(_PERSONA_PRESETS), case_sensitive=False))
+def persona_show(preset: str) -> None:
+    """Print the content of a preset SOUL.md to stdout.
+
+    Example: bmt-ai-os persona show coding
+    """
+    from pathlib import Path
+
+    presets_dir = Path(__file__).parent / "persona" / "presets"
+    src = presets_dir / f"{preset}.md"
+
+    if not src.is_file():
+        click.echo(f"Error: preset file not found: {src}", err=True)
+        sys.exit(1)
+
+    click.echo(src.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
 # health
 # ---------------------------------------------------------------------------
 
@@ -1763,3 +1878,48 @@ def update_containers(compose_file: str | None, services: tuple[str, ...]) -> No
 
     click.echo("Container images updated successfully.")
     click.echo("Run `bmt-ai-os stack restart` to apply the new images.")
+
+
+# ---------------------------------------------------------------------------
+# mcp
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def mcp() -> None:
+    """Model Context Protocol (MCP) server commands."""
+
+
+@mcp.command("serve")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind host.")
+@click.option("--port", default=8765, show_default=True, help="Bind port.")
+@click.option(
+    "--log-level",
+    default="info",
+    show_default=True,
+    type=click.Choice(["debug", "info", "warning", "error"], case_sensitive=False),
+    help="Uvicorn log level.",
+)
+def mcp_serve(host: str, port: int, log_level: str) -> None:
+    """Start the standalone BMT AI OS MCP server.
+
+    Exposes BMT AI OS resources (models, status, providers) and tools
+    (chat, pull_model, query_rag, list_models) to Claude Code and other
+    MCP-compatible clients.
+
+    Example:
+
+        bmt-ai-os mcp serve --port 8765
+
+    Then configure Claude Code with:
+
+        {"mcpServers": {"bmt-ai-os": {"url": "http://127.0.0.1:8765/mcp/"}}}
+    """
+    import uvicorn
+
+    from bmt_ai_os.mcp.server import create_mcp_app
+
+    click.echo(f"Starting BMT AI OS MCP server on {host}:{port}")
+    click.echo("Endpoint: POST /mcp/  (JSON-RPC 2.0)")
+    click.echo("Press Ctrl+C to stop.")
+    uvicorn.run(create_mcp_app(), host=host, port=port, log_level=log_level.lower())

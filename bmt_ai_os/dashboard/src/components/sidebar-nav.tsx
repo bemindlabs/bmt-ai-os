@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   BrainCircuit,
+  BrainCog,
   MessageSquare,
   Layers,
   Settings,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/models", label: "Models", icon: BrainCircuit },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/providers", label: "Providers", icon: Layers },
+  { href: "/training", label: "Training", icon: BrainCog },
   { href: "/logs", label: "Logs", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

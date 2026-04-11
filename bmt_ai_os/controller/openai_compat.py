@@ -16,6 +16,7 @@ import dataclasses
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from typing import Any, AsyncIterator
@@ -27,6 +28,64 @@ from pydantic import BaseModel
 from .rate_limit import inference_rate_limit
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Persona injection helpers
+# ---------------------------------------------------------------------------
+
+
+def _persona_enabled() -> bool:
+    """Return True when persona auto-injection is enabled (default: on)."""
+    return os.getenv("BMT_PERSONA_ENABLED", "1").lower() not in ("0", "false", "no")
+
+
+def _has_system_message(messages: list[Any]) -> bool:
+    """Return True when the first message carries the 'system' role."""
+    if not messages:
+        return False
+    first = messages[0]
+    role = getattr(first, "role", None) or (first.get("role") if isinstance(first, dict) else None)
+    return role == "system"
+
+
+async def _inject_persona(messages: list[Any]) -> list[Any]:
+    """Prepend the assembled persona as a system message when none is present.
+
+    Returns *messages* unchanged when:
+    - A system message is already present (client owns the system prompt).
+    - Persona injection is disabled via ``BMT_PERSONA_ENABLED=0``.
+    - The assembler returns an empty string.
+
+    Never raises — persona errors must not break the chat flow.
+    """
+    if _has_system_message(messages):
+        return messages
+
+    if not _persona_enabled():
+        return messages
+
+    try:
+        from bmt_ai_os.persona.assembler import get_persona_assembler
+
+        assembler = get_persona_assembler()
+        system_content = assembler.assemble()
+        if not system_content:
+            return messages
+
+        try:
+            from bmt_ai_os.providers.base import ChatMessage
+
+            injected = ChatMessage(role="system", content=system_content)
+        except Exception:
+            injected = _ChatMessage(role="system", content=system_content)
+
+        logger.debug("Persona injected (%d chars)", len(system_content))
+        return [injected, *messages]
+
+    except Exception as exc:
+        logger.warning("Persona injection failed (non-fatal): %s", exc)
+        return messages
+
 
 # ---------------------------------------------------------------------------
 # RAG injection helpers
@@ -127,6 +186,29 @@ class ChatMessageIn(BaseModel):
     name: str | None = None
 
 
+class ToolFunctionParameters(BaseModel):
+    """JSON Schema object describing function parameters."""
+
+    type: str = "object"
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+
+class ToolFunction(BaseModel):
+    """Definition of a callable function exposed as a tool."""
+
+    name: str
+    description: str = ""
+    parameters: ToolFunctionParameters = ToolFunctionParameters()
+
+
+class Tool(BaseModel):
+    """An OpenAI-style tool wrapping a function definition."""
+
+    type: str = "function"
+    function: ToolFunction
+
+
 class ChatCompletionRequest(BaseModel):
     model: str = "default"
     messages: list[ChatMessageIn]
@@ -139,6 +221,9 @@ class ChatCompletionRequest(BaseModel):
     presence_penalty: float = 0.0
     frequency_penalty: float = 0.0
     user: str | None = None
+    # Tool / function-calling fields (OpenAI spec)
+    tools: list[Tool] | None = None
+    tool_choice: str | dict[str, Any] | None = None
 
 
 class CompletionRequest(BaseModel):
@@ -181,7 +266,13 @@ def _build_chat_response(
     prompt_tokens: int = 0,
     completion_tokens: int = 0,
     finish_reason: str = "stop",
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    message: dict[str, Any] = {"role": "assistant", "content": content}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+        finish_reason = "tool_calls"
+
     return {
         "id": _make_id("chatcmpl"),
         "object": "chat.completion",
@@ -190,7 +281,7 @@ def _build_chat_response(
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": content},
+                "message": message,
                 "finish_reason": finish_reason,
             }
         ],
@@ -200,6 +291,84 @@ def _build_chat_response(
             "total_tokens": prompt_tokens + completion_tokens,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Tool / function-calling helpers
+# ---------------------------------------------------------------------------
+
+
+def _provider_supports_tools(provider: Any) -> bool:
+    """Return True when *provider* declares native tool/function-calling support."""
+    # Check for an explicit attribute or method
+    supports = getattr(provider, "supports_tools", False)
+    if callable(supports):
+        return bool(supports())
+    return bool(supports)
+
+
+def _tools_to_system_message(tools: list[Tool]) -> str:
+    """Serialise *tools* into a prose system message for providers that lack
+    native tool support.
+
+    The model is instructed to emit a structured JSON block so we can parse
+    the call back out of the plain-text response.
+    """
+    lines = [
+        "You have access to the following functions. "
+        "When you need to call a function, respond ONLY with a JSON code block "
+        "in the following format and nothing else:\n",
+        "```json",
+        '{"name": "<function_name>", "arguments": {<arg_key>: <arg_value>}}',
+        "```\n",
+        "Available functions:",
+    ]
+    for tool in tools:
+        fn = tool.function
+        params_desc = ", ".join(
+            f"{k}: {v.get('type', 'any')}" for k, v in fn.parameters.properties.items()
+        )
+        lines.append(f"- {fn.name}({params_desc}): {fn.description}")
+
+    return "\n".join(lines)
+
+
+_TOOL_CALL_RE = re.compile(
+    r"```(?:json)?\s*(\{.*?\})\s*```",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _parse_tool_call_from_text(text: str) -> list[dict[str, Any]] | None:
+    """Try to extract a function call JSON block from a model's plain-text reply.
+
+    Returns a list of OpenAI-style tool_call objects, or None if no call was
+    found.
+    """
+    match = _TOOL_CALL_RE.search(text)
+    if not match:
+        return None
+
+    try:
+        payload = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return None
+
+    fn_name = payload.get("name")
+    fn_args = payload.get("arguments", {})
+    if not fn_name:
+        return None
+
+    return [
+        {
+            "id": f"call_{uuid.uuid4().hex[:16]}",
+            "type": "function",
+            "function": {
+                "name": fn_name,
+                "arguments": json.dumps(fn_args),
+            },
+        }
+    ]
 
 
 def _build_completion_response(
@@ -333,7 +502,13 @@ def _get_provider_router():
 
 @router.post("/v1/chat/completions", dependencies=[Depends(inference_rate_limit)])
 async def chat_completions(body: ChatCompletionRequest, request: Request):
-    """OpenAI-compatible chat completions with optional SSE streaming."""
+    """OpenAI-compatible chat completions with optional SSE streaming.
+
+    Supports the ``tools`` / ``tool_choice`` parameters (OpenAI function-calling
+    spec).  When the active provider declares ``supports_tools = True`` the tools
+    list is forwarded directly; otherwise a fallback system-message strategy is
+    used and the model's text response is parsed for embedded JSON tool calls.
+    """
     registry = _get_provider_router()
     if registry is None:
         raise HTTPException(status_code=503, detail="No provider available")
@@ -341,6 +516,9 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
     messages = [_make_chat_message(m.role, m.content) for m in body.messages]
     model = body.model if body.model != "default" else None
     max_tokens = body.max_tokens or 4096
+
+    # Persona auto-injection (opt-out via BMT_PERSONA_ENABLED=0)
+    messages = await _inject_persona(messages)
 
     # RAG auto-injection (opt-in via BMT_RAG_ENABLED=true)
     if _rag_enabled():
@@ -352,7 +530,31 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
+    # ---- Tool / function-calling pre-processing ----------------------------
+    tools = body.tools or []
+    native_tools = False  # whether provider handles tools natively
+
+    if tools:
+        if _provider_supports_tools(provider):
+            native_tools = True
+            logger.debug(
+                "Provider %s supports tools natively — forwarding %d tools",
+                provider.name,
+                len(tools),
+            )
+        else:
+            # Fallback: inject a system message describing the functions
+            tool_system_msg = _make_chat_message("system", _tools_to_system_message(tools))
+            messages = [tool_system_msg, *messages]
+            logger.debug(
+                "Provider %s does not support tools — injected fallback system message",
+                provider.name,
+            )
+    # -----------------------------------------------------------------------
+
     if body.stream:
+        # Streaming does not support tool_calls in the current implementation;
+        # fall back to streaming without tool detection for simplicity.
         try:
             stream = await provider.chat(
                 messages,
@@ -379,14 +581,20 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         )
 
     # Non-streaming
+    chat_kwargs: dict[str, Any] = {
+        "model": model,
+        "temperature": body.temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+    if native_tools:
+        # Pass tools through to provider as-is (provider-specific handling)
+        chat_kwargs["tools"] = [t.model_dump() for t in tools]
+        if body.tool_choice is not None:
+            chat_kwargs["tool_choice"] = body.tool_choice
+
     try:
-        response = await provider.chat(
-            messages,
-            model=model,
-            temperature=body.temperature,
-            max_tokens=max_tokens,
-            stream=False,
-        )
+        response = await provider.chat(messages, **chat_kwargs)
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
         logger.exception("Chat completion failed")
         raise HTTPException(status_code=502, detail=str(exc))
@@ -396,11 +604,27 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         response, "completion_tokens", 0
     )
 
+    # ---- Tool-call extraction -------------------------------------------
+    tool_calls: list[dict[str, Any]] | None = None
+
+    if tools:
+        if native_tools:
+            # Provider may embed tool_calls in response.raw or a dedicated field
+            raw_tool_calls = getattr(response, "tool_calls", None) or (
+                response.raw.get("tool_calls") if isinstance(response.raw, dict) else None
+            )
+            if raw_tool_calls:
+                tool_calls = raw_tool_calls
+        else:
+            # Parse tool call from plain-text response
+            tool_calls = _parse_tool_call_from_text(response.content)
+
     return _build_chat_response(
         content=response.content,
         model=response.model,
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
+        tool_calls=tool_calls,
     )
 
 

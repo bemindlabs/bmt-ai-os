@@ -79,7 +79,9 @@ async def install_plugin(name: str) -> dict:
         manager.install(name)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return {"plugin": name, "status": "installed"}
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+    return {"plugin": name, "status": "installed", "installed": manager.is_installed(name)}
 
 
 @router.post("/{name}/uninstall")
@@ -90,6 +92,8 @@ async def uninstall_plugin(name: str) -> dict:
         manager.uninstall(name)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
     return {"plugin": name, "status": "uninstalled"}
 
 
@@ -101,7 +105,9 @@ async def enable_plugin(name: str) -> dict:
         manager.enable(name)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return {"plugin": name, "status": "enabled"}
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+    return {"plugin": name, "status": "enabled", "enabled": manager.is_enabled(name)}
 
 
 @router.post("/{name}/disable")
@@ -112,4 +118,6 @@ async def disable_plugin(name: str) -> dict:
         manager.disable(name)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return {"plugin": name, "status": "disabled"}
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+    return {"plugin": name, "status": "disabled", "enabled": manager.is_enabled(name)}
