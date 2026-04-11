@@ -1,6 +1,6 @@
 # BMT AI OS Benchmark Report
 
-**Timestamp:** 2026-04-11T14:11:43
+**Timestamp:** 2026-04-11T14:17:31
 **Board:** apple-silicon
 **Model:** `qwen2.5:0.5b`
 **Platform:** Darwin 25.3.0 arm64 (arm)
@@ -29,10 +29,10 @@ _Embedding model: `nomic-embed-text`_
 
 | Metric | Value |
 |--------|-------|
-| CPU score | 9396.32 iter/ms |
-| Memory read | 12387 MB/s |
-| Disk write | 6614 MB/s |
-| Disk read | 6573 MB/s |
+| CPU score | 9354.36 iter/ms |
+| Memory read | 12136 MB/s |
+| Disk write | 6603 MB/s |
+| Disk read | 6922 MB/s |
 | Total RAM | 32768 MB |
 
 ---

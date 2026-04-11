@@ -30,6 +30,64 @@ from .rate_limit import inference_rate_limit
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Persona injection helpers
+# ---------------------------------------------------------------------------
+
+
+def _persona_enabled() -> bool:
+    """Return True when persona auto-injection is enabled (default: on)."""
+    return os.getenv("BMT_PERSONA_ENABLED", "1").lower() not in ("0", "false", "no")
+
+
+def _has_system_message(messages: list[Any]) -> bool:
+    """Return True when the first message carries the 'system' role."""
+    if not messages:
+        return False
+    first = messages[0]
+    role = getattr(first, "role", None) or (first.get("role") if isinstance(first, dict) else None)
+    return role == "system"
+
+
+async def _inject_persona(messages: list[Any]) -> list[Any]:
+    """Prepend the assembled persona as a system message when none is present.
+
+    Returns *messages* unchanged when:
+    - A system message is already present (client owns the system prompt).
+    - Persona injection is disabled via ``BMT_PERSONA_ENABLED=0``.
+    - The assembler returns an empty string.
+
+    Never raises — persona errors must not break the chat flow.
+    """
+    if _has_system_message(messages):
+        return messages
+
+    if not _persona_enabled():
+        return messages
+
+    try:
+        from bmt_ai_os.persona.assembler import get_persona_assembler
+
+        assembler = get_persona_assembler()
+        system_content = assembler.assemble()
+        if not system_content:
+            return messages
+
+        try:
+            from bmt_ai_os.providers.base import ChatMessage
+
+            injected = ChatMessage(role="system", content=system_content)
+        except Exception:
+            injected = _ChatMessage(role="system", content=system_content)
+
+        logger.debug("Persona injected (%d chars)", len(system_content))
+        return [injected, *messages]
+
+    except Exception as exc:
+        logger.warning("Persona injection failed (non-fatal): %s", exc)
+        return messages
+
+
+# ---------------------------------------------------------------------------
 # RAG injection helpers
 # ---------------------------------------------------------------------------
 
@@ -458,6 +516,9 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
     messages = [_make_chat_message(m.role, m.content) for m in body.messages]
     model = body.model if body.model != "default" else None
     max_tokens = body.max_tokens or 4096
+
+    # Persona auto-injection (opt-out via BMT_PERSONA_ENABLED=0)
+    messages = await _inject_persona(messages)
 
     # RAG auto-injection (opt-in via BMT_RAG_ENABLED=true)
     if _rag_enabled():
