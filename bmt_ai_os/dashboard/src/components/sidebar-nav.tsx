@@ -7,6 +7,7 @@ import {
   BrainCircuit,
   BrainCog,
   Code2,
+  Database,
   MessageSquare,
   Layers,
   Settings,
@@ -31,10 +32,10 @@ const navItems = [
   { href: "/providers", label: "Providers", icon: Layers },
   { href: "/fleet", label: "Fleet", icon: Server },
   { href: "/training", label: "Training", icon: BrainCog },
+  { href: "/knowledge", label: "Knowledge", icon: Database },
   { href: "/files", label: "Files", icon: FolderOpen },
-  { href: "/logs", label: "Logs", icon: ScrollText },
-  { href: "/fleet", label: "Fleet", icon: Server },
   { href: "/terminal", label: "Terminal", icon: Terminal },
+  { href: "/logs", label: "Logs", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
