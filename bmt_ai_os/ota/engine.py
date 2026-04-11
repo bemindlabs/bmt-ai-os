@@ -518,6 +518,79 @@ def _safe_unlink(path: Path) -> None:
         pass
 
 
+def rollback_update(state_manager: StateManager | None = None) -> bool:
+    """Roll back to the previously active slot.
+
+    Swaps the slot pointers back so the *current* slot becomes standby again
+    and the previous standby becomes current.  On real hardware the function
+    also updates U-Boot env so the next boot uses the reverted slot.
+
+    Parameters
+    ----------
+    state_manager:
+        Injected :class:`~bmt_ai_os.ota.state.StateManager`.  Defaults to
+        a fresh instance.
+
+    Returns
+    -------
+    bool
+        ``True`` when the rollback was recorded successfully.
+    """
+    sm = state_manager or StateManager()
+    state = sm.load()
+
+    if state.confirmed:
+        logger.warning(
+            "rollback_update: current slot '%s' is already confirmed — "
+            "rollback may be unnecessary, proceeding anyway",
+            state.current_slot,
+        )
+
+    # Swap slots.
+    state.current_slot, state.standby_slot = state.standby_slot, state.current_slot
+    state.confirmed = False
+    state.bootcount = 0
+    sm.save(state)
+
+    logger.info(
+        "rollback_update: rolled back to slot '%s' (standby is now '%s')",
+        state.current_slot,
+        state.standby_slot,
+    )
+
+    # Tell U-Boot to boot the rolled-back slot on the next boot.
+    _fw_setenv("slot_name", state.current_slot)
+    _fw_setenv("upgrade_available", "0")
+    _fw_setenv("bootcount", "0")
+
+    return True
+
+
+def should_rollback(
+    max_bootcount: int = 3,
+    state_manager: StateManager | None = None,
+) -> bool:
+    """Return ``True`` when the bootcount has exceeded *max_bootcount*.
+
+    This is called by the init system (OpenRC) on each boot to decide whether
+    to trigger an automatic rollback before the controller even starts.
+
+    Parameters
+    ----------
+    max_bootcount:
+        Maximum number of consecutive unconfirmed boots before rollback.
+        Defaults to 3 (configurable via ``BMT_OTA_MAX_BOOTCOUNT`` env var).
+    state_manager:
+        Injected :class:`~bmt_ai_os.ota.state.StateManager`.
+    """
+    limit = int(os.environ.get("BMT_OTA_MAX_BOOTCOUNT", str(max_bootcount)))
+    sm = state_manager or StateManager()
+    state = sm.load()
+    if state.confirmed:
+        return False
+    return state.bootcount >= limit
+
+
 def _is_newer(candidate: str, current: str) -> bool:
     """Return ``True`` when *candidate* version string is newer than *current*.
 

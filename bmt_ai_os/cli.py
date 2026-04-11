@@ -1479,3 +1479,100 @@ def update_status(state_file: str | None) -> None:
     click.echo(f"  Bootcount      : {state.bootcount}")
     click.echo(f"  Last update    : {state.last_update or 'never'}")
     click.echo(f"  State file     : {sm.path}")
+
+
+@update.command("rollback")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+@click.option(
+    "--yes",
+    is_flag=True,
+    default=False,
+    help="Skip the confirmation prompt.",
+)
+def update_rollback(state_file: str | None, yes: bool) -> None:
+    """Roll back to the previously active slot.
+
+    Swaps slot pointers so the device will boot from the standby (previous)
+    slot on the next reboot.  Reboot manually after running this command.
+
+    Example: bmt-ai-os update rollback --yes
+    """
+    from bmt_ai_os.ota.engine import get_current_slot, rollback_update
+    from bmt_ai_os.ota.state import StateManager
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+    state = sm.load()
+    current = get_current_slot(sm)
+
+    click.echo(f"Current slot : {current}")
+    click.echo(f"Will roll back to slot : {state.standby_slot}")
+
+    if not yes:
+        click.confirm("Proceed with rollback?", abort=True)
+
+    ok = rollback_update(state_manager=sm)
+    if not ok:
+        click.echo("Error: rollback failed.", err=True)
+        sys.exit(1)
+
+    new_state = sm.load()
+    click.echo(f"Rolled back to slot '{new_state.current_slot}'.")
+    click.echo("Reboot the device to boot the previous slot.")
+
+
+@update.command("containers")
+@click.option(
+    "--compose-file",
+    default=None,
+    envvar="BMT_COMPOSE_FILE",
+    help="Path to the Docker Compose file.",
+)
+@click.option(
+    "--service",
+    "services",
+    multiple=True,
+    help="Specific service(s) to update (default: all).",
+)
+def update_containers(compose_file: str | None, services: tuple[str, ...]) -> None:
+    """Update container images via docker compose pull.
+
+    Pulls the latest container images without modifying the OS partition or
+    model data.  Container updates are independent of A/B slot switching.
+
+    Example: bmt-ai-os update containers
+    Example: bmt-ai-os update containers --service ollama --service chromadb
+    """
+    import subprocess
+
+    compose_path = compose_file or os.environ.get(
+        "BMT_COMPOSE_FILE",
+        os.path.join(os.path.dirname(__file__), "ai-stack", "docker-compose.yml"),
+    )
+
+    cmd = ["docker", "compose", "-f", compose_path, "pull", "--policy", "always"]
+    if services:
+        cmd.extend(list(services))
+
+    click.echo(f"Pulling container images from: {compose_path}")
+    if services:
+        click.echo(f"Services: {', '.join(services)}")
+    else:
+        click.echo("Services: all")
+
+    try:
+        result = subprocess.run(cmd, check=False)  # noqa: S603
+    except FileNotFoundError:
+        click.echo("Error: 'docker' not found on PATH.  Is Docker installed?", err=True)
+        sys.exit(1)
+
+    if result.returncode != 0:
+        click.echo(f"Error: docker compose pull exited with code {result.returncode}.", err=True)
+        sys.exit(result.returncode)
+
+    click.echo("Container images updated successfully.")
+    click.echo("Run `bmt-ai-os stack restart` to apply the new images.")
