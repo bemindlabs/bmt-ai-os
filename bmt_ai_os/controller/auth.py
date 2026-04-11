@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sqlite3
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -25,8 +27,6 @@ import jwt
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-
-from bmt_ai_os.secret_files import read_secret
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,17 @@ _ENV_API_KEY = "BMT_API_KEY"
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_SECONDS = 86400  # 24 hours
+_JWT_SECRET_MIN_LENGTH = 32
+
+# Password complexity requirements
+_PASSWORD_MIN_LENGTH = 12
+_PASSWORD_REQUIRES_UPPERCASE = re.compile(r"[A-Z]")
+_PASSWORD_REQUIRES_LOWERCASE = re.compile(r"[a-z]")
+_PASSWORD_REQUIRES_DIGIT = re.compile(r"\d")
+
+_ENV_BMT_ENV = "BMT_ENV"
+_DEFAULT_ADMIN_USERNAME = "admin"
+_DEFAULT_ADMIN_PASSWORD = "admin"
 
 # Paths that never require authentication
 _EXEMPT_PREFIXES = (
@@ -50,13 +61,6 @@ _EXEMPT_PREFIXES = (
     "/redoc",
     "/metrics",
     "/api/v1/auth/login",  # token acquisition must be exempt
-    "/api/v1/status",  # read-only monitoring
-    "/api/v1/metrics",  # read-only monitoring
-    "/v1/",  # OpenAI-compatible API (models, chat, completions)
-    "/api/models",  # Ollama model list (dashboard)
-    "/api/pull",  # Ollama model pull (dashboard)
-    "/api/v1/providers",  # provider list + switching (dashboard)
-    "/api/v1/logs",  # request log viewer (dashboard)
 )
 
 
@@ -100,6 +104,33 @@ def _role_allows(role: Role, method: str, path: str) -> bool:
             if path.startswith(prefix):
                 return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Password complexity validation
+# ---------------------------------------------------------------------------
+
+
+def validate_password_complexity(password: str) -> None:
+    """Raise ValueError if *password* does not meet complexity requirements.
+
+    Requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter (A-Z)
+    - At least one lowercase letter (a-z)
+    - At least one digit (0-9)
+    """
+    errors: list[str] = []
+    if len(password) < _PASSWORD_MIN_LENGTH:
+        errors.append(f"at least {_PASSWORD_MIN_LENGTH} characters")
+    if not _PASSWORD_REQUIRES_UPPERCASE.search(password):
+        errors.append("at least one uppercase letter (A-Z)")
+    if not _PASSWORD_REQUIRES_LOWERCASE.search(password):
+        errors.append("at least one lowercase letter (a-z)")
+    if not _PASSWORD_REQUIRES_DIGIT.search(password):
+        errors.append("at least one digit (0-9)")
+    if errors:
+        raise ValueError("Password must contain " + ", ".join(errors) + ".")
 
 
 # ---------------------------------------------------------------------------
@@ -174,10 +205,21 @@ class UserStore:
 
     # --- Public API ---
 
-    def create_user(self, username: str, password: str, role: Role | str = Role.viewer) -> User:
+    def create_user(
+        self,
+        username: str,
+        password: str,
+        role: Role | str = Role.viewer,
+        skip_complexity: bool = False,
+    ) -> User:
         """Create a new user with a bcrypt-hashed password.
 
-        Raises ValueError if the username already exists or the role is invalid.
+        Raises ValueError if the username already exists, the role is invalid,
+        or the password does not meet complexity requirements.
+
+        Pass ``skip_complexity=True`` only for internal/test fixtures where
+        complexity enforcement is intentionally bypassed (e.g. default-admin
+        bootstrap in dev mode).
         """
         if isinstance(role, str):
             try:
@@ -185,6 +227,9 @@ class UserStore:
             except ValueError:
                 valid = [r.value for r in Role]
                 raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
+
+        if not skip_complexity:
+            validate_password_complexity(password)
 
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         created_at = datetime.now(timezone.utc).isoformat()
@@ -237,29 +282,6 @@ class UserStore:
             logger.info("Deleted user '%s'", username)
         return deleted
 
-    def update_user_role(self, username: str, role: Role | str) -> bool:
-        """Change the role of an existing user.
-
-        Returns True if the user was found and updated, False if not found.
-        Raises ValueError for an invalid role string.
-        """
-        if isinstance(role, str):
-            try:
-                role = Role(role)
-            except ValueError:
-                valid = [r.value for r in Role]
-                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
-
-        with self._conn() as con:
-            cur = con.execute(
-                "UPDATE users SET role = ? WHERE username = ?",
-                (role.value, username),
-            )
-        updated = cur.rowcount > 0
-        if updated:
-            logger.info("Updated role for '%s' to '%s'", username, role.value)
-        return updated
-
     def has_users(self) -> bool:
         """Return True if any users are registered in the store."""
         with self._conn() as con:
@@ -273,12 +295,15 @@ class UserStore:
 
 
 def _jwt_secret() -> str:
-    secret = read_secret(_ENV_JWT_SECRET)
+    secret = os.environ.get(_ENV_JWT_SECRET)
     if not secret:
         raise RuntimeError(
-            f"JWT secret not configured. "
-            f"Mount it as /run/secrets/{_ENV_JWT_SECRET} "
-            f"or set the {_ENV_JWT_SECRET} environment variable."
+            f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable."
+        )
+    if len(secret) < _JWT_SECRET_MIN_LENGTH:
+        raise RuntimeError(
+            f"{_ENV_JWT_SECRET} must be at least {_JWT_SECRET_MIN_LENGTH} characters long "
+            f"(got {len(secret)})."
         )
     return secret
 
@@ -410,128 +435,77 @@ def get_store() -> UserStore:
 
 
 # ---------------------------------------------------------------------------
-# First-boot bootstrap
+# Startup security validation
 # ---------------------------------------------------------------------------
 
-_ENV_DEFAULT_ADMIN_USER = "BMT_ADMIN_USER"
-_ENV_DEFAULT_ADMIN_PASS = "BMT_ADMIN_PASS"
 
-_DEFAULT_ADMIN_USERNAME = "admin"
-_DEFAULT_ADMIN_PASSWORD = "admin"  # changed on first login in production
+def ensure_default_admin(store: UserStore | None = None) -> None:
+    """Bootstrap a default admin user when no users exist.
 
+    In production (BMT_ENV != 'dev'), the default admin/admin credentials are
+    explicitly rejected — the operator must pre-seed a real admin user or set
+    BMT_ENV=dev to allow a temporary insecure default.
 
-def ensure_default_admin(store: UserStore | None = None) -> bool:
-    """Create the default admin user if no users exist.
-
-    Called automatically during controller startup to satisfy the
-    "default admin user created on first boot" acceptance criterion.
-
-    Credentials are taken from BMT_ADMIN_USER / BMT_ADMIN_PASS env vars,
-    falling back to "admin" / "admin".  A warning is emitted when the
-    insecure defaults are used.
-
-    Returns True if a new admin was created, False if users already existed.
+    Raises RuntimeError in production when no users exist (would require
+    default credentials), directing the operator to create a proper admin.
     """
-    s = store or _get_default_store()
-    if s.has_users():
-        return False
+    _store = store or _get_default_store()
 
-    username = os.environ.get(_ENV_DEFAULT_ADMIN_USER, _DEFAULT_ADMIN_USERNAME)
-    password = os.environ.get(_ENV_DEFAULT_ADMIN_PASS, _DEFAULT_ADMIN_PASSWORD)
+    if _store.has_users():
+        return  # users already exist — nothing to bootstrap
 
-    if password == _DEFAULT_ADMIN_PASSWORD:
-        logger.warning(
-            "Using insecure default admin password. Set %s env var to override before first boot.",
-            _ENV_DEFAULT_ADMIN_PASS,
+    is_dev = os.environ.get(_ENV_BMT_ENV, "").lower() == "dev"
+
+    if not is_dev:
+        print(
+            "FATAL: No users found in the auth store and BMT_ENV is not 'dev'.\n"
+            "       Default admin/admin credentials are not permitted in production.\n"
+            "       Create an initial admin user or set BMT_ENV=dev for development.",
+            file=sys.stderr,
+        )
+        raise RuntimeError(
+            "Default admin credentials rejected in production. "
+            "Create a real admin user or set BMT_ENV=dev."
         )
 
-    s.create_user(username, password, Role.admin)
-    logger.info("Default admin user '%s' created on first boot.", username)
-    return True
+    # Dev mode only — create insecure default admin with complexity bypass
+    logger.warning(
+        "BMT_ENV=dev: bootstrapping default admin/admin credentials. "
+        "Change the password before deploying to production."
+    )
+    _store.create_user(
+        _DEFAULT_ADMIN_USERNAME,
+        _DEFAULT_ADMIN_PASSWORD,
+        Role.admin,
+        skip_complexity=True,
+    )
 
 
-# ---------------------------------------------------------------------------
-# FastAPI dependency injection helpers
-# ---------------------------------------------------------------------------
+def validate_startup_security() -> None:
+    """Validate security-critical configuration at controller startup.
 
-from fastapi import Depends, HTTPException, status  # noqa: E402
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+    Checks performed (in order):
+    1. BMT_JWT_SECRET is set and at least 32 characters long.
 
-_bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-) -> dict:
-    """FastAPI dependency: decode the Bearer JWT and return the payload dict.
-
-    Raises HTTP 401 when no/invalid token is provided, unless the store has
-    no users (open-access / dev mode).
+    Prints a descriptive error to stderr and raises SystemExit(1) on failure
+    so the process terminates before binding any ports.
     """
-    store = _get_default_store()
-
-    # Dev/open mode: no users registered
-    if not store.has_users():
-        return {"sub": "anonymous", "role": Role.admin.value}
-
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "message": "Missing Authorization header.",
-                "type": "authentication_error",
-                "code": "unauthorized",
-            },
+    secret = os.environ.get(_ENV_JWT_SECRET, "")
+    if not secret:
+        print(
+            f"FATAL: {_ENV_JWT_SECRET} environment variable is not set.\n"
+            "       Generate a secret with: "
+            'python3 -c "import secrets; print(secrets.token_hex(32))"',
+            file=sys.stderr,
         )
+        sys.exit(1)
 
-    try:
-        payload = verify_token(credentials.credentials)
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "message": "Token has expired.",
-                "type": "authentication_error",
-                "code": "token_expired",
-            },
+    if len(secret) < _JWT_SECRET_MIN_LENGTH:
+        print(
+            f"FATAL: {_ENV_JWT_SECRET} is too short "
+            f"({len(secret)} chars, minimum {_JWT_SECRET_MIN_LENGTH}).\n"
+            "       Generate a secret with: "
+            'python3 -c "import secrets; print(secrets.token_hex(32))"',
+            file=sys.stderr,
         )
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "message": "Invalid token.",
-                "type": "authentication_error",
-                "code": "invalid_token",
-            },
-        )
-
-    return payload
-
-
-def require_role(*roles: Role) -> Callable[[dict], dict]:
-    """Return a FastAPI dependency that enforces one of the listed roles.
-
-    Usage::
-
-        @router.delete("/api/v1/users/{username}")
-        async def delete_user(user=Depends(require_role(Role.admin))):
-            ...
-    """
-
-    def _check(payload: dict = Depends(get_current_user)) -> dict:
-        current_role = Role(payload.get("role", Role.viewer.value))
-        if current_role not in roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "message": (
-                        f"Role '{current_role.value}' is not permitted. "
-                        f"Required: {[r.value for r in roles]}"
-                    ),
-                    "type": "authorization_error",
-                    "code": "forbidden",
-                },
-            )
-        return payload
-
-    return _check
+        sys.exit(1)

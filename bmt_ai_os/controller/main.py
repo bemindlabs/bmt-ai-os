@@ -378,6 +378,12 @@ def main() -> None:
     config = load_config(args.config)
     _setup_logging(config)
 
+    # Security checks must run before any network ports are bound.
+    from bmt_ai_os.controller.auth import ensure_default_admin, validate_startup_security
+
+    validate_startup_security()
+    ensure_default_admin()
+
     controller = BMTAIOSController(config)
     controller.run()
 
