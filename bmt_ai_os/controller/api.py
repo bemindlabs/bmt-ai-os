@@ -64,6 +64,14 @@ async def metrics_summary() -> dict:
     return get_collector().get_summary()
 
 
+@app.get("/api/v1/logs")
+async def recent_logs() -> dict:
+    """Return recent request log entries (ring buffer, last 200)."""
+    from .middleware import get_recent_logs
+
+    return {"logs": get_recent_logs()}
+
+
 @app.get("/api/v1/status")
 async def system_status() -> dict:
     """Overall system status: version, uptime, and per-service health."""

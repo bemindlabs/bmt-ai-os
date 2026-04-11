@@ -54,6 +54,7 @@ _EXEMPT_PREFIXES = (
     "/api/models",  # Ollama model list (dashboard)
     "/api/pull",  # Ollama model pull (dashboard)
     "/api/v1/providers",  # provider list + switching (dashboard)
+    "/api/v1/logs",  # request log viewer (dashboard)
 )
 
 

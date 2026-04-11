@@ -112,6 +112,15 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 
 
+_MAX_LOG_ENTRIES = 200
+_recent_logs: list[dict] = []
+
+
+def get_recent_logs() -> list[dict]:
+    """Return a copy of the recent request log buffer."""
+    return list(_recent_logs)
+
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log every request with method, path, status, elapsed time, and request ID."""
 
@@ -131,6 +140,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             elapsed_ms,
             f" [trace_id={request_id}]" if request_id else "",
         )
+
+        entry = {
+            "timestamp": time.time(),
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "elapsed_ms": round(elapsed_ms, 1),
+            "trace_id": request_id,
+        }
+        _recent_logs.append(entry)
+        if len(_recent_logs) > _MAX_LOG_ENTRIES:
+            _recent_logs.pop(0)
+
         return response
 
 
