@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fetchModels, formatBytes } from "@/lib/api";
 import {
   Card,
@@ -15,7 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PullModelForm } from "./pull-model-form";
+import { BookOpen } from "lucide-react";
 
 export default async function ModelsPage() {
   const result = await fetchModels().catch(() => null);
@@ -23,11 +26,19 @@ export default async function ModelsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Model Manager</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Loaded models available via Ollama.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">Model Manager</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Loaded models available via Ollama.
+          </p>
+        </div>
+        <Link href="/models/catalog">
+          <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+            <BookOpen className="size-3.5" />
+            View Full Catalog
+          </Button>
+        </Link>
       </div>
 
       {/* Loaded models table */}
