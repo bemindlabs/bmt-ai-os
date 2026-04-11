@@ -223,3 +223,67 @@ export async function queryRag(
     body: JSON.stringify(req),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Fleet API (BMTOS-118)
+// ---------------------------------------------------------------------------
+
+export interface FleetDevice {
+  device_id: string;
+  hostname: string;
+  arch: string;
+  board: string;
+  os_version: string;
+  cpu_percent: number;
+  memory_percent: number;
+  disk_percent: number;
+  loaded_models: string[];
+  last_seen: string;
+  registered_at: string;
+  online: boolean;
+  [key: string]: unknown;
+}
+
+export interface FleetDevicesResponse {
+  devices: FleetDevice[];
+  total: number;
+  online: number;
+}
+
+export interface FleetSummary {
+  total_devices: number;
+  online_devices: number;
+  offline_devices: number;
+  total_models: number;
+  unique_models: string[];
+  [key: string]: unknown;
+}
+
+export interface DeployModelRequest {
+  model: string;
+  device_ids?: string[] | null;
+}
+
+export interface DeployModelResponse {
+  status: string;
+  model: string;
+  targeted_devices: string[];
+  device_count: number;
+}
+
+export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
+  return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
+}
+
+export async function fetchFleetSummary(): Promise<FleetSummary> {
+  return apiFetch<FleetSummary>("/api/v1/fleet/summary");
+}
+
+export async function deployModel(
+  req: DeployModelRequest,
+): Promise<DeployModelResponse> {
+  return apiFetch<DeployModelResponse>("/api/v1/fleet/deploy-model", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
