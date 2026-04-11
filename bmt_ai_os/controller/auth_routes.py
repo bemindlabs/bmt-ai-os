@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from .auth import Role, create_token, get_store
+from .rate_limit import login_rate_limit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -83,7 +84,12 @@ def _require_admin(request: Request) -> None:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/login", response_model=LoginResponse, summary="Obtain a JWT access token")
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    summary="Obtain a JWT access token",
+    dependencies=[Depends(login_rate_limit)],
+)
 async def login(body: LoginRequest) -> LoginResponse:
     """Authenticate with username and password; receive a 24-hour JWT.
 
