@@ -51,12 +51,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy only Python source (no configs, no shell scripts, no kernel)
+# Copy Python source
 COPY bmt_ai_os/__init__.py /app/bmt_ai_os/__init__.py
+COPY bmt_ai_os/cli.py /app/bmt_ai_os/cli.py
+COPY bmt_ai_os/logging.py /app/bmt_ai_os/logging.py
 COPY bmt_ai_os/controller/ /app/bmt_ai_os/controller/
 COPY bmt_ai_os/providers/ /app/bmt_ai_os/providers/
 COPY bmt_ai_os/rag/ /app/bmt_ai_os/rag/
+COPY bmt_ai_os/ota/ /app/bmt_ai_os/ota/
+COPY bmt_ai_os/fleet/ /app/bmt_ai_os/fleet/
+COPY bmt_ai_os/plugins/ /app/bmt_ai_os/plugins/
+COPY bmt_ai_os/tls/ /app/bmt_ai_os/tls/
+COPY bmt_ai_os/benchmark/ /app/bmt_ai_os/benchmark/
 COPY bmt_ai_os/ai-stack/docker-compose.yml /app/ai-stack/docker-compose.yml
+COPY pyproject.toml /app/pyproject.toml
+RUN pip install --no-cache-dir -e /app 2>/dev/null || true
 
 ENV PYTHONPATH=/app \
     BMT_COMPOSE_FILE=/app/ai-stack/docker-compose.yml \
