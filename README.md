@@ -9,9 +9,9 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os/releases/tag/v2026.4.10"><img src="https://img.shields.io/badge/version-2026.4.10-green.svg" alt="Version"></a>
-  <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
-  <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/progress-84%25_(41%2F48_stories)-brightgreen.svg" alt="Progress: 84%"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os/releases/tag/v2026.4.11"><img src="https://img.shields.io/badge/version-2026.4.11-green.svg" alt="Version"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-100%25_(48%2F48_stories)-brightgreen.svg" alt="Progress: 100%"></a>
 </p>
 
 ---
@@ -180,13 +180,13 @@ See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
 | 3 | Coding Tools | 36 | **Complete** |
 | 4 | Dashboard | 52 | **Complete** |
 | 5 | Training | 36 | **Complete** |
-| 6 | Hardware BSPs | 29 | Planned |
-| 7 | Tooling | 26 | Planned |
+| 6 | Hardware BSPs | 29 | **Complete** |
+| 7 | Tooling | 26 | **Complete** |
 | 8 | Production | TBD | Planned |
 
 ## Limitations
 
-- **Pre-hardware** — Phases 1-5 complete (84%); board support packages and hardware testing remain
+- **Pre-production** — Phases 1-7 complete (100%); production hardening and OTA updates remain
 - **ARM64 only** — OS image targets ARM64 boards; x86 supported only via [dev Docker stack](docker-compose.dev.yml)
 - **Small model ceiling** — Tier 1 hardware limited to 7B models for inference, 1.5-3B for training
 - **No GUI desktop** — headless OS with web dashboard and TUI; no windowing system

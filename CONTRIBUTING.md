@@ -5,7 +5,7 @@ Thank you for your interest in contributing to BMT AI OS! This document provides
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone git@github.com:YOUR_USERNAME/bmt_ai_os.git`
+2. Clone your fork: `git clone git@github.com:YOUR_USERNAME/bmt-ai-os.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Push to your fork: `git push origin feature/your-feature-name`
@@ -27,14 +27,15 @@ cd bmt_ai_os/ai-stack
 docker compose up -d
 
 # Run controller
-pip install docker
-python bmt_ai_os/controller/main.py
+pip install -e .
+BMT_COMPOSE_FILE=$(pwd)/bmt_ai_os/ai-stack/docker-compose.yml \
+  PYTHONPATH=$(pwd) python3 -m bmt_ai_os.controller.main
 ```
 
 ## Project Structure
 
 - `bmt_ai_os/` — Runtime components (kernel, controller, AI stack, dashboard)
-- `bmt_ai_os-build/` — Build infrastructure (Buildroot, BitBake layers)
+- `bmt-ai-os-build/` — Build infrastructure (Buildroot, BitBake layers)
 - `.scrum/` — Project management (backlog, epics, sprints)
 
 ## Backlog & Issues
