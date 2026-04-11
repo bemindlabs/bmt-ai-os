@@ -2005,7 +2005,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2018,7 +2018,8 @@
         "Fallback to non-streaming if SSE connection fails"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-77",
@@ -2027,7 +2028,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2044,7 +2045,8 @@
         "BMTOS-69"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-78",
@@ -2053,7 +2055,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2066,7 +2068,8 @@
         "Per-message token badge (input/output tokens)"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-79",
@@ -2075,7 +2078,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "auth",
@@ -2090,7 +2093,8 @@
         "Logout button that revokes token"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-80",
@@ -2099,7 +2103,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2116,7 +2120,8 @@
         "BMTOS-71"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-81",
@@ -2125,7 +2130,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2139,7 +2144,8 @@
         "Copy button on code blocks"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-82",
@@ -2148,7 +2154,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2162,7 +2168,8 @@
         "/export downloads conversation as Markdown"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-83",
@@ -2171,7 +2178,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2185,16 +2192,17 @@
         "Voice input uses Web Speech API (browser native)"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-76",
+      "id": "BMTOS-92",
       "title": "Implement LoRA/QLoRA fine-tuning training module",
       "description": "Create bmt_ai_os/training/ module with LoRA fine-tuning pipeline using PyTorch + PEFT. Support dataset loading, training loop with SummaryWriter, checkpoint saving, and progress reporting via API.",
       "type": "story",
       "priority": "high",
       "points": 13,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "ai"
@@ -2207,17 +2215,18 @@
         "Configurable hyperparameters (lr, epochs, rank, alpha)"
       ],
       "dependencies": [],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-77",
+      "id": "BMTOS-93",
       "title": "Add training CLI commands (train, data-prepare, export)",
       "description": "Add CLI subcommands: bmt-ai-os train lora, bmt-ai-os data-prepare, bmt-ai-os export-model. Wire to the training module.",
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "cli"
@@ -2228,19 +2237,20 @@
         "bmt-ai-os export-model converts adapter to GGUF for Ollama"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-78",
+      "id": "BMTOS-94",
       "title": "Add training job management API endpoints",
       "description": "Create /api/v1/training/ routes: POST /jobs (start), GET /jobs (list), GET /jobs/{id}/status (progress), DELETE /jobs/{id} (cancel). Background job execution with status tracking.",
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "api"
@@ -2252,19 +2262,20 @@
         "Training runs in background thread/process"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-79",
+      "id": "BMTOS-95",
       "title": "Wire TensorBoard to training pipeline with SummaryWriter",
       "description": "Integrate torch.utils.tensorboard.SummaryWriter into the training loop. Log loss, eval_loss, learning_rate, GPU memory, throughput (tok/s) to the training_runs volume.",
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "tensorboard"
@@ -2276,19 +2287,20 @@
         "Logs persist across container restarts (named volume)"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-80",
+      "id": "BMTOS-96",
       "title": "Add training dashboard page with job status and TensorBoard embed",
       "description": "Create /training dashboard page showing: active/completed jobs, progress bars, loss curves (inline chart or TensorBoard iframe), start new training form.",
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "dashboard"
@@ -2300,19 +2312,20 @@
         "Start new training form with model/data selector"
       ],
       "dependencies": [
-        "BMTOS-78"
+        "BMTOS-94"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-81",
+      "id": "BMTOS-97",
       "title": "Build data preparation and dataset tools",
       "description": "Create bmt_ai_os/training/data_prep.py with tools to convert text, JSONL, CSV into training format. Support instruction tuning format (alpaca, sharegpt).",
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "data"
@@ -2324,17 +2337,18 @@
         "CLI: bmt-ai-os data-prepare --input X --format alpaca"
       ],
       "dependencies": [],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-82",
+      "id": "BMTOS-98",
       "title": "Add model export pipeline (adapter merge + GGUF conversion)",
       "description": "After LoRA training, merge adapter weights back into base model and convert to GGUF format for Ollama. Auto-register the exported model.",
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "models"
@@ -2346,19 +2360,20 @@
         "CLI: bmt-ai-os export-model --adapter X --output Y"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-83",
+      "id": "BMTOS-99",
       "title": "Add training metrics to Prometheus and Grafana",
       "description": "Expose training metrics (loss, throughput, GPU memory) as Prometheus metrics. Add training panel to Grafana dashboard.",
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "monitoring"
@@ -2369,19 +2384,20 @@
         "Alerting on training failure or stalled jobs"
       ],
       "dependencies": [
-        "BMTOS-79"
+        "BMTOS-95"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-84",
+      "id": "BMTOS-100",
       "title": "Create training documentation (guides + API reference)",
       "description": "Write docs/training/ with: overview, LoRA guide, data preparation guide, model export guide, TensorBoard usage.",
       "type": "story",
       "priority": "low",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "docs"
@@ -2393,8 +2409,9 @@
         "docs/training/model-export.md"
       ],
       "dependencies": [],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-85",
@@ -2403,7 +2420,7 @@
       "type": "story",
       "priority": "medium",
       "points": 13,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "integration",
         "claude-code"
@@ -2416,7 +2433,8 @@
       ],
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-11",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-86",
@@ -2425,7 +2443,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "api",
         "integration"
@@ -2438,7 +2456,8 @@
       ],
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-11",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-87",
@@ -2447,7 +2466,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "agents"
@@ -2460,7 +2479,8 @@
         "Budget constraints: 20K chars per file, 150K total"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-88",
@@ -2469,7 +2489,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "api"
@@ -2484,7 +2504,8 @@
         "BMTOS-87"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-89",
@@ -2493,7 +2514,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "dashboard"
@@ -2509,7 +2530,8 @@
         "BMTOS-87"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-90",
@@ -2518,7 +2540,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "agents",
@@ -2534,7 +2556,8 @@
         "BMTOS-87"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-91",
@@ -2543,7 +2566,7 @@
       "type": "story",
       "priority": "low",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "content"
@@ -2556,8 +2579,9 @@
         "CLI command to apply preset: bmt-ai-os persona set <preset>"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     }
   ],
-  "next_id": 92
+  "next_id": 101
 }

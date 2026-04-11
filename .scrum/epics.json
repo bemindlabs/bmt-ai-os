@@ -233,7 +233,7 @@
       "id": "BMTOS-EPIC-10",
       "title": "Dashboard AI Assistant Enhancement",
       "description": "Upgrade the Next.js dashboard chat page from a basic request-response interface to a production-grade AI assistant with streaming, session persistence, context awareness, and rich interaction features. Inspired by OpenClaw UI patterns.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-76",
@@ -251,46 +251,49 @@
         "Context usage meter shows token budget consumption",
         "Dashboard requires JWT login before accessing protected pages",
         "RAG can be toggled per conversation"
-      ]
+      ],
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-EPIC-10",
+      "id": "BMTOS-EPIC-10b",
       "title": "On-Device Training Pipeline (Implementation)",
       "description": "Implement the actual training code \u2014 LoRA/QLoRA pipeline, TensorBoard integration, data prep, model export, training API, and dashboard UI.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
-        "BMTOS-76",
-        "BMTOS-77",
-        "BMTOS-78",
-        "BMTOS-79",
-        "BMTOS-80",
-        "BMTOS-81",
-        "BMTOS-82",
-        "BMTOS-83",
-        "BMTOS-84"
+        "BMTOS-92",
+        "BMTOS-93",
+        "BMTOS-94",
+        "BMTOS-95",
+        "BMTOS-96",
+        "BMTOS-97",
+        "BMTOS-98",
+        "BMTOS-99",
+        "BMTOS-100"
       ],
       "total_points": 60,
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-EPIC-11",
       "title": "Claude Code Deep Integration",
       "description": "Native Claude Code integration via MCP server and tool_use support in the OpenAI-compatible API.",
-      "status": "planned",
+      "status": "completed",
       "priority": "medium",
       "stories": [
         "BMTOS-85",
         "BMTOS-86"
       ],
       "total_points": 21,
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-EPIC-12",
       "title": "AI Assistant Persona & Personality",
       "description": "Add configurable AI persona via SOUL.md workspace files, system prompt assembly, multi-agent personality support, and dashboard persona editor. Inspired by OpenClaw's context file architecture.",
-      "status": "planned",
+      "status": "completed",
       "priority": "medium",
       "stories": [
         "BMTOS-87",
@@ -298,8 +301,9 @@
         "BMTOS-89",
         "BMTOS-90",
         "BMTOS-91"
-      ]
+      ],
+      "completed_at": "2026-04-11"
     }
   ],
-  "next_id": 13
+  "next_id": 14
 }
