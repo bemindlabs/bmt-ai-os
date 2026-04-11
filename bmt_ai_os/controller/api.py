@@ -15,6 +15,7 @@ from .persona_routes import router as persona_router
 from .prometheus import router as prometheus_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
+from .terminal_ws import router as terminal_router
 from .training_routes import router as training_router
 from .user_routes import router as user_router
 
@@ -56,6 +57,7 @@ from bmt_ai_os.fleet.routes import router as fleet_router  # noqa: E402
 
 app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(training_router)
+app.include_router(terminal_router)
 
 # MCP server (Model Context Protocol — Claude Code integration)
 from bmt_ai_os.mcp.server import mcp_router  # noqa: E402

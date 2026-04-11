@@ -11,6 +11,7 @@ import {
   Layers,
   Settings,
   ScrollText,
+  Terminal,
   LogOut,
   Database,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/training", label: "Training", icon: BrainCog },
   { href: "/knowledge", label: "Knowledge", icon: Database },
   { href: "/logs", label: "Logs", icon: ScrollText },
+  { href: "/terminal", label: "Terminal", icon: Terminal },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
