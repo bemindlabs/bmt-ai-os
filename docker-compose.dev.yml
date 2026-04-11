@@ -22,6 +22,7 @@ services:
       - PYTHONPATH=/app
       - OLLAMA_HOST=http://ollama:11434
       - CHROMADB_HOST=http://chromadb:8000
+    user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # BMTOS-50: per-service security hardening
