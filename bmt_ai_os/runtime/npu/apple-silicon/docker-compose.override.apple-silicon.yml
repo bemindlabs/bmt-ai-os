@@ -1,0 +1,77 @@
+# BMT AI OS — Apple Silicon (Asahi Linux) Docker Compose override
+# Loaded by passthrough.sh when Apple Silicon is detected.
+#
+# Key constraints:
+#   - CPU-only inference: no Metal, no OpenCL, no Vulkan compute on Linux
+#   - Unified memory (8–128 GB): set generous limits; no GPU VRAM separation
+#   - NEON/ASIMD SIMD: Ollama/llama.cpp auto-detects via GGML CPU backend
+#   - P-core affinity: high thread count for best single-query latency
+#   - Flash Attention + Q8 KV cache: reduces memory pressure on 8/16 GB configs
+#   - OLLAMA_NUM_GPU=0: explicit; prevents Ollama from probing DRI render nodes
+#
+# Usage:
+#   docker compose \
+#     -f bmt_ai_os/ai-stack/docker-compose.yml \
+#     -f bmt_ai_os/runtime/npu/apple-silicon/docker-compose.override.apple-silicon.yml \
+#     up -d
+#
+# Environment variables (set by setup.sh → /run/bmt-ai-os/apple-silicon-setup.env):
+#   OLLAMA_NUM_THREADS     — P-core count (auto-detected, e.g. 4–20)
+#   OLLAMA_MEMORY_LIMIT    — Container memory limit (e.g. 6g, 13g, 28g, 56g)
+#   CHROMADB_MEMORY_LIMIT  — ChromaDB memory limit (e.g. 512m, 1g, 2g)
+#
+# BMTOS-43 | Epic: BMTOS-EPIC-4 (Hardware Board Support Packages)
+
+services:
+  ollama:
+    environment:
+      # ---- Acceleration: CPU-only, no GPU ----
+      - BMT_ACCEL=cpu
+      - BMT_NPU_BACKEND=cpu
+      - BMT_PLATFORM=apple-silicon
+      - OLLAMA_NUM_GPU=0
+
+      # ---- Thread configuration ----
+      # OLLAMA_NUM_THREADS=0 means auto-detect; override with P-core count
+      # for best latency on big.LITTLE (avoids scheduling on E-cores).
+      # setup.sh writes the correct value; fall back to 4 if env not loaded.
+      - OLLAMA_NUM_THREADS=${OLLAMA_NUM_THREADS:-4}
+
+      # ---- Memory & KV cache optimizations ----
+      # Flash Attention reduces KV cache memory by ~30% at minimal quality cost.
+      - OLLAMA_FLASH_ATTENTION=1
+      # Q8_0 KV cache: best quality/memory tradeoff for unified memory systems.
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      # Keep models loaded in memory between requests (no unload penalty).
+      - OLLAMA_KEEP_ALIVE=-1
+
+      # ---- BLAS / SIMD backend (GGML auto-detects NEON on arm64) ----
+      - OPENBLAS_NUM_THREADS=${OLLAMA_NUM_THREADS:-4}
+      - OMP_NUM_THREADS=${OLLAMA_NUM_THREADS:-4}
+      - GOTO_NUM_THREADS=${OLLAMA_NUM_THREADS:-4}
+
+      # ---- Logging ----
+      - OLLAMA_DEBUG=0
+
+    deploy:
+      resources:
+        limits:
+          # Unified memory: set high to allow large model loading.
+          # setup.sh computes the right value; default covers 8 GB machines.
+          memory: ${OLLAMA_MEMORY_LIMIT:-6g}
+        reservations:
+          # Reserve enough for a 7B Q4 model plus runtime overhead.
+          memory: 2g
+
+    # No device mappings — CPU-only, no /dev/dri passthrough needed
+    # (DRI render node exists for display only, not compute)
+
+  chromadb:
+    environment:
+      - BMT_PLATFORM=apple-silicon
+    deploy:
+      resources:
+        limits:
+          memory: ${CHROMADB_MEMORY_LIMIT:-512m}
+        reservations:
+          memory: 128m

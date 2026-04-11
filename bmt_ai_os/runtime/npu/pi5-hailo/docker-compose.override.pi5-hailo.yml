@@ -1,0 +1,114 @@
+# BMT AI OS — Raspberry Pi 5 + Hailo AI HAT+ 2 (Hailo-10H) Compose override
+#
+# Extends docker-compose.yml to pass the Hailo-10H PCIe accelerator through
+# to the Ollama inference container.
+#
+# Usage:
+#   docker compose \
+#     -f bmt_ai_os/ai-stack/docker-compose.yml \
+#     -f bmt_ai_os/runtime/npu/pi5-hailo/docker-compose.override.pi5-hailo.yml \
+#     up -d
+#
+# Hardware context:
+#   SoC     : BCM2712 (Cortex-A76 x4 @ 2.4 GHz)
+#   NPU     : Hailo-10H via PCIe Gen3 x1 M.2 2242 — 40 TOPS
+#   RAM     : 4 GB or 8 GB LPDDR4X
+#   Storage : NVMe SSD or SD card
+#   OS      : BMT AI OS (Alpine/Buildroot ARM64)
+#
+# Requirements on host before running this override:
+#   - hailo_pci kernel module loaded  (modprobe hailo_pci)
+#   - /dev/hailo0 device node present
+#   - libhailort.so installed in /usr/lib/ (by setup.sh)
+#   - /etc/hailort/hailort.conf present (by setup.sh)
+#
+# BMTOS-28 | Epic: BMTOS-EPIC-4 (Hardware Board Support Packages)
+
+services:
+  ollama:
+    # Hailo-10H PCIe device passthrough
+    devices:
+      - /dev/hailo0:/dev/hailo0
+
+    # Mount HailoRT shared libraries and config read-only into the container
+    volumes:
+      - /usr/lib/libhailort.so:/usr/lib/libhailort.so:ro
+      - /usr/lib/libhailort.so.4:/usr/lib/libhailort.so.4:ro
+      - /usr/lib/libhailort.so.4.20.0:/usr/lib/libhailort.so.4.20.0:ro
+      - /etc/hailort:/etc/hailort:ro
+      # Expose hailortcli for in-container diagnostics (optional)
+      - /usr/bin/hailortcli:/usr/bin/hailortcli:ro
+
+    environment:
+      # BMT AI OS accelerator selection
+      - BMT_ACCEL=hailo
+      - BMT_NPU_BACKEND=hailo
+      - BMT_BOARD=pi5-hailo
+      - BMT_SOC=bcm2712
+      - BMT_NPU=hailo-10h
+
+      # HailoRT runtime configuration
+      # Multi-process service allows multiple containers to share the device
+      - HAILO_MULTI_PROCESS_SERVICE=1
+      # Logging level: trace | debug | info | warning | error
+      - HAILORT_LOGGER_LEVEL=warning
+      # Enable Hailo performance monitoring
+      - HAILO_MONITOR=1
+
+      # CPU inference fallback configuration (ARM Cortex-A76)
+      # Used when Hailo cannot handle a model format
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=2
+      # Respect the Pi 5's 4–8 GB RAM budget
+      - OLLAMA_MAX_VRAM=0
+
+    # The hailo group must exist on the host (created by setup.sh)
+    group_add:
+      - hailo
+      - video
+
+    # Do not run as privileged — device passthrough is explicit above
+    privileged: false
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits appropriate for Pi 5 (8 GB variant)
+    # Adjust downward for 4 GB boards
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+        reservations:
+          memory: 1g
+
+    # Pi 5 runs warm under sustained inference — allow more time to start
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    restart: unless-stopped
+
+  # ChromaDB does not use the NPU — keep default resource limits
+  chromadb:
+    environment:
+      - BMT_BOARD=pi5-hailo
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+
+  # Controller: advertise Hailo backend via environment
+  bmt-controller:
+    environment:
+      - BMT_ACCEL=hailo
+      - BMT_NPU_BACKEND=hailo
+      - BMT_BOARD=pi5-hailo
+    volumes:
+      # Mount the runtime env file so the controller can read accel state
+      - /run/bmt-ai-os:/run/bmt-ai-os:ro
