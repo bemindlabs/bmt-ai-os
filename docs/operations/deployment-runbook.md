@@ -1,466 +1,669 @@
-# Production Deployment Runbook
+# BMT AI OS — Production Deployment Runbook
 
-This runbook covers every step required to bring a BMT AI OS device from a freshly flashed image to a fully operational, production-hardened state. Follow sections in order on first boot; individual sections can be referenced in isolation for ongoing maintenance.
-
----
-
-## Prerequisites
-
-| Item | Requirement |
-|------|-------------|
-| Hardware | ARM64 board — Jetson Orin Nano Super, RK3588, or Pi 5 + Hailo AI HAT+ |
-| Storage | 32 GB minimum (64 GB+ recommended) |
-| RAM | 8 GB minimum |
-| Network | Ethernet connection for initial setup |
-| Host workstation | SSH client, `curl`, `openssl` |
+Version: v2026.4.11 | Audience: Platform / DevOps Engineers
 
 ---
 
-## 1. First-Boot Checklist
+## Table of Contents
 
-### 1.1 Flash and Boot
+1. [Prerequisites](#1-prerequisites)
+2. [Bare-Metal ARM64 Deployment](#2-bare-metal-arm64-deployment)
+3. [Docker Compose Deployment](#3-docker-compose-deployment)
+4. [Fleet Deployment](#4-fleet-deployment)
+5. [Post-Deployment Verification Checklist](#5-post-deployment-verification-checklist)
+6. [Rollback Procedure](#6-rollback-procedure)
+7. [Monitoring Setup](#7-monitoring-setup)
+8. [Troubleshooting Common Issues](#8-troubleshooting-common-issues)
 
-```bash
-# Download the release image for your board
-wget https://releases.bmtaios.dev/2026.4.10/bmt-ai-os-<board>-2026.4.10.img.zst
+---
 
-# Verify the download
-sha256sum -c bmt-ai-os-<board>-2026.4.10.img.zst.sha256
+## 1. Prerequisites
 
-# Decompress and flash (replace /dev/sdX with your target device)
-zstd -d bmt-ai-os-<board>-2026.4.10.img.zst -o bmt-ai-os.img
-sudo dd if=bmt-ai-os.img of=/dev/sdX bs=4M conv=fsync status=progress
+### 1.1 Hardware Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| Architecture | ARM64 (aarch64) | ARM64 (aarch64) |
+| CPU cores | 4 | 8+ |
+| RAM | 8 GB | 16 GB+ |
+| Disk (OS) | 32 GB | 64 GB+ |
+| Disk (models) | 20 GB | 100 GB+ |
+
+Supported boards:
+- Apple Silicon (M-series) — CPU-only inference
+- NVIDIA Jetson Orin Nano Super — CUDA NPU passthrough
+- Rockchip RK3588 — RKNN NPU passthrough
+- Raspberry Pi 5 + Hailo AI HAT+ — HailoRT NPU passthrough
+
+### 1.2 Network Requirements
+
+- Outbound HTTPS (port 443) required for initial model downloads (can be firewalled after setup)
+- Internal subnet: `172.30.0.0/16` (bmt-ai-net bridge) — must not conflict with existing VLANs
+- Controller API port: `8080` (HTTP) or `8443` (HTTPS/mTLS)
+- Fleet heartbeat: agents POST to `http://<fleet-server>:8080/api/v1/fleet/heartbeat`
+
+Firewall rules (incoming on the controller host):
+
+```
+ACCEPT tcp 8080   # Controller API (HTTP)
+ACCEPT tcp 8443   # Controller API (HTTPS, if TLS enabled)
+ACCEPT tcp 9090   # Dashboard (Web UI)
+DROP   tcp 11434  # Ollama — internal only, never expose externally
+DROP   tcp 8000   # ChromaDB — internal only, never expose externally
 ```
 
-Connect Ethernet and power on. The OS boots into OpenRC, which starts containerd, then the AI stack. Allow 2–3 minutes for first boot to complete.
+### 1.3 DNS Requirements
 
-Verify network connectivity from the device:
+- Point `<hostname>.local` (mDNS) or your FQDN to the controller host IP
+- For fleet deployments, a stable DNS name for the fleet controller is required
+- mTLS deployments require a CA-signed certificate with the correct SAN
+
+### 1.4 Software Dependencies
 
 ```bash
+# Verify on the target host before deployment
+docker --version          # Docker 24.0+
+docker compose version    # Compose v2.20+
+python3 --version         # Python 3.11+
+curl --version            # Any recent version
+```
+
+---
+
+## 2. Bare-Metal ARM64 Deployment
+
+### 2.1 Flash the OS Image
+
+```bash
+# Download the release image
+curl -LO https://github.com/bemind/ai-first-os/releases/download/v2026.4.11/bmt-ai-os-arm64.img.zst
+
+# Verify integrity
+sha256sum bmt-ai-os-arm64.img.zst
+# compare with SHA-256 from the release page
+
+# Flash to storage (replace /dev/sdX with your device)
+zstd -d bmt-ai-os-arm64.img.zst --stdout | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+sudo sync
+```
+
+### 2.2 First Boot Configuration
+
+After flashing and booting:
+
+```bash
+# SSH in (default credentials — change immediately)
 ssh bmt@<device-ip>
-ping -c 3 8.8.8.8
-```
+# default password: bmt (prompted to change on first login)
 
-### 1.2 Change Default Credentials
-
-The default SSH account is `bmt` with password `bmt`. Change it immediately.
-
-```bash
-# On the device
-passwd bmt
-
-# Generate an ed25519 key pair on your workstation and copy it
-ssh-keygen -t ed25519 -C "ops@your-org.com" -f ~/.ssh/bmt_device
-ssh-copy-id -i ~/.ssh/bmt_device.pub bmt@<device-ip>
-
-# Disable password authentication
-sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo rc-service sshd restart
-```
-
-### 1.3 Set the Hostname
-
-```bash
-sudo hostname bmt-device-<location>
-echo "bmt-device-<location>" | sudo tee /etc/hostname
-```
-
-### 1.4 Initialise the Secrets Store
-
-The secrets manager stores API keys and service credentials under `/etc/bmt_ai_os/secrets/` with mode `0600 root:root`.
-
-```bash
-# Initialise the directory tree (must be root)
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh init
-
-# Verify the structure was created
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh list
-```
-
-Expected output:
-
-```
-Stored secrets:
-  [ ] OPENAI_API_KEY
-  [ ] ANTHROPIC_API_KEY
-  [ ] GOOGLE_API_KEY
-  [ ] MISTRAL_API_KEY
-  [ ] GROQ_API_KEY
-  [ ] CHROMA_AUTH_CREDENTIALS
-```
-
-Store any remote-provider API keys you intend to use. Keys for providers you will not use can be left empty — the fallback router handles missing providers gracefully.
-
-```bash
-# Example: store OpenAI key for fallback inference
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh set OPENAI_API_KEY sk-...
-
-# Set ChromaDB auth credentials
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh set CHROMA_AUTH_CREDENTIALS "admin:$(openssl rand -hex 16)"
-
-# Inject per-service secrets into service mount dirs
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh inject ollama
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh inject chromadb
-```
-
-### 1.5 Configure TLS
-
-TLS is opt-in. For air-gapped deployments, plain HTTP on port 8080 is acceptable. For any deployment reachable over a network, enable TLS.
-
-**Option A: Auto-generated self-signed certificate (default)**
-
-```bash
-# Enable TLS in the environment — add to /etc/bmt_ai_os/env
-sudo tee -a /etc/bmt_ai_os/env <<'EOF'
-BMT_TLS_ENABLED=true
-BMT_TLS_PORT=8443
-BMT_TLS_REDIRECT=true
-BMT_TLS_HOSTNAME=bmt-device-<location>.your-org.com
+# Set required secrets
+sudo tee /etc/bmt_ai_os/secrets.env > /dev/null <<'EOF'
+BMT_JWT_SECRET=<generate with: openssl rand -hex 32>
+BMT_API_KEY=<optional legacy key>
 EOF
+sudo chmod 600 /etc/bmt_ai_os/secrets.env
 ```
 
-On next controller start, certs are auto-generated at `/data/secrets/tls/server.crt` and `/data/secrets/tls/server.key` (RSA 4096, 365-day validity).
-
-**Option B: CA-signed certificate**
+### 2.3 Configure the Controller
 
 ```bash
-# Generate a CSR on the device
-openssl req -newkey rsa:4096 -keyout /data/secrets/tls/server.key \
-  -out /data/secrets/tls/server.csr -nodes \
-  -subj "/CN=bmt-device.your-org.com/O=Your Org"
-
-# Sign the CSR with your CA, then install the signed cert
-sudo cp signed-cert.pem /data/secrets/tls/server.crt
-sudo chmod 0644 /data/secrets/tls/server.crt
-sudo chmod 0600 /data/secrets/tls/server.key
-
-# Point the controller at the explicit paths
-sudo tee -a /etc/bmt_ai_os/env <<'EOF'
-BMT_TLS_ENABLED=true
-BMT_TLS_CERT=/data/secrets/tls/server.crt
-BMT_TLS_KEY=/data/secrets/tls/server.key
-BMT_TLS_PORT=8443
-BMT_TLS_REDIRECT=true
-EOF
+sudo cp /etc/bmt_ai_os/controller.yml.example /etc/bmt_ai_os/controller.yml
+sudo nano /etc/bmt_ai_os/controller.yml
 ```
 
-### 1.6 Create the Admin User Account
-
-The controller exposes an admin API. Create an initial admin token:
-
-```bash
-# Generate a strong token
-ADMIN_TOKEN=$(openssl rand -hex 32)
-sudo /opt/bmt_ai_os/bin/secrets-manager.sh set BMT_ADMIN_TOKEN "$ADMIN_TOKEN"
-echo "Admin token (save this): $ADMIN_TOKEN"
-```
-
-Store the token in your password manager. It is not retrievable after this point without root on the device.
-
-### 1.7 Apply the Security Overlay
-
-The container security overlay drops all unnecessary Linux capabilities and applies AppArmor profiles and seccomp filters.
-
-```bash
-# Load AppArmor profiles
-sudo apparmor_parser -r /opt/bmt_ai_os/security/apparmor-ollama.profile
-sudo apparmor_parser -r /opt/bmt_ai_os/security/apparmor-chromadb.profile
-sudo apparmor_parser -r /opt/bmt_ai_os/security/apparmor-controller.profile
-
-# Restart the stack with the security overlay
-docker compose \
-  -f /opt/bmt_ai_os/ai-stack/docker-compose.yml \
-  -f /opt/bmt_ai_os/security/container-security.yml \
-  up -d
-```
-
-Verify all containers are running:
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-```
-
-Expected:
-
-```
-NAMES           STATUS          PORTS
-bmt-ollama      Up X minutes    0.0.0.0:11434->11434/tcp
-bmt-chromadb    Up X minutes    0.0.0.0:8000->8000/tcp
-bmt-controller  Up X minutes    0.0.0.0:8080->8080/tcp
-```
-
-### 1.8 Validate the Stack
-
-Run the health check against all three service endpoints:
-
-```bash
-# Controller
-curl -sf http://localhost:8080/healthz | python3 -m json.tool
-
-# Ollama
-curl -sf http://localhost:11434/api/tags | python3 -m json.tool
-
-# ChromaDB
-curl -sf http://localhost:8000/api/v1/heartbeat
-```
-
-Run the smoke tests:
-
-```bash
-cd /opt/bmt_ai_os
-python3 -m pytest tests/smoke/ -q
-```
-
-All tests should pass before the device enters production service.
-
-### 1.9 Pull the Default Model
-
-```bash
-# The controller selects the model preset based on available RAM automatically.
-# To manually pull the recommended Qwen coding model:
-ollama pull qwen2.5-coder:7b
-
-# For devices with 16 GB+ RAM:
-ollama pull qwen2.5-coder:14b
-```
-
-### 1.10 Configure Firewall
-
-```bash
-# Allow only required ports; deny everything else
-sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT      # SSH
-sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT    # Controller API
-sudo iptables -A INPUT -p tcp --dport 8443 -j ACCEPT    # Controller API (TLS)
-sudo iptables -A INPUT -p tcp --dport 9090 -j ACCEPT    # Dashboard
-sudo iptables -A INPUT -i lo -j ACCEPT                  # Loopback (Ollama, ChromaDB)
-sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -P INPUT DROP
-
-# Save rules
-sudo /etc/init.d/iptables save
-```
-
-> Ollama (11434) and ChromaDB (8000) should only be accessible on localhost. Never expose them directly to the network.
-
----
-
-## 2. Controller Configuration
-
-The controller reads `/etc/bmt_ai_os/controller.yml`. The defaults are production-ready; adjust only if your deployment requires different values.
+Minimum required changes:
 
 ```yaml
-# /etc/bmt_ai_os/controller.yml (key production settings)
-compose_file: /opt/bmt_ai_os/ai-stack/docker-compose.yml
-
-health_interval: 30          # seconds between health checks
-max_restarts: 3              # consecutive failures before restart
-circuit_breaker_threshold: 5 # max restart attempts before circuit opens
-circuit_breaker_reset: 300   # seconds before circuit resets
-
-api_port: 8080
 api_host: 0.0.0.0
-
+api_port: 8080
 log_level: INFO
 log_file: /var/log/bmt-controller.log
 ```
 
-After editing, restart the controller service:
+### 2.4 Enable and Start Services
 
 ```bash
-sudo rc-service bmt-controller restart
-```
+# Start the AI stack (Ollama + ChromaDB)
+sudo rc-service bmt-ai-stack start
+sudo rc-update add bmt-ai-stack default
 
----
-
-## 3. OpenRC Service Management
-
-All core services are managed by OpenRC.
-
-```bash
-# Check service status
-rc-status
-
-# Start / stop individual services
+# Start the controller
 sudo rc-service bmt-controller start
-sudo rc-service bmt-controller stop
-sudo rc-service bmt-controller restart
-
-# Enable a service to start at boot
 sudo rc-update add bmt-controller default
 
-# View recent service output
-sudo logread -f | grep bmt-controller
+# Pull the default model
+curl -s http://localhost:11434/api/pull \
+  -d '{"name":"qwen2.5-coder:7b"}' | jq .
+```
+
+### 2.5 Create the Initial Admin User
+
+```bash
+# On the controller host (first user automatically gets admin role)
+curl -s -X POST http://localhost:8080/api/v1/auth/users \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<strong-password>","role":"admin"}' | jq .
 ```
 
 ---
 
-## 4. Deployment Verification Checklist
+## 3. Docker Compose Deployment
 
-Before declaring a device production-ready, confirm each item:
+This method runs the full stack on any host with Docker (development, staging, cloud VM).
 
-- [ ] Default SSH password changed, key-based auth enabled, password auth disabled
-- [ ] Secrets store initialised (`secrets-manager.sh list` shows no blanks for required keys)
-- [ ] TLS configured and controller responds on port 8443
-- [ ] Admin token stored securely off-device
-- [ ] AppArmor profiles loaded (`aa-status | grep bmt`)
-- [ ] Container security overlay applied (`docker inspect bmt-ollama | grep no-new-priv`)
-- [ ] Firewall rules saved and active (`iptables -L -n`)
-- [ ] All health checks pass (`/healthz` returns `{"status": "ok"}`)
-- [ ] Smoke tests pass (`pytest tests/smoke/ -q`)
-- [ ] Default model pulled and returns a valid inference response
-- [ ] Monitoring agent configured (see [Monitoring Guide](monitoring-guide.md))
-- [ ] Backup schedule configured (see [Backup and Restore](backup-restore.md))
-- [ ] OTA update channel configured (see [OTA Guide](#5-ota-update-operational-guide))
+### 3.1 Clone and Configure
+
+```bash
+git clone https://github.com/bemind/ai-first-os.git
+cd ai-first-os
+
+# Copy and edit the environment file
+cp .env.example .env
+# Edit .env: set BMT_JWT_SECRET, BMT_API_KEY (optional)
+```
+
+### 3.2 Start the AI Stack
+
+```bash
+# Lite profile (4 GB RAM minimum)
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml \
+  --profile lite up -d
+
+# Full profile (16 GB RAM recommended)
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml \
+  --profile full up -d
+```
+
+### 3.3 Start the Controller
+
+```bash
+BMT_COMPOSE_FILE=$(pwd)/bmt_ai_os/ai-stack/docker-compose.yml \
+BMT_JWT_SECRET=$(openssl rand -hex 32) \
+  python3 -m bmt_ai_os.controller.main
+```
+
+Or using Docker:
+
+```bash
+docker build -t bmt-ai-os .
+docker run -d \
+  --name bmt-controller \
+  --network bmt-ai-net \
+  -p 8080:8080 \
+  -e BMT_JWT_SECRET="$(openssl rand -hex 32)" \
+  bmt-ai-os
+```
+
+### 3.4 Verify the Stack
+
+```bash
+# Check all containers are running
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml ps
+
+# Health check
+curl -s http://localhost:8080/healthz | jq .
+# Expected: {"status":"ok"}
+
+curl -s http://localhost:11434/api/tags | jq .models[].name
+```
 
 ---
 
-## 5. OTA Update Operational Guide
+## 4. Fleet Deployment
 
-BMT AI OS uses A/B partition slots for atomic, rollback-safe updates.
+Fleet deployment pushes configuration and models to multiple remote devices from a central controller.
 
-### 5.1 How A/B Updates Work
+### 4.1 Fleet Server Setup
 
-| Step | Description |
-|------|-------------|
-| 1. Check | Query release server for a newer version |
-| 2. Download | Stream image to `/data/bmt_ai_os/ota/<version>.img.zst`, verify SHA-256 |
-| 3. Apply | Write image to standby slot via `dd`, readback-verify |
-| 4. Reboot | U-Boot switches `slot_name` to the standby slot |
-| 5. Confirm | `confirm_boot()` resets `bootcount=0, upgrade_available=0` |
-| 6. Rollback | If bootcount exceeds threshold before confirmation, U-Boot reverts to the previous slot |
+The fleet server runs alongside the main controller. No extra process is needed — the `/api/v1/fleet/*` routes are part of the controller.
 
-### 5.2 Check for Updates
-
-```bash
-# Via the OTA CLI
-python3 -c "
-from bmt_ai_os.ota.engine import check_update
-info = check_update('https://releases.bmtaios.dev/latest.json', current_version='2026.4.10')
-print(info)
-"
-
-# Check current slot
-python3 -c "
-from bmt_ai_os.ota.engine import get_current_slot
-print('Current slot:', get_current_slot())
-"
+```yaml
+# /etc/bmt_ai_os/controller.yml (fleet server)
+api_host: 0.0.0.0
+api_port: 8080
 ```
 
-### 5.3 Apply an Update
+Ensure the fleet server is reachable from all edge devices on port 8080.
+
+### 4.2 Device Agent Configuration
+
+On each edge device:
 
 ```bash
-# 1. Download the update image (the engine verifies SHA-256 automatically)
-python3 -c "
-from bmt_ai_os.ota.engine import download_image
-ok = download_image(
-    url='https://releases.bmtaios.dev/2026.5.1/bmt-ai-os-rk3588-2026.5.1.img.zst',
-    dest_path='/data/bmt_ai_os/ota/2026.5.1.img',
-    expected_sha256='<sha256-from-release-manifest>',
-    progress_cb=lambda recv, total: print(f'{recv}/{total}')
-)
-print('Download OK:', ok)
-"
-
-# 2. Apply to standby slot
-python3 -c "
-from bmt_ai_os.ota.engine import apply_update, get_current_slot
-current = get_current_slot()
-target = 'b' if current == 'a' else 'a'
-ok = apply_update('/data/bmt_ai_os/ota/2026.5.1.img', target_slot=target)
-print('Apply OK:', ok, '| Target slot:', target)
-"
-
-# 3. Reboot into the new slot
-sudo reboot
+# /etc/bmt_ai_os/agent.yml
+fleet_server: http://fleet.example.com:8080
+device_id: device-001          # unique per device
+heartbeat_interval: 60         # seconds
+offline_queue_size: 100        # commands to buffer while offline
 ```
-
-After reboot, the system boots from the new slot. The bootcount is incremented automatically. Confirm the boot once the system is verified healthy:
 
 ```bash
-# 4. Confirm the boot (run after verifying the new version is healthy)
-python3 -c "
-from bmt_ai_os.ota.engine import confirm_boot
-confirm_boot()
-print('Boot confirmed.')
-"
-
-# Verify
-python3 -c "
-from bmt_ai_os.ota.state import StateManager
-import json
-sm = StateManager()
-print(json.dumps(sm.load().to_dict(), indent=2))
-"
+# Start the agent
+sudo rc-service bmt-fleet-agent start
+sudo rc-update add bmt-fleet-agent default
 ```
 
-### 5.4 Manual Rollback
-
-If the update is unhealthy and you need to roll back without waiting for U-Boot's automatic bootcount rollback:
+### 4.3 Bulk Model Deployment
 
 ```bash
-# Force slot switch back
-python3 -c "
-from bmt_ai_os.ota.state import StateManager
-sm = StateManager()
-sm.switch_slots()
-"
-sudo reboot
+# Push a model pull command to all registered devices
+curl -s -X POST http://fleet.example.com:8080/api/v1/fleet/command \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "all",
+    "action": "pull-model",
+    "params": {"model": "qwen2.5-coder:7b"}
+  }' | jq .
 ```
 
-### 5.5 Check OTA State
+### 4.4 Staged Rollout
 
 ```bash
-cat /data/bmt_ai_os/db/ota-state.json
+# Deploy to a subset first (canary)
+curl -s -X POST http://fleet.example.com:8080/api/v1/fleet/command \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": ["device-001", "device-002"],
+    "action": "update",
+    "params": {"version": "2026.4.11"}
+  }' | jq .
+
+# Monitor health of canary devices
+curl -s http://fleet.example.com:8080/api/v1/fleet/devices | \
+  jq '.[] | select(.device_id | test("device-00[12]")) | {id: .device_id, status: .status}'
+
+# Roll out to remaining devices after 30-minute soak
+curl -s -X POST http://fleet.example.com:8080/api/v1/fleet/command \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "remaining",
+    "action": "update",
+    "params": {"version": "2026.4.11"}
+  }' | jq .
 ```
 
-Expected healthy state:
+---
 
-```json
-{
-  "current_slot": "a",
-  "standby_slot": "b",
-  "last_update": "2026-04-10T12:00:00+00:00",
-  "bootcount": 0,
-  "confirmed": true
+## 5. Post-Deployment Verification Checklist
+
+Run through this checklist after every deployment.
+
+### 5.1 Service Health
+
+```bash
+# Controller
+curl -sf http://localhost:8080/healthz && echo "PASS: controller" || echo "FAIL: controller"
+
+# Ollama
+curl -sf http://localhost:11434/api/tags && echo "PASS: ollama" || echo "FAIL: ollama"
+
+# ChromaDB
+curl -sf http://localhost:8000/api/v1/heartbeat && echo "PASS: chromadb" || echo "FAIL: chromadb"
+```
+
+### 5.2 Authentication
+
+```bash
+# Obtain a token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<password>"}' | jq -r .access_token)
+
+# Verify token
+curl -s http://localhost:8080/api/v1/auth/me \
+  -H "Authorization: Bearer $TOKEN" | jq .
+# Expected: {"username":"admin","role":"admin"}
+```
+
+### 5.3 Inference
+
+```bash
+# Basic completion
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen2.5-coder:7b",
+    "messages": [{"role":"user","content":"Say hello in one sentence."}]
+  }' | jq .choices[0].message.content
+```
+
+### 5.4 RAG Pipeline
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"What is BMT AI OS?","collection":"default"}' | jq .answer
+```
+
+### 5.5 Metrics Endpoint
+
+```bash
+curl -sf http://localhost:8080/metrics | grep -c "^bmt_" && echo "PASS: prometheus metrics"
+```
+
+### 5.6 Full Verification Script
+
+```bash
+#!/bin/bash
+set -euo pipefail
+HOST=${1:-localhost}
+PORT=${2:-8080}
+BASE="http://${HOST}:${PORT}"
+PASS=0; FAIL=0
+
+check() {
+  if eval "$2" &>/dev/null; then
+    echo "  [PASS] $1"; ((PASS++))
+  else
+    echo "  [FAIL] $1"; ((FAIL++))
+  fi
 }
-```
 
-`confirmed: false` with `bootcount > 0` means the current boot has not been confirmed — run `confirm_boot()` if the system is healthy.
+echo "=== BMT AI OS Post-Deployment Verification ==="
+check "Controller /healthz"   "curl -sf ${BASE}/healthz"
+check "Ollama reachable"      "curl -sf http://${HOST}:11434/api/tags"
+check "ChromaDB reachable"    "curl -sf http://${HOST}:8000/api/v1/heartbeat"
+check "Prometheus metrics"    "curl -sf ${BASE}/metrics | grep -q bmt_"
+check "API status endpoint"   "curl -sf ${BASE}/api/v1/status"
 
-### 5.6 Automate OTA Checks
-
-Add to cron to check for updates nightly:
-
-```bash
-# /etc/cron.d/bmt-ota
-0 2 * * * root /opt/bmt_ai_os/bin/bmt-ota-check.sh >> /var/log/bmt-ota.log 2>&1
-```
-
----
-
-## 6. Log Management
-
-Logs rotate automatically on BMT AI OS. Key log paths:
-
-| Log | Path |
-|-----|------|
-| Controller | `/var/log/bmt-controller.log` |
-| Ollama | `docker logs bmt-ollama` |
-| ChromaDB | `docker logs bmt-chromadb` |
-| OpenRC | `logread` or `/var/log/messages` |
-| OTA | `/var/log/bmt-ota.log` |
-
-```bash
-# Tail all service logs simultaneously
-tail -f /var/log/bmt-controller.log &
-docker logs -f bmt-ollama &
-docker logs -f bmt-chromadb &
+echo ""
+echo "Results: ${PASS} passed, ${FAIL} failed"
+[[ $FAIL -eq 0 ]] && exit 0 || exit 1
 ```
 
 ---
 
-## Related Guides
+## 6. Rollback Procedure
 
-- [Monitoring Guide](monitoring-guide.md) — Prometheus metrics and Grafana dashboards
-- [Backup and Restore](backup-restore.md) — ChromaDB and config backups
-- [Troubleshooting](troubleshooting.md) — OOM, thermal, model eviction, and other common issues
+### 6.1 OTA A/B Slot Rollback (bare metal)
+
+BMT AI OS uses A/B partition slots. If the new slot is unhealthy, roll back:
+
+```bash
+# Check current slot
+cat /proc/cmdline | grep -oP 'root=\S+'
+
+# Mark current slot as bad and reboot to previous slot
+bmt-ota rollback
+# or manually:
+fw_setenv upgrade_available 0
+fw_setenv bootcount 0
+reboot
+```
+
+### 6.2 Docker Compose Rollback
+
+```bash
+# Tag the running image before upgrading
+docker tag bmt-ai-os bmt-ai-os:previous
+
+# After a failed upgrade, restore
+docker stop bmt-controller
+docker run -d \
+  --name bmt-controller \
+  --network bmt-ai-net \
+  -p 8080:8080 \
+  -e BMT_JWT_SECRET="${BMT_JWT_SECRET}" \
+  bmt-ai-os:previous
+
+# Roll back the AI stack
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml down
+git checkout v2026.4.10  # previous release tag
+docker compose -f bmt_ai_os/ai-stack/docker-compose.yml up -d
+```
+
+### 6.3 Fleet Rollback
+
+```bash
+# Send rollback command to affected devices
+curl -s -X POST http://fleet.example.com:8080/api/v1/fleet/command \
+  -H "Authorization: Bearer <admin-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "target": "all",
+    "action": "update",
+    "params": {"version": "2026.4.10"}
+  }' | jq .
+```
+
+### 6.4 Database Recovery
+
+Auth and fleet SQLite databases default to `/tmp/bmt-auth.db` and `/tmp/bmt-fleet.db`. For production, set `BMT_AUTH_DB` and `BMT_FLEET_DB` to a persistent path and back up regularly:
+
+```bash
+# Backup
+cp /var/lib/bmt/auth.db /var/lib/bmt/auth.db.$(date +%Y%m%d%H%M%S)
+
+# Restore
+cp /var/lib/bmt/auth.db.20260411120000 /var/lib/bmt/auth.db
+sudo rc-service bmt-controller restart
+```
+
+---
+
+## 7. Monitoring Setup
+
+### 7.1 Prometheus Configuration
+
+Add the controller scrape target to your `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: bmt-ai-os
+    static_configs:
+      - targets:
+          - localhost:8080   # controller /metrics
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+```
+
+Key metrics exposed:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `bmt_requests_total` | Counter | HTTP requests by method, path, status |
+| `bmt_request_duration_seconds` | Histogram | Request latency |
+| `bmt_health_checks_total` | Counter | Health check results by service |
+| `bmt_provider_requests_total` | Counter | LLM provider calls |
+| `bmt_provider_errors_total` | Counter | LLM provider errors |
+
+### 7.2 Grafana Dashboard
+
+Import the bundled dashboard from `bmt_ai_os/runtime/monitoring/`:
+
+```bash
+# Via Grafana API
+curl -s -X POST http://grafana:3000/api/dashboards/import \
+  -H 'Content-Type: application/json' \
+  -u admin:admin \
+  -d @bmt_ai_os/runtime/monitoring/grafana-dashboard.json
+```
+
+### 7.3 Alerting Rules
+
+Example Prometheus alerting rules (adapt thresholds to your SLA):
+
+```yaml
+# bmt_ai_os/runtime/monitoring/alerts.yml
+groups:
+  - name: bmt-ai-os
+    rules:
+      - alert: ControllerDown
+        expr: up{job="bmt-ai-os"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BMT AI OS controller is down"
+
+      - alert: OllamaUnhealthy
+        expr: bmt_health_checks_total{service="ollama",status="unhealthy"} > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ollama service is repeatedly failing health checks"
+
+      - alert: HighErrorRate
+        expr: |
+          rate(bmt_requests_total{status=~"5.."}[5m]) /
+          rate(bmt_requests_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error rate above 5%"
+```
+
+### 7.4 Log Aggregation
+
+Controller emits structured JSON logs to `/var/log/bmt-controller.log`.
+
+Promtail (Loki) snippet:
+
+```yaml
+scrape_configs:
+  - job_name: bmt-controller
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: bmt-controller
+          __path__: /var/log/bmt-controller.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            request_id: request_id
+            path: path
+```
+
+---
+
+## 8. Troubleshooting Common Issues
+
+### 8.1 Controller Fails to Start
+
+**Symptom:** `bmt-controller` exits immediately after launch.
+
+```bash
+# Check logs
+sudo journalctl -u bmt-controller -n 50
+# or
+tail -n 50 /var/log/bmt-controller.log
+```
+
+Common causes:
+
+| Error | Fix |
+|-------|-----|
+| `BMT_JWT_SECRET not configured` | Set `BMT_JWT_SECRET` env var (min 32 chars) |
+| `Port 8080 already in use` | `sudo lsof -i :8080` — kill conflicting process |
+| `BMT_COMPOSE_FILE not found` | Set correct path; default is `/opt/bmt_ai_os/ai-stack/docker-compose.yml` |
+| `ModuleNotFoundError: bmt_ai_os` | Set `PYTHONPATH=$(pwd)` or install the package |
+
+### 8.2 Ollama Not Responding
+
+```bash
+# Check container status
+docker ps | grep bmt-ollama
+
+# View container logs
+docker logs bmt-ollama --tail 50
+
+# Manual restart
+docker restart bmt-ollama
+# wait ~30 s then check
+curl -sf http://localhost:11434/api/tags
+```
+
+### 8.3 Authentication Failures
+
+```bash
+# 401 "Missing or malformed Authorization header"
+# → Include the header: -H "Authorization: Bearer <token>"
+
+# 401 "Token has expired"
+# → Re-login to obtain a fresh token (tokens expire after 24 h)
+
+# 403 "Role 'viewer' is not permitted to POST ..."
+# → Use an account with 'operator' or 'admin' role for write operations
+
+# Forgot admin password
+# → On the host:
+sqlite3 /var/lib/bmt/auth.db "DELETE FROM users WHERE username='admin';"
+# Then re-create via the API (unauthenticated creation allowed when no users exist)
+```
+
+### 8.4 Model Inference is Slow
+
+```bash
+# Check CPU usage
+top -b -n1 | head -20
+
+# Check if model is loaded in Ollama
+curl -s http://localhost:11434/api/ps | jq .
+
+# For Apple Silicon — verify you are NOT running under Rosetta
+uname -m  # should be arm64
+
+# For Jetson — verify CUDA is available to the container
+docker exec bmt-ollama nvidia-smi
+```
+
+### 8.5 ChromaDB Collection Not Found
+
+```bash
+# List existing collections
+curl -s http://localhost:8000/api/v1/collections | jq .[].name
+
+# Create missing collection via ingest API
+curl -s -X POST http://localhost:8080/api/v1/ingest \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"/data/docs","collection":"default","recursive":true}'
+```
+
+### 8.6 Fleet Devices Not Checking In
+
+```bash
+# On the edge device — check agent logs
+tail -f /var/log/bmt-fleet-agent.log
+
+# Common causes:
+# 1. fleet_server URL is wrong or unreachable
+ping fleet.example.com
+curl -sf http://fleet.example.com:8080/healthz
+
+# 2. Firewall blocking outbound port 8080
+sudo iptables -L OUTPUT -n | grep DROP
+
+# 3. Device clock skew (JWT validation fails)
+date; ssh fleet.example.com date
+# fix with: sudo ntpdate -u pool.ntp.org
+```
+
+### 8.7 Disk Full — Model Storage
+
+```bash
+# Check disk usage
+df -h /var/lib/docker
+
+# List Ollama models by size
+docker exec bmt-ollama ollama list
+
+# Remove an unused model
+docker exec bmt-ollama ollama rm qwen2.5:72b
+
+# Prune Docker build cache
+docker system prune -f
+```
+
+---
+
+*For further assistance, open an issue at https://github.com/bemind/ai-first-os or consult the architecture docs in `docs/architecture/`.*

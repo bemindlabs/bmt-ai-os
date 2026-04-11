@@ -1,1 +1,5 @@
-"""BMT AI OS memory subsystem — conversation persistence and hybrid search."""
+"""BMT AI OS — Memory subsystem.
+
+Provides context management, token budgeting, message compaction, and
+long-term memory dreaming/consolidation for AI conversations.
+"""
