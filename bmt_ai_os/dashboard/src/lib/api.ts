@@ -192,6 +192,63 @@ export async function streamChat(
 }
 
 // ---------------------------------------------------------------------------
+// Provider Key Management (BMTOS-134)
+// ---------------------------------------------------------------------------
+
+export interface ProviderKey {
+  id: string;
+  provider_name: string;
+  masked_key: string;
+  usage_count: number;
+  last_used: number | null;
+  last_error: string | null;
+  cooldown_until: number | null;
+  status: "active" | "cooldown";
+}
+
+export interface ProviderKeysResponse {
+  provider_name: string;
+  keys: ProviderKey[];
+  total: number;
+}
+
+export interface AddKeyResponse {
+  provider_name: string;
+  key: ProviderKey;
+}
+
+export async function fetchProviderKeys(
+  providerName: string,
+): Promise<ProviderKeysResponse> {
+  return apiFetch<ProviderKeysResponse>(
+    `/api/v1/providers/config/${encodeURIComponent(providerName)}/keys`,
+  );
+}
+
+export async function addProviderKey(
+  providerName: string,
+  apiKey: string,
+): Promise<AddKeyResponse> {
+  return apiFetch<AddKeyResponse>(
+    `/api/v1/providers/config/${encodeURIComponent(providerName)}/keys`,
+    {
+      method: "POST",
+      body: JSON.stringify({ api_key: apiKey }),
+    },
+  );
+}
+
+export async function deleteProviderKey(
+  providerName: string,
+  keyId: string,
+): Promise<{ deleted: boolean; key_id: string; provider_name: string }> {
+  return apiFetch(
+    `/api/v1/providers/config/${encodeURIComponent(providerName)}/keys/${encodeURIComponent(keyId)}`,
+    { method: "DELETE" },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // RAG Query (BMTOS-80)
 // ---------------------------------------------------------------------------
 

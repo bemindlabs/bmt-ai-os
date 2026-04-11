@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProviderSwitcher } from "./provider-switcher";
+import { ProviderKeyManager } from "./provider-key-manager";
 
 export default async function ProvidersPage() {
   const result = await fetchProviders().catch(() => null);
@@ -67,6 +68,7 @@ export default async function ProvidersPage() {
                   providerName={p.name}
                   isActive={isActive}
                 />
+                <ProviderKeyManager providerName={p.name} />
               </CardContent>
             </Card>
           );
