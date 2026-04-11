@@ -181,7 +181,19 @@
         "BMTOS-52",
         "BMTOS-53"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-8",
+      "title": "Production Readiness & Security Hardening",
+      "description": "Address critical and high-priority findings from the production readiness evaluation. Fix auth defaults, error handling, input validation, CI gaps, secrets management, and test coverage.",
+      "status": "planned",
+      "priority": "critical",
+      "stories": [
+        "BMTOS-54", "BMTOS-55", "BMTOS-56", "BMTOS-57", "BMTOS-58",
+        "BMTOS-59", "BMTOS-60", "BMTOS-61", "BMTOS-62", "BMTOS-63",
+        "BMTOS-64", "BMTOS-65", "BMTOS-66", "BMTOS-67", "BMTOS-68"
+      ]
     }
   ],
-  "next_id": 7
+  "next_id": 9
 }

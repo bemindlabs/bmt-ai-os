@@ -1462,7 +1462,277 @@
       "priority": "medium",
       "status": "done",
       "epic_id": "BMTOS-EPIC-7"
+    },
+    {
+      "id": "BMTOS-54",
+      "title": "Enforce JWT secret and admin password at startup",
+      "description": "JWT secret read from env var but only validated at first token creation. Default admin/admin credentials are a critical security risk. Require BMT_JWT_SECRET (>=32 chars) and BMT_ADMIN_PASS at startup or fail.",
+      "type": "story",
+      "priority": "critical",
+      "points": 3,
+      "status": "backlog",
+      "labels": ["security", "auth"],
+      "acceptance_criteria": [
+        "Controller refuses to start if BMT_JWT_SECRET is missing or < 32 chars",
+        "Controller refuses to start if default admin/admin credentials are active",
+        "Clear error message printed to stderr on startup failure"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-55",
+      "title": "Replace bare except Exception clauses in API layer",
+      "description": "7 instances in openai_compat.py and 1 in rag_routes.py swallow errors without context. Replace with typed exceptions, preserve stack traces, sanitize error details for client responses.",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["quality", "error-handling"],
+      "acceptance_criteria": [
+        "Zero bare except Exception clauses in controller/ directory",
+        "All exceptions logged with logger.exception() for stack trace",
+        "Client-facing error details sanitized (no internal paths/tracebacks)",
+        "Request ID included in error log entries"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-56",
+      "title": "Add rate limiting to auth and inference endpoints",
+      "description": "No rate limiting on /api/v1/auth/login or /v1/chat/completions. Add per-IP rate limiting using slowapi or custom middleware to prevent brute-force and resource exhaustion.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["security", "api"],
+      "acceptance_criteria": [
+        "Login endpoint limited to 5 attempts per 5 minutes per IP",
+        "Inference endpoints limited to configurable rate (default 60/min)",
+        "Rate limit headers (X-RateLimit-*) included in responses",
+        "429 Too Many Requests returned when exceeded"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-57",
+      "title": "Add path traversal protection to RAG ingest endpoint",
+      "description": "RAG ingest endpoint accepts arbitrary paths without validation. ingest_directory() uses Path.rglob() without checking if path is within allowed directories. Add whitelist validation.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "backlog",
+      "labels": ["security", "rag"],
+      "acceptance_criteria": [
+        "Configurable allowed_ingest_dirs whitelist",
+        "Path.resolve() used to prevent symlink traversal",
+        "Requests for paths outside whitelist return 403",
+        "Collection name validated with regex: ^[a-zA-Z0-9_-]{1,100}$"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-58",
+      "title": "Move secrets from env vars to /run/secrets/ files",
+      "description": "JWT secret and API key read from os.environ, visible in docker inspect and process listings. Refactor to read from /run/secrets/ files with env var fallback for dev mode.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["security", "secrets"],
+      "acceptance_criteria": [
+        "JWT secret read from /run/secrets/BMT_JWT_SECRET first, then env var",
+        "API key read from /run/secrets/BMT_API_KEY first, then env var",
+        "Docker Compose updated to mount secrets from Docker secrets",
+        "Warning logged when falling back to env var in production"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-59",
+      "title": "Add all test categories to CI pipeline",
+      "description": "Only smoke tests run in CI. Unit, E2E, load, and security tests are not automated. Add them to the GitHub Actions workflow.",
+      "type": "story",
+      "priority": "critical",
+      "points": 3,
+      "status": "backlog",
+      "labels": ["ci", "testing"],
+      "acceptance_criteria": [
+        "Unit tests (857) run on every push and PR",
+        "E2E tests (28) run on every push and PR",
+        "Security tests (31) run on every push and PR",
+        "Load tests (12) run on main branch pushes only",
+        "Test results uploaded as artifacts"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-60",
+      "title": "Add token revocation and account lockout",
+      "description": "No way to revoke JWT tokens early or lock accounts after failed logins. Add token blacklist and account lockout mechanism.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["security", "auth"],
+      "acceptance_criteria": [
+        "Token blacklist table in SQLite; checked during verification",
+        "Tokens revoked on user deletion and role change",
+        "Account locked after 10 failed login attempts for 15 minutes",
+        "Admin can manually lock/unlock accounts"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-61",
+      "title": "Add fleet registry persistence with SQLite",
+      "description": "Fleet registry is in-memory only — lost on controller restart. Add SQLite persistence so devices and pending commands survive restarts.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": ["fleet", "persistence"],
+      "acceptance_criteria": [
+        "Device records persisted to SQLite on registration and heartbeat",
+        "Pending commands persisted and survive controller restart",
+        "Registry loads from SQLite on startup",
+        "In-memory cache used for hot path (heartbeats)"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-62",
+      "title": "Add container vulnerability scanning to CI (trivy)",
+      "description": "No container image scanning or SBOM generation in the build pipeline. Add trivy scanning and CycloneDX SBOM generation.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "backlog",
+      "labels": ["ci", "security"],
+      "acceptance_criteria": [
+        "Trivy scans Docker image on every PR",
+        "Critical/High vulnerabilities fail the CI build",
+        "SBOM (CycloneDX) generated and uploaded as release artifact",
+        "Base image digest pinned in Dockerfile"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-63",
+      "title": "Fix CI continue-on-error flags for integration and build jobs",
+      "description": "Integration tests and image build jobs are marked continue-on-error: true. These should be hard gates once QEMU infra is stable.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "backlog",
+      "labels": ["ci"],
+      "acceptance_criteria": [
+        "Integration test job fails the pipeline on failure",
+        "Build image job fails the pipeline on failure",
+        "ShellCheck errors are non-fatal warnings (keep || true)"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-64",
+      "title": "Add password complexity requirements",
+      "description": "No validation on password strength. Users can set single-character passwords. Add minimum length and complexity rules.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "backlog",
+      "labels": ["security", "auth"],
+      "acceptance_criteria": [
+        "Minimum password length: 12 characters",
+        "Must contain uppercase, lowercase, and digit",
+        "Validation on user creation and password change",
+        "Clear error message on validation failure"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-65",
+      "title": "Add unit tests for untested core modules",
+      "description": "~20 core modules have no direct tests: ollama provider, registry, health checker, RAG pipeline (6 modules), fleet agent/collector, CLI. Add targeted unit tests.",
+      "type": "story",
+      "priority": "high",
+      "points": 13,
+      "status": "backlog",
+      "labels": ["testing"],
+      "acceptance_criteria": [
+        "Tests for providers/ollama.py, providers/registry.py, providers/config.py",
+        "Tests for controller/health.py, controller/config.py",
+        "Tests for rag/ingest.py, rag/query.py, rag/storage.py",
+        "Tests for fleet/agent.py (offline queue), fleet/collector.py",
+        "Total test count >= 1100"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-66",
+      "title": "Write production deployment runbook",
+      "description": "No operational documentation for production deployment. Write a runbook covering first-boot setup, monitoring, backups, OTA updates, and troubleshooting.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["docs", "operations"],
+      "acceptance_criteria": [
+        "First-boot checklist (secrets, TLS, admin user)",
+        "Monitoring setup guide (Prometheus + Grafana)",
+        "Backup and restore procedures",
+        "OTA update operational guide",
+        "Troubleshooting guide for common issues (OOM, thermal, model eviction)"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-67",
+      "title": "Fix plugin manager lock scope and state atomicity",
+      "description": "Module-level _STATE_LOCK shared across PluginManager instances. State persistence is non-atomic (read-modify-write). Move lock to instance level, use atomic file writes.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": ["quality", "plugins"],
+      "acceptance_criteria": [
+        "Lock is per-instance, not module-level",
+        "State file writes use tmp+rename pattern (atomic)",
+        "Multiple PluginManager instances with different state files don't deadlock"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-68",
+      "title": "Add OTA download signature verification (Ed25519)",
+      "description": "OTA update downloads verified by SHA-256 checksum only. Ed25519 signature support exists but is optional. Make it required by default.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": ["security", "ota"],
+      "acceptance_criteria": [
+        "Ed25519 signature verification required by default",
+        "Public key shipped with OS image or configurable via BMT_OTA_PUBKEY",
+        "Unsigned updates rejected unless BMT_OTA_ALLOW_UNSIGNED=true",
+        "Signature verification tested in unit tests"
+      ],
+      "epic_id": "BMTOS-EPIC-8",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 44
+  "next_id": 69
 }
