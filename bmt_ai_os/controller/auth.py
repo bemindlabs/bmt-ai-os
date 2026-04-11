@@ -183,7 +183,8 @@ class UserStore:
         try:
             with self._conn() as con:
                 cur = con.execute(
-                    "INSERT INTO users (username, password_hash, role, created_at) VALUES (?,?,?,?)",
+                    "INSERT INTO users (username, password_hash, role, created_at)"
+                    " VALUES (?,?,?,?)",
                     (username, pw_hash, role.value, created_at),
                 )
                 user_id = cur.lastrowid
@@ -329,7 +330,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                 status_code=403,
                 content={
                     "error": {
-                        "message": f"Role '{role.value}' is not permitted to {request.method} {path}.",
+                        "message": (
+                            f"Role '{role.value}' is not permitted to"
+                            f" {request.method} {path}."
+                        ),
                         "type": "authorization_error",
                         "code": "forbidden",
                     }

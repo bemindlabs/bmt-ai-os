@@ -135,7 +135,7 @@ class TestGetDeviceId:
         assert result == "abc123"
 
     def test_falls_back_to_tmp_file(self, tmp_path):
-        fallback = tmp_path / "bmt-device-id"
+        _fallback = tmp_path / "bmt-device-id"
         with (
             patch("bmt_ai_os.fleet.collector._MACHINE_ID_PATHS", []),
             patch("bmt_ai_os.fleet.collector.Path") as MockPath,
@@ -203,7 +203,7 @@ class TestGetServiceHealth:
     def test_both_up(self):
         mock_resp = MagicMock()
         mock_resp.ok = True
-        with patch("bmt_ai_os.fleet.collector.requests.get", return_value=mock_resp) as mock_get:
+        with patch("bmt_ai_os.fleet.collector.requests.get", return_value=mock_resp):
             health = get_service_health()
         assert health["ollama"] == "up"
         assert health["chromadb"] == "up"
