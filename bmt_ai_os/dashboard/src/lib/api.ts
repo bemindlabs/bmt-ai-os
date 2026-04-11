@@ -238,158 +238,58 @@ export async function queryRag(
 }
 
 // ---------------------------------------------------------------------------
-// Provider CRUD (BMTOS-120)
+// Fleet (BMTOS-128)
 // ---------------------------------------------------------------------------
 
-export type ProviderType =
-  | "ollama"
-  | "openai"
-  | "anthropic"
-  | "gemini"
-  | "groq"
-  | "mistral"
-  | "vllm"
-  | "llamacpp";
+export interface FleetDevice {
+  device_id: string;
+  hostname: string;
+  arch: string;
+  board: string;
+  os_version: string;
+  online: boolean;
+  cpu_percent: number;
+  memory_percent: number;
+  disk_percent: number;
+  loaded_models: string[];
+  registered_at?: string;
+  last_seen?: string;
+  [key: string]: unknown;
+}
 
-export interface ProviderConfig {
+export interface FleetDevicesResponse {
+  devices: FleetDevice[];
+  total: number;
+  online: number;
+}
+
+export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
+  return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
+}
+
+// ---------------------------------------------------------------------------
+// SSH Key Management (BMTOS-129)
+// ---------------------------------------------------------------------------
+
+export interface SshKeySummary {
   name: string;
-  provider_type: ProviderType;
-  base_url: string;
-  api_key: string; // masked on reads
-  default_model: string;
-  enabled: boolean;
-  created_at?: string;
-  updated_at?: string;
+  fingerprint: string;
+  created_at: string;
 }
 
-export interface ProviderConfigsResponse {
-  providers: ProviderConfig[];
+export async function fetchSshKeys(): Promise<SshKeySummary[]> {
+  return apiFetch<SshKeySummary[]>("/api/v1/ssh-keys");
 }
 
-export interface ProviderConfigIn {
-  name: string;
-  provider_type: ProviderType;
-  base_url?: string;
-  api_key?: string;
-  default_model?: string;
-  enabled?: boolean;
-}
-
-export interface ProviderConfigUpdate {
-  base_url?: string;
-  api_key?: string;
-  default_model?: string;
-  enabled?: boolean;
-}
-
-export interface ProviderTestResult {
-  name: string;
-  healthy: boolean;
-  latency_ms: number;
-  error: string | null;
-}
-
-export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
-  ollama: "http://localhost:11434",
-  openai: "https://api.openai.com/v1",
-  anthropic: "https://api.anthropic.com",
-  gemini: "https://generativelanguage.googleapis.com",
-  groq: "https://api.groq.com/openai/v1",
-  mistral: "https://api.mistral.ai/v1",
-  vllm: "http://localhost:8000/v1",
-  llamacpp: "http://localhost:8080",
-};
-
-export async function fetchProviderConfigs(): Promise<ProviderConfigsResponse> {
-  return apiFetch<ProviderConfigsResponse>("/api/v1/providers/config");
-}
-
-export async function createProviderConfig(
-  data: ProviderConfigIn,
-): Promise<ProviderConfig> {
-  return apiFetch<ProviderConfig>("/api/v1/providers/config", {
+export async function uploadSshKey(name: string, key: string): Promise<SshKeySummary> {
+  return apiFetch<SshKeySummary>("/api/v1/ssh-keys", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ name, key }),
   });
 }
 
-export async function updateProviderConfig(
-  name: string,
-  data: ProviderConfigUpdate,
-): Promise<ProviderConfig> {
-  return apiFetch<ProviderConfig>(`/api/v1/providers/config/${encodeURIComponent(name)}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteProviderConfig(name: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/v1/providers/config/${encodeURIComponent(name)}`, {
+export async function deleteSshKey(name: string): Promise<{ deleted: boolean; name: string }> {
+  return apiFetch<{ deleted: boolean; name: string }>(`/api/v1/ssh-keys/${encodeURIComponent(name)}`, {
     method: "DELETE",
-    headers: { ...getAuthHeader() },
-    cache: "no-store",
   });
-  if (res.status === 401 && typeof window !== "undefined") {
-    localStorage.removeItem("bmt_auth_token");
-    localStorage.removeItem("bmt_auth_user");
-    window.location.replace("/login");
-    throw new Error("Session expired");
-  }
-  if (!res.ok && res.status !== 204) {
-    throw new Error(`API error ${res.status}: ${res.statusText}`);
-  }
 }
-
-export async function testProviderConnection(
-  name: string,
-): Promise<ProviderTestResult> {
-  return apiFetch<ProviderTestResult>(
-    `/api/v1/providers/config/${encodeURIComponent(name)}/test`,
-    { method: "POST" },
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Persona API
-// ---------------------------------------------------------------------------
-export interface PresetInfo { name: string; description: string; content: string; }
-export async function getPersona(): Promise<{ content: string; workspace: string }> { return apiFetch("/api/v1/persona"); }
-export async function savePersona(content: string): Promise<{ status: string }> { return apiFetch("/api/v1/persona", { method: "PUT", body: JSON.stringify({ content }) }); }
-export async function listPresets(): Promise<{ presets: PresetInfo[] }> { return apiFetch("/api/v1/persona/presets"); }
-export async function applyPreset(name: string): Promise<{ status: string }> { return apiFetch(`/api/v1/persona/presets/${name}/apply`, { method: "POST" }); }
-
-// ---------------------------------------------------------------------------
-// Knowledge / RAG
-// ---------------------------------------------------------------------------
-export interface RagCollection { name: string; count: number; }
-export async function fetchCollections(): Promise<{ collections: RagCollection[] }> { return apiFetch("/api/v1/collections"); }
-export async function ingestDocuments(req: { path: string; collection?: string }): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify(req) }); }
-export async function searchKnowledge(req: { question: string; collection?: string; top_k?: number }): Promise<RagQueryResponse> { return apiFetch("/api/v1/query", { method: "POST", body: JSON.stringify(req) }); }
-export async function deleteCollection(name: string): Promise<{ status: string }> { return apiFetch(`/api/v1/collections/${name}`, { method: "DELETE" }); }
-
-// ---------------------------------------------------------------------------
-// Files
-// ---------------------------------------------------------------------------
-export interface FileEntry { name: string; path: string; is_dir: boolean; size: number; modified: string; }
-export async function listFiles(path: string): Promise<{ entries: FileEntry[]; breadcrumbs: { name: string; path: string }[] }> { return apiFetch(`/api/v1/files/list?path=${encodeURIComponent(path)}`); }
-export async function readFile(path: string): Promise<{ content: string; path: string }> { return apiFetch(`/api/v1/files/read?path=${encodeURIComponent(path)}`); }
-export function downloadFileUrl(path: string): string { return `/api/v1/files/download?path=${encodeURIComponent(path)}`; }
-export async function uploadFile(path: string, file: File): Promise<{ status: string }> { const form = new FormData(); form.append("file", file); const res = await fetch(`/api/v1/files/upload?path=${encodeURIComponent(path)}`, { method: "POST", body: form }); if (!res.ok) throw new Error(`${res.status}`); return res.json(); }
-export async function ingestPath(path: string): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify({ path }) }); }
-
-// ---------------------------------------------------------------------------
-// Fleet
-// ---------------------------------------------------------------------------
-export interface FleetDevice { device_id: string; hostname: string; board: string; cpu_percent: number; memory_percent: number; online: boolean; loaded_models: string[]; last_seen: string; }
-export interface FleetSummary { total_devices: number; online: number; offline: number; total_models: number; }
-export interface DeployModelRequest { model: string; device_ids?: string[]; }
-export interface DeployModelResponse { status: string; queued: number; }
-export async function fetchFleetDevices(): Promise<{ devices: FleetDevice[] }> { return apiFetch("/api/v1/fleet/devices"); }
-export async function fetchFleetSummary(): Promise<FleetSummary> { return apiFetch("/api/v1/fleet/summary"); }
-export async function deployModel(req: DeployModelRequest): Promise<DeployModelResponse> { return apiFetch("/api/v1/fleet/deploy-model", { method: "POST", body: JSON.stringify(req) }); }
-
-// ---------------------------------------------------------------------------
-// Agents
-// ---------------------------------------------------------------------------
-export interface AgentPreset { name: string; description: string; content?: string; }
-export async function fetchAgents(): Promise<{ presets: AgentPreset[] }> { try { return await apiFetch("/api/v1/persona/presets"); } catch { return { presets: [{ name: "default", description: "General-purpose AI assistant" }, { name: "coding", description: "Precise coding assistant" }, { name: "creative", description: "Creative writing partner" }] }; } }

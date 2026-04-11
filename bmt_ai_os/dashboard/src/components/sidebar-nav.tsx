@@ -14,6 +14,7 @@ import {
   FolderOpen,
   LogOut,
   Server,
+  Terminal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
@@ -32,6 +33,8 @@ const navItems = [
   { href: "/training", label: "Training", icon: BrainCog },
   { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/logs", label: "Logs", icon: ScrollText },
+  { href: "/fleet", label: "Fleet", icon: Server },
+  { href: "/terminal", label: "Terminal", icon: Terminal },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

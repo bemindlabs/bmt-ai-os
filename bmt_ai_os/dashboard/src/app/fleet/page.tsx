@@ -1,171 +1,221 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import {
-  fetchFleetDevices,
-  fetchFleetSummary,
-  fetchModels,
-  type FleetDevice,
-  type FleetSummary,
-} from "@/lib/api";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DeviceCard } from "@/components/device-card";
-import { Server, Wifi, WifiOff, Layers } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Terminal, Cpu, MemoryStick, HardDrive, RefreshCw } from "lucide-react";
+import { fetchFleetDevices, FleetDevice } from "@/lib/api";
 
-const REFRESH_INTERVAL_MS = 10_000;
-
-interface SummaryStatProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
+function StatusBadge({ online }: { online: boolean }) {
+  return online ? (
+    <Badge className="bg-green-600 text-white hover:bg-green-600">Online</Badge>
+  ) : (
+    <Badge variant="secondary">Offline</Badge>
+  );
 }
 
-function SummaryStat({ icon, label, value }: SummaryStatProps) {
+function PercentBar({ value, label }: { value: number; label: string }) {
+  const color =
+    value > 90 ? "bg-red-500" : value > 70 ? "bg-yellow-500" : "bg-green-500";
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          {icon}
-          <span className="text-xs font-medium uppercase tracking-wide">
-            {label}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="w-8 shrink-0">{label}</span>
+      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full ${color} transition-all`}
+          style={{ width: `${Math.min(value, 100)}%` }}
+        />
+      </div>
+      <span className="w-8 text-right">{value.toFixed(0)}%</span>
+    </div>
   );
 }
 
 export default function FleetPage() {
+  const router = useRouter();
   const [devices, setDevices] = useState<FleetDevice[]>([]);
-  const [summary, setSummary] = useState<FleetSummary | null>(null);
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [total, setTotal] = useState(0);
+  const [online, setOnline] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  const refresh = useCallback(async () => {
+  async function load() {
+    setLoading(true);
+    setError(null);
     try {
-      const [devicesRes, summaryRes] = await Promise.all([
-        fetchFleetDevices().catch(() => null),
-        fetchFleetSummary().catch(() => null),
-      ]);
-
-      if (devicesRes) setDevices(devicesRes.devices ?? []);
-      if (summaryRes) setSummary(summaryRes);
-      setError(null);
-      setLastRefreshed(new Date());
+      const data = await fetchFleetDevices();
+      setDevices(data.devices);
+      setTotal(data.total);
+      setOnline(data.online);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch fleet data");
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }
 
-  // Load available models once for the deploy dropdown
   useEffect(() => {
-    fetchModels()
-      .then((res) => setAvailableModels(res.models.map((m) => m.name)))
-      .catch(() => {});
-  }, []);
-
-  // Initial load + auto-refresh every 10 s
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    load();
+    const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
-  }, [refresh]);
+  }, []);
 
-  const onlineCount = summary?.online_devices ?? devices.filter((d) => d.online).length;
-  const offlineCount =
-    summary?.offline_devices ?? devices.filter((d) => !d.online).length;
-  const totalModels = summary?.total_models ?? 0;
+  function openSsh(device: FleetDevice) {
+    const host = device.hostname || device.device_id;
+    const params = new URLSearchParams({ host, user: "root" });
+    router.push(`/terminal?${params.toString()}`);
+  }
 
   return (
     <div className="space-y-8">
-      {/* Page heading */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Fleet</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            All registered devices and their current status.
+            Registered edge devices and their current status.
           </p>
         </div>
-        {lastRefreshed && (
-          <p className="shrink-0 text-xs text-muted-foreground">
-            Updated {lastRefreshed.toLocaleTimeString()}
-          </p>
-        )}
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Error banner */}
-      {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <SummaryStat
-          icon={<Server className="size-4" />}
-          label="Total devices"
-          value={summary?.total_devices ?? devices.length}
-        />
-        <SummaryStat
-          icon={<Wifi className="size-4 text-green-500" />}
-          label="Online"
-          value={onlineCount}
-        />
-        <SummaryStat
-          icon={<WifiOff className="size-4 text-red-500" />}
-          label="Offline"
-          value={offlineCount}
-        />
-        <SummaryStat
-          icon={<Layers className="size-4" />}
-          label="Total models"
-          value={totalModels}
-        />
-      </div>
-
-      {/* Device grid */}
-      {devices.length === 0 ? (
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
-          <CardContent className="py-10 text-center">
-            <Server className="mx-auto mb-3 size-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
-              {error
-                ? "Could not load devices."
-                : "No devices registered yet."}
-            </p>
-          </CardContent>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Devices</CardDescription>
+            <CardTitle className="text-3xl">{total}</CardTitle>
+          </CardHeader>
         </Card>
-      ) : (
-        <>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-medium">Devices</h2>
-            <Badge variant="secondary">{devices.length}</Badge>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {devices.map((device) => (
-              <DeviceCard
-                key={device.device_id}
-                device={device}
-                availableModels={availableModels}
-              />
-            ))}
-          </div>
-        </>
-      )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Online</CardDescription>
+            <CardTitle className="text-3xl text-green-500">{online}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Offline</CardDescription>
+            <CardTitle className="text-3xl text-muted-foreground">
+              {total - online}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Device table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Devices</CardTitle>
+          <CardDescription>
+            {error
+              ? "Could not reach fleet API."
+              : loading && devices.length === 0
+                ? "Loading devices…"
+                : devices.length === 0
+                  ? "No devices registered yet."
+                  : `${devices.length} device${devices.length !== 1 ? "s" : ""} registered`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {error && (
+            <p className="px-6 py-4 text-sm text-red-500">{error}</p>
+          )}
+          {devices.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Device</TableHead>
+                  <TableHead>Board / Arch</TableHead>
+                  <TableHead>OS</TableHead>
+                  <TableHead>Resources</TableHead>
+                  <TableHead>Models</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {devices.map((device) => (
+                  <TableRow key={device.device_id}>
+                    <TableCell>
+                      <div className="font-medium">{device.hostname || device.device_id}</div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {device.device_id}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div>{device.board || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{device.arch || "—"}</div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {device.os_version || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <PercentBar value={device.cpu_percent ?? 0} label="CPU" />
+                        <PercentBar value={device.memory_percent ?? 0} label="RAM" />
+                        <PercentBar value={device.disk_percent ?? 0} label="Disk" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(device.loaded_models ?? []).length === 0 ? (
+                          <span className="text-xs text-muted-foreground">none</span>
+                        ) : (
+                          (device.loaded_models ?? []).slice(0, 3).map((m) => (
+                            <Badge key={m} variant="outline" className="text-xs">
+                              {m}
+                            </Badge>
+                          ))
+                        )}
+                        {(device.loaded_models ?? []).length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{(device.loaded_models ?? []).length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge online={device.online ?? false} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {device.online && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openSsh(device)}
+                          title="Open SSH terminal to this device"
+                        >
+                          <Terminal className="mr-1.5 size-3.5" />
+                          SSH
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

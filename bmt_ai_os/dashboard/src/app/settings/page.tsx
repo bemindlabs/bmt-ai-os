@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FeatureFlags } from "./feature-flags";
-import { PersonaEditor } from "@/components/persona-editor";
+import { SshKeyManager } from "./ssh-keys";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -33,19 +33,8 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      {/* Persona editor */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Agent Persona</CardTitle>
-          <CardDescription>
-            Edit your SOUL.md to customise the agent&apos;s personality, tone, and behaviour.
-            Choose a preset or write your own.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PersonaEditor />
-        </CardContent>
-      </Card>
+      {/* SSH Key Management (BMTOS-129) */}
+      <SshKeyManager />
 
       {/* Feature flags */}
       <Card>
