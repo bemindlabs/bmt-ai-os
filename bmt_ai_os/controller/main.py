@@ -296,19 +296,20 @@ class BMTAIOSController:
                 )
                 sys.exit(1)
 
-            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             try:
-                ssl_ctx.load_cert_chain(certfile=cert, keyfile=key)
-            except (ssl.SSLError, OSError) as exc:
-                logger.error("Failed to load TLS certificate/key: %s", exc)
+                # build_ssl_context() enforces TLS 1.2+, disables weak ciphers,
+                # and applies OP_NO_COMPRESSION / forward-secrecy options.
+                tls_cfg.build_ssl_context()
+            except (ssl.SSLError, OSError, ValueError) as exc:
+                logger.error("Failed to build TLS context: %s", exc)
                 sys.exit(1)
 
             logger.info(
-                "TLS enabled — HTTPS on %s:%d (cert=%s)",
+                "TLS enabled — HTTPS on %s:%d (cert=%s, mtls=%s)",
                 self.config.api_host,
                 tls_cfg.port,
                 cert,
+                tls_cfg.mtls_enabled,
             )
             uvicorn.run(
                 app,

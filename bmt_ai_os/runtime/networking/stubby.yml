@@ -1,0 +1,46 @@
+# BMT AI OS — Stubby DNS-over-TLS configuration
+# Stubby acts as a local DNS stub resolver that forwards queries over TLS.
+# Install: apt install stubby  /  apk add stubby
+# SPDX-License-Identifier: MIT
+
+# Listen on 127.0.0.53:53 so systemd-resolved (or Docker) can use it.
+listen_addresses:
+  - address_data: 127.0.0.53
+    port: 53
+
+# Protocol: DNS-over-TLS only (no plain UDP/TCP fallback to external servers)
+resolution_type: GETDNS_RESOLUTION_STUB
+dns_transport_list:
+  - GETDNS_TRANSPORT_TLS
+
+# Enforce TLS — do not fall back to plain DNS for upstream queries.
+tls_authentication: GETDNS_AUTHENTICATION_REQUIRED
+
+# Minimum TLS version (TLS 1.2+).  Actual enforcement depends on the
+# underlying OpenSSL version on the device.
+tls_min_version: GETDNS_TLS1_2
+
+# Response data validated via DNSSEC when available.
+dnssec: GETDNS_EXTENSION_TRUE
+
+# Cache settings
+idle_timeout: 10000
+round_robin_upstreams: 1
+
+# Upstream DoT servers
+upstream_recursive_servers:
+  # Cloudflare 1.1.1.1
+  - address_data: 1.1.1.1
+    tls_port: 853
+    tls_auth_name: "cloudflare-dns.com"
+  - address_data: 1.0.0.1
+    tls_port: 853
+    tls_auth_name: "cloudflare-dns.com"
+
+  # Google 8.8.8.8
+  - address_data: 8.8.8.8
+    tls_port: 853
+    tls_auth_name: "dns.google"
+  - address_data: 8.8.4.4
+    tls_port: 853
+    tls_auth_name: "dns.google"
