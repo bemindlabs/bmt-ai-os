@@ -822,7 +822,7 @@
       "type": "story",
       "priority": "low",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "infrastructure",
         "updates"
@@ -1388,7 +1388,7 @@
       "title": "Implement OTA update engine with A/B slot switching",
       "points": 8,
       "priority": "critical",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1396,7 +1396,7 @@
       "title": "Add multi-user authentication and RBAC to controller API",
       "points": 8,
       "priority": "critical",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1404,7 +1404,7 @@
       "title": "Build fleet management agent and central registry",
       "points": 13,
       "priority": "high",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1412,7 +1412,7 @@
       "title": "Build performance benchmarking suite with CI integration",
       "points": 8,
       "priority": "high",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1420,7 +1420,7 @@
       "title": "Implement plugin and extension system",
       "points": 8,
       "priority": "medium",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1428,7 +1428,7 @@
       "title": "Add Prometheus metrics export and alerting integration",
       "points": 5,
       "priority": "high",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1436,7 +1436,7 @@
       "title": "Harden container security with per-service AppArmor/seccomp",
       "points": 5,
       "priority": "high",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1444,7 +1444,7 @@
       "title": "Build documentation site with MkDocs and API reference",
       "points": 5,
       "priority": "medium",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1452,7 +1452,7 @@
       "title": "Add TLS termination and network hardening",
       "points": 5,
       "priority": "high",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     },
     {
@@ -1460,7 +1460,7 @@
       "title": "Implement structured JSON logging and rotation",
       "points": 3,
       "priority": "medium",
-      "status": "backlog",
+      "status": "done",
       "epic_id": "BMTOS-EPIC-7"
     }
   ],

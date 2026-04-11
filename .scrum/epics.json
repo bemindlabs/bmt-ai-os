@@ -4,7 +4,7 @@
       "id": "BMTOS-EPIC-1",
       "title": "Multi-Provider LLM Support",
       "description": "Abstraction layer supporting multiple LLM backends — local-first (Ollama, vLLM, llama.cpp) with optional cloud fallback (OpenAI, Anthropic, Google, Mistral, Groq). Includes provider interface, routing, and fallback chain.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-6",
@@ -30,7 +30,7 @@
       "id": "BMTOS-EPIC-2",
       "title": "AI Coding CLI & Agent Support",
       "description": "Pre-installed, auto-configured AI coding tools — CLIs (Claude Code, Aider, Continue, Tabby, Open Interpreter), IDE plugins (Cursor, Copilot, Cody), and code agents (SWE-agent, Codex CLI, Mentat). All wired to the local LLM provider layer with RAG-enhanced project context.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-10",
@@ -56,7 +56,7 @@
       "id": "BMTOS-EPIC-3",
       "title": "OS Foundation & Infrastructure",
       "description": "Core OS infrastructure: bootable ARM64 image build pipeline, init system, boot ordering, filesystem layout, networking, security, CI/CD. The foundation everything else depends on.",
-      "status": "planned",
+      "status": "completed",
       "priority": "critical",
       "stories": [
         "BMTOS-1",
@@ -109,7 +109,7 @@
       "id": "BMTOS-EPIC-5",
       "title": "Native Dashboard",
       "description": "Native web dashboard for system monitoring, model management, RAG console, provider config, and log viewing. Built with Next.js + shadcn/ui + Tailwind CSS. Dark theme default, responsive, real-time via WebSocket.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-29",
@@ -140,7 +140,7 @@
       "id": "BMTOS-EPIC-6",
       "title": "On-Device AI Training & Fine-Tuning",
       "description": "Local model training and LoRA/QLoRA fine-tuning on edge hardware. PyTorch + Hugging Face stack with data preparation tools, Jupyter notebooks, TensorBoard monitoring, and model export to Ollama/GGUF. Train on Jetson (CUDA), run on all targets.",
-      "status": "planned",
+      "status": "completed",
       "priority": "medium",
       "stories": [
         "BMTOS-37",
@@ -166,7 +166,7 @@
     {
       "id": "BMTOS-EPIC-7",
       "title": "Production Hardening",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "points": 68,
       "stories": [
