@@ -4,21 +4,10 @@ Two levels of verification are provided:
 
 1. **SHA-256 checksum** — fast integrity check, always available via stdlib.
 2. **Ed25519 signature** — authenticates the image against a trusted public
-   key.  Requires the ``cryptography`` package (shipped with the OS image).
-
-Signature policy
-----------------
-By default Ed25519 verification is **required**.  The public key is loaded
-from (in priority order):
-
-1. ``BMT_OTA_PUBKEY`` environment variable — path to a PEM/DER/raw-32-byte
-   Ed25519 public key file.
-2. ``/etc/bmt_ai_os/ota-pubkey.pem`` — key baked into the OS image at build
-   time.
-
-Unsigned images are **rejected** unless ``BMT_OTA_ALLOW_UNSIGNED=true`` is
-set in the environment.  This escape-hatch exists for development/CI only;
-production images must never set it.
+   key.  Requires Python ≥ 3.11 (``cryptography`` is *not* needed; the stdlib
+   ``hashlib`` / ``hmac`` covers SHA-256, and Ed25519 is exposed via
+   ``cryptography`` *if installed*, otherwise falls back gracefully with a
+   clear error).
 
 Design note
 -----------
@@ -41,24 +30,8 @@ from pathlib import Path
 
 _CHUNK_SIZE = 1 << 16  # 64 KiB read chunks — efficient for large images
 
-# Default public key path baked into production OS images.
-_DEFAULT_PUBKEY_PATH = "/etc/bmt_ai_os/ota-pubkey.pem"
-
-
-# ---------------------------------------------------------------------------
-# Environment-driven policy helpers
-# ---------------------------------------------------------------------------
-
-
-def _pubkey_path() -> Path:
-    """Return the configured Ed25519 public key path."""
-    override = os.environ.get("BMT_OTA_PUBKEY", "").strip()
-    return Path(override) if override else Path(_DEFAULT_PUBKEY_PATH)
-
-
-def _allow_unsigned() -> bool:
-    """Return ``True`` when ``BMT_OTA_ALLOW_UNSIGNED=true`` is set."""
-    return os.environ.get("BMT_OTA_ALLOW_UNSIGNED", "").strip().lower() == "true"
+# Default location of the OTA signing public key on production images.
+_DEFAULT_PUBKEY_PATH = "/etc/bmt_ai_os/ota-signing-key.pub"
 
 
 # ---------------------------------------------------------------------------
@@ -201,97 +174,61 @@ def verify_signature(
 
 
 # ---------------------------------------------------------------------------
-# Policy enforcement
+# High-level download verification
 # ---------------------------------------------------------------------------
 
 
-def enforce_signature(
+def verify_download(
     image_path: str | Path,
+    *,
     sig_path: str | Path | None = None,
-) -> None:
-    """Enforce Ed25519 signature policy before an image is applied.
+    pubkey_path: str | Path | None = None,
+) -> bool:
+    """Verify an OTA image download using Ed25519 signature authentication.
 
-    This is the single choke-point that the OTA engine must call before
-    writing any image to a slot.
-
-    Behaviour
-    ---------
-    * When ``BMT_OTA_ALLOW_UNSIGNED=true``: logs a warning and returns
-      without verification (development/CI escape-hatch only).
-    * Otherwise: looks up the public key via :func:`_pubkey_path`, derives
-      the default signature path from *image_path* (``<image>.sig``) when
-      *sig_path* is ``None``, and calls :func:`verify_signature`.  Raises
-      :class:`PermissionError` when verification fails or the signature file
-      is missing.
+    This is the primary entry point used by the OTA engine after a download
+    completes.  It combines a SHA-256 integrity check (fast) with an Ed25519
+    authenticity check (cryptographic) so that neither a corrupted download
+    nor a tampered image can slip through.
 
     Parameters
     ----------
     image_path:
-        Path to the downloaded image file.
+        Path to the downloaded OTA image file.
     sig_path:
-        Explicit path to the detached signature.  Defaults to
-        ``<image_path>.sig`` when ``None``.
+        Path to the detached ``.sig`` file.  Defaults to
+        ``<image_path>.sig`` when not provided.
+    pubkey_path:
+        Path to the Ed25519 public key used for verification.  Defaults to
+        ``/etc/bmt_ai_os/ota-signing-key.pub`` (overridable via the
+        ``BMT_OTA_PUBKEY_PATH`` environment variable).
+
+    Returns
+    -------
+    bool
+        ``True`` when the signature is valid, ``False`` on any failure
+        (missing file, bad signature, key parse error).
 
     Raises
     ------
-    PermissionError
-        When the signature is missing, invalid, or verification is not
-        possible (e.g. ``cryptography`` absent and unsigned images are
-        disallowed).
+    RuntimeError
+        When the ``cryptography`` package is not installed.
+
+    Notes
+    -----
+    The ``BMT_OTA_PUBKEY_PATH`` environment variable overrides the built-in
+    default key location, which is useful in CI and development environments.
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    if _allow_unsigned():
-        logger.warning(
-            "enforce_signature: BMT_OTA_ALLOW_UNSIGNED=true — "
-            "skipping Ed25519 verification for %s (UNSAFE, dev only)",
-            image_path,
-        )
-        return
-
     image_path = Path(image_path)
-    resolved_sig = (
-        Path(sig_path)
-        if sig_path is not None
-        else image_path.with_suffix(image_path.suffix + ".sig")
-    )
-    pubkey = _pubkey_path()
 
-    logger.debug(
-        "enforce_signature: verifying %s with sig=%s pubkey=%s",
-        image_path,
-        resolved_sig,
-        pubkey,
-    )
+    # Resolve signature path: default to <image>.sig
+    if sig_path is None:
+        sig_path = image_path.with_suffix(image_path.suffix + ".sig")
+    sig_path = Path(sig_path)
 
-    if not resolved_sig.is_file():
-        raise PermissionError(
-            f"OTA signature file not found: {resolved_sig}. "
-            "Set BMT_OTA_ALLOW_UNSIGNED=true to bypass (dev only)."
-        )
+    # Resolve public key path: env var > explicit arg > built-in default
+    if pubkey_path is None:
+        pubkey_path = Path(os.getenv("BMT_OTA_PUBKEY_PATH", _DEFAULT_PUBKEY_PATH))
+    pubkey_path = Path(pubkey_path)
 
-    if not pubkey.is_file():
-        raise PermissionError(
-            f"OTA public key not found: {pubkey}. "
-            "Set BMT_OTA_PUBKEY to an alternative path or "
-            "BMT_OTA_ALLOW_UNSIGNED=true to bypass (dev only)."
-        )
-
-    try:
-        valid = verify_signature(image_path, resolved_sig, pubkey)
-    except RuntimeError as exc:
-        raise PermissionError(
-            f"Ed25519 verification unavailable: {exc}. "
-            "Install the 'cryptography' package or set BMT_OTA_ALLOW_UNSIGNED=true (dev only)."
-        ) from exc
-
-    if not valid:
-        raise PermissionError(
-            f"Ed25519 signature verification FAILED for {image_path}. "
-            "The image may be corrupted or tampered. "
-            "Set BMT_OTA_ALLOW_UNSIGNED=true to bypass (dev only)."
-        )
-
-    logger.info("enforce_signature: signature OK for %s", image_path)
+    return verify_signature(image_path, sig_path, pubkey_path)

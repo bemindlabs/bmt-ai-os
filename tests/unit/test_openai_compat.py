@@ -7,6 +7,7 @@ matching the OpenAI API format expected by Cursor, Copilot, and Cody.
 from __future__ import annotations
 
 import json
+import unittest.mock
 from unittest.mock import patch
 
 import pytest
@@ -319,4 +320,144 @@ class TestAPIKeyMiddleware:
         inner_app.add_middleware(APIKeyMiddleware, api_key="secret123")
         c = TestClient(inner_app)
         resp = c.get("/healthz")
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# RAG auto-injection (BMTOS-71)
+# ---------------------------------------------------------------------------
+
+
+class TestRagInjection:
+    """Tests for _rag_enabled() and _inject_rag_context()."""
+
+    def test_rag_disabled_by_default(self, monkeypatch):
+        monkeypatch.delenv("BMT_RAG_ENABLED", raising=False)
+        from bmt_ai_os.controller.openai_compat import _rag_enabled
+
+        assert _rag_enabled() is False
+
+    def test_rag_enabled_via_env_true(self, monkeypatch):
+        monkeypatch.setenv("BMT_RAG_ENABLED", "true")
+        from bmt_ai_os.controller.openai_compat import _rag_enabled
+
+        assert _rag_enabled() is True
+
+    def test_rag_enabled_via_env_1(self, monkeypatch):
+        monkeypatch.setenv("BMT_RAG_ENABLED", "1")
+        from bmt_ai_os.controller.openai_compat import _rag_enabled
+
+        assert _rag_enabled() is True
+
+    def test_rag_enabled_via_env_yes(self, monkeypatch):
+        monkeypatch.setenv("BMT_RAG_ENABLED", "yes")
+        from bmt_ai_os.controller.openai_compat import _rag_enabled
+
+        assert _rag_enabled() is True
+
+    def test_rag_disabled_via_env_false(self, monkeypatch):
+        monkeypatch.setenv("BMT_RAG_ENABLED", "false")
+        from bmt_ai_os.controller.openai_compat import _rag_enabled
+
+        assert _rag_enabled() is False
+
+    @pytest.mark.asyncio
+    async def test_inject_rag_context_returns_original_on_storage_error(self):
+        """When ChromaDB is unavailable, messages are returned unchanged."""
+        from bmt_ai_os.controller.openai_compat import _inject_rag_context
+
+        class _Msg:
+            def __init__(self, role, content):
+                self.role = role
+                self.content = content
+
+        original = [_Msg("user", "What is RAG?")]
+
+        # Patch at source so lazy import inside _inject_rag_context is intercepted
+        with patch(
+            "bmt_ai_os.rag.storage.ChromaStorage",
+            side_effect=Exception("connection refused"),
+        ):
+            result = await _inject_rag_context(original)
+
+        assert result is original
+
+    @pytest.mark.asyncio
+    async def test_inject_rag_context_prepends_system_message(self):
+        """When RAG returns results, a system message is prepended."""
+        from bmt_ai_os.controller.openai_compat import _inject_rag_context
+
+        class _Msg:
+            def __init__(self, role, content):
+                self.role = role
+                self.content = content
+
+        original = [_Msg("user", "Explain vector search")]
+
+        fake_raw = {"documents": [["Vector search uses embeddings."]]}
+        mock_storage = unittest.mock.MagicMock()
+        mock_storage.query.return_value = fake_raw
+
+        # Patch ChromaStorage at its source module
+        with patch("bmt_ai_os.rag.storage.ChromaStorage", return_value=mock_storage):
+            result = await _inject_rag_context(original)
+
+        assert len(result) == 2
+        assert result[0].role == "system"
+        assert "Vector search uses embeddings" in result[0].content
+        assert result[1] is original[0]
+
+    @pytest.mark.asyncio
+    async def test_inject_rag_context_no_user_message_unchanged(self):
+        """When there's no user message, the list is returned unchanged."""
+        from bmt_ai_os.controller.openai_compat import _inject_rag_context
+
+        class _Msg:
+            def __init__(self, role, content):
+                self.role = role
+                self.content = content
+
+        original = [_Msg("system", "You are a helpful assistant.")]
+        result = await _inject_rag_context(original)
+        assert result is original
+
+    @pytest.mark.asyncio
+    async def test_inject_rag_context_empty_documents_unchanged(self):
+        """When ChromaDB returns no documents, original messages are returned."""
+        from bmt_ai_os.controller.openai_compat import _inject_rag_context
+
+        class _Msg:
+            def __init__(self, role, content):
+                self.role = role
+                self.content = content
+
+        original = [_Msg("user", "anything")]
+        mock_storage = unittest.mock.MagicMock()
+        mock_storage.query.return_value = {"documents": [[]]}
+
+        with patch("bmt_ai_os.rag.storage.ChromaStorage", return_value=mock_storage):
+            result = await _inject_rag_context(original)
+
+        assert result is original
+
+    def test_chat_completions_with_rag_enabled_still_returns_200(self, app, monkeypatch):
+        """RAG path is exercised but storage failure is non-breaking."""
+        monkeypatch.setenv("BMT_RAG_ENABLED", "true")
+
+        with (
+            patch(
+                "controller.openai_compat._get_provider_router",
+                return_value=_FakeRegistry(),
+            ),
+            patch(
+                "bmt_ai_os.rag.storage.ChromaStorage",
+                side_effect=Exception("no chroma"),
+            ),
+        ):
+            c = TestClient(app)
+            resp = c.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "hi"}]},
+            )
+
         assert resp.status_code == 200
