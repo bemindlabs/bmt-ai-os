@@ -155,8 +155,12 @@ async def pull_model(body: PullRequest) -> dict:
                 timeout=aiohttp.ClientTimeout(total=600),
             ) as resp:
                 if resp.status != 200:
-                    text = await resp.text()
-                    raise HTTPException(status_code=resp.status, detail=text)
+                    try:
+                        err = await resp.json()
+                        detail = err.get("error", str(err))
+                    except Exception:
+                        detail = await resp.text()
+                    raise HTTPException(status_code=422, detail=detail)
                 data = await resp.json()
                 return {"status": "success", "model": body.name, "detail": data}
     except HTTPException:
