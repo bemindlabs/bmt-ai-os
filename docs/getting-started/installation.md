@@ -67,5 +67,5 @@ qemu-system-aarch64 \
 ## Next Steps
 
 - [Quick Start](quick-start.md) — run your first query
-- [Model Management](../ai-stack/model-management.md) — install models
-- [Coding Tools](../coding-tools/claude-code.md) — set up AI coding
+- [IDE Integration](../ide-integration/index.md) — connect Cursor, Copilot, or Cody
+- [Provider Configuration](../architecture/provider-layer.md) — add cloud fallback
