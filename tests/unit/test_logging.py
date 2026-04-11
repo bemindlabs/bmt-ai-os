@@ -8,8 +8,6 @@ import logging
 import sys
 from pathlib import Path
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Direct module load to avoid heavy transitive imports from bmt_ai_os.__init__
 # ---------------------------------------------------------------------------
@@ -292,7 +290,6 @@ class TestSetupLogging:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="CLI logs subcommand pending integration")
 class TestCLILogs:
     """Tests for the `bmt-ai-os logs` CLI subcommand."""
 
