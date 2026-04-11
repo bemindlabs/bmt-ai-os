@@ -242,8 +242,8 @@ async def _fetch_status() -> dict[str, Any]:
                 "uptime_seconds": round(time.time() - ctrl._start_time, 1),
                 "services": ctrl.get_status(),
             }
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("MCP: failed to fetch status: %s", exc)
     return {"version": "2026.4.11", "status": "running", "uptime_seconds": None, "services": []}
 
 
