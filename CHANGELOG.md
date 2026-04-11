@@ -9,14 +9,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [v2026.4.11] — 2026-04-11
 
 ### Added
+- **EPIC-7: Production Hardening** — 11 items, 76 story points, all completed
+- OTA update engine with A/B slot switching and automatic rollback (BMTOS-44)
+- Multi-user authentication and RBAC with JWT tokens (admin/operator/viewer roles) (BMTOS-45)
+- Fleet management agent with central registry, heartbeats, and model deployment (BMTOS-46)
+- Performance benchmarking suite (inference/RAG/system) with CI integration and baseline diffs (BMTOS-47)
+- Plugin and extension system with manifest format, lifecycle management, and sandboxed execution (BMTOS-48)
+- Prometheus metrics export (`/metrics`) with 16 metric families, 15 alerting rules, Grafana dashboard (BMTOS-49)
+- Container security hardening: per-service AppArmor/seccomp profiles, `cap_drop: [ALL]`, non-root execution (BMTOS-50)
+- MkDocs Material documentation site with API reference, hardware guides, and configuration docs (BMTOS-51)
+- TLS termination with auto-generated certs, mTLS PKI, cipher hardening, network policies (BMTOS-52)
+- Structured JSON logging with rotation (100MB/7 days), request ID correlation, per-module streams (BMTOS-53)
+- OS update orchestrator with 4-stage pipeline and CLI command `bmt-ai-os update run` (BMTOS-25)
 - EPIC-4 board support packages: Apple Silicon (CPU-first), Jetson Orin Nano Super (CUDA), RK3588 (RKNN), Pi 5 + Hailo AI HAT+ 2 (HailoRT)
 - Security scan script for static analysis of OS image and container layers
 - Docker Hub push workflow for pre-built AI stack images
-- Phase 7 tooling: build pipeline improvements, QEMU benchmark harness, release automation
+- ~443 new tests (950 total), all passing
 
 ### Changed
 - Python package renamed from `bmt_ai_os` (runtime dir) to canonical import path; build infrastructure directory confirmed as `bmt-ai-os-build/`
 - Version bumped to 2026.4.11
+- All 7 epics now complete (59 items, 368 story points — 100%)
+
+### Fixed
+- Release workflow false failures on non-tag pushes (removed redundant `push: tags` trigger)
+- Plugin route tests isolated from auth middleware after RBAC merge
+- Missing `futex`/`futex_waitv` syscalls in per-service seccomp profiles
+- MkDocs strict mode warnings from README.md/index.md conflicts
 
 ## [v2026.4.10] — 2026-04-10
 

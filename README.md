@@ -11,7 +11,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://github.com/bemindlabs/bmt-ai-os/releases/tag/v2026.4.11"><img src="https://img.shields.io/badge/version-2026.4.11-green.svg" alt="Version"></a>
   <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-100%25_(48%2F48_stories)-brightgreen.svg" alt="Progress: 100%"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-100%25_(59%2F59_stories)-brightgreen.svg" alt="Progress: 100%"></a>
 </p>
 
 ---
@@ -119,24 +119,25 @@ ai-first-os/
 ├── bmt_ai_os/                # Runtime
 │   ├── kernel/               # Buildroot defconfig, linux.config, uboot.config
 │   ├── ai-stack/             # Docker Compose (Ollama, ChromaDB, vLLM, llama.cpp, Jupyter)
-│   ├── controller/           # FastAPI orchestration (health, providers, RAG, workspaces)
+│   ├── controller/           # FastAPI orchestration (health, auth, providers, RAG, plugins)
 │   ├── providers/            # LLM provider abstraction (8 providers, fallback router)
 │   ├── rag/                  # RAG pipeline (ingest, chunk, embed, query, stream)
-│   ├── models/               # Model preset manager (lite/standard/full)
-│   ├── training/             # PyTorch LoRA/QLoRA, data prep, export, Jupyter, TensorBoard
-│   ├── workspace/            # Workspace mounting, file watching, ChromaDB indexing
-│   ├── coding-tools/         # CLI installers + configs (Claude Code, Aider, Continue, Tabby)
+│   ├── fleet/                # Fleet management (agent, registry, device heartbeats)
+│   ├── ota/                  # OTA update engine (A/B slot switching, rollback)
+│   ├── update/               # OS update orchestrator (4-stage pipeline)
+│   ├── plugins/              # Plugin system (manifests, lifecycle, sandboxed hooks)
+│   ├── tls/                  # TLS/mTLS (certs, cipher hardening, PKI)
+│   ├── benchmark/            # Performance benchmarks (inference, RAG, system)
 │   ├── dashboard/            # Next.js 15 + shadcn/ui web dashboard (6 pages)
-│   ├── tui/                  # Python Textual terminal UI (5 screens)
-│   └── runtime/              # OpenRC init, containerd, networking, security, NPU passthrough
+│   └── runtime/              # OpenRC init, containerd, networking, security, monitoring
 ├── bmt-ai-os-build/          # Build infrastructure
 │   ├── base-config.toml      # Base distro config (Alpine, aarch64)
 │   ├── buildroot-external/   # Buildroot packages (containerd, docker, ollama, training)
 │   └── layers/               # BitBake/Yocto layers (NPU drivers, etc.)
 ├── scripts/                  # Build, QEMU test, CI, benchmarking, boot timing
-├── tests/                    # Unit tests (smoke, integration, unit — ~300 tests)
+├── tests/                    # Unit tests (smoke, integration, unit — 950 tests)
 ├── docs/                     # Architecture, IDE integration, security policy
-├── .scrum/                   # Backlog (48 stories, 6 epics, 292 pts)
+├── .scrum/                   # Backlog (59 stories, 7 epics, 368 pts — all complete)
 ├── VISION.md                 # Strategic vision
 ├── ROADMAP.md                # 8-phase roadmap (Phases 1-5 complete)
 └── CLAUDE.md                 # Claude Code guidance
@@ -181,19 +182,15 @@ See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
 | 4 | Dashboard | 52 | **Complete** |
 | 5 | Training | 36 | **Complete** |
 | 6 | Hardware BSPs | 29 | **Complete** |
-| 7 | Tooling | 26 | **Complete** |
-| 8 | Production | TBD | Planned |
+| 7 | Production Hardening | 76 | **Complete** |
 
 ## Limitations
 
-- **Pre-production** — Phases 1-7 complete (100%); production hardening and OTA updates remain
 - **ARM64 only** — OS image targets ARM64 boards; x86 supported only via [dev Docker stack](docker-compose.dev.yml)
 - **Small model ceiling** — Tier 1 hardware limited to 7B models for inference, 1.5-3B for training
 - **No GUI desktop** — headless OS with web dashboard and TUI; no windowing system
 - **NPU support fragmented** — RKNN and HailoRT drivers are not mainlined in upstream Linux kernel
 - **Training is constrained** — LoRA/QLoRA on edge hardware is slow; full fine-tuning not feasible on 8GB devices
-- **Single-user** — no multi-user accounts or access control yet
-- **No OTA updates** — update mechanism planned (BMTOS-25) but not implemented
 - **Qualcomm NPU blocked** — Snapdragon X Linux NPU support dead (DSP headers not open-sourced)
 - **Cloud providers require internet** — fallback to OpenAI/Anthropic/Gemini only works when online
 
