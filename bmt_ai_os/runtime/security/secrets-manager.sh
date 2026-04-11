@@ -23,7 +23,7 @@ set -eu
 
 SECRETS_BASE="/etc/bmt_ai_os/secrets"
 ARCHIVE_DIR="${SECRETS_BASE}/.archive"
-SERVICES="ollama chromadb"
+SERVICES="ollama chromadb controller"
 
 # Supported secret keys
 VALID_KEYS="OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY MISTRAL_API_KEY GROQ_API_KEY CHROMA_AUTH_CREDENTIALS"
@@ -164,6 +164,9 @@ cmd_inject() {
             ;;
         chromadb)
             keys="CHROMA_AUTH_CREDENTIALS"
+            ;;
+        controller)
+            keys="OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY MISTRAL_API_KEY GROQ_API_KEY"
             ;;
         *)
             die "Unknown service: ${service}"

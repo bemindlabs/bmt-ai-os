@@ -36,9 +36,11 @@ profile bmt-ollama flags=(attach_disconnected,mediate_deleted) {
   # File access — model directory and runtime
   # ---------------------------------------------------------------------------
 
-  # Ollama model storage (Docker volume mount)
+  # Ollama model storage (Docker volume mount — root or UID-1000 home path)
   /root/.ollama/ r,
   /root/.ollama/** rwk,
+  /home/ollama/.ollama/ r,
+  /home/ollama/.ollama/** rwk,
 
   # Secrets (read-only mount from host)
   /run/secrets/ r,
