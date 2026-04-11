@@ -1,0 +1,41 @@
+{
+  "sprint_number": 5,
+  "goal": "Web SSH \u2014 connect to any fleet device from the dashboard",
+  "start_date": "2026-04-11",
+  "end_date": "2026-04-12",
+  "status": "active",
+  "planned_points": 22,
+  "completed_points": 0,
+  "items": [
+    {
+      "id": "BMTOS-126",
+      "title": "SSH WebSocket proxy backend with paramiko",
+      "points": 8,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-127",
+      "title": "Terminal page SSH mode with connection form",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-128",
+      "title": "Fleet device Connect button opens SSH terminal",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-129",
+      "title": "SSH key management API and UI",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-130",
+      "title": "Multi-tab terminal with split panes",
+      "points": 3,
+      "status": "in_progress"
+    }
+  ]
+}

@@ -355,7 +355,21 @@
         "BMTOS-124",
         "BMTOS-125"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-16",
+      "title": "Web SSH Terminal",
+      "description": "SSH to fleet devices from the dashboard via WebSocket proxy. Local PTY + remote SSH modes with key management.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-126",
+        "BMTOS-127",
+        "BMTOS-128",
+        "BMTOS-129",
+        "BMTOS-130"
+      ]
     }
   ],
-  "next_id": 16
+  "next_id": 17
 }

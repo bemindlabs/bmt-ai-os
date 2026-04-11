@@ -2957,7 +2957,87 @@
       ],
       "epic_id": "BMTOS-EPIC-15",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-126",
+      "title": "SSH WebSocket proxy backend with paramiko",
+      "description": "New controller/ssh_ws.py: WebSocket endpoint /ws/ssh that accepts host, port, username, key_id params. Uses paramiko to establish SSH, pipes stdin/stdout between WebSocket and SSH channel. Supports resize, keepalive, and graceful disconnect.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-127",
+      "title": "Terminal page SSH mode with connection form",
+      "description": "Update /terminal page: add connection form (host, port, username, auth method). Toggle between Local (PTY) and SSH modes. SSH mode connects to /ws/ssh with params. Show connection status indicator.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-128",
+      "title": "Fleet device Connect button opens SSH terminal",
+      "description": "Add 'SSH' button to each fleet device card. Click opens /terminal?host={ip}&user=root pre-filled. Auto-connects if device is online.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-129",
+      "title": "SSH key management API and UI",
+      "description": "CRUD API for SSH keys: POST /api/v1/ssh-keys (upload), GET (list), DELETE. Keys stored encrypted in SQLite. UI in settings page to manage keys.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-130",
+      "title": "Multi-tab terminal with split panes",
+      "description": "Multiple terminal tabs (like workspace tabs). Each tab is an independent xterm instance. Split horizontal/vertical. Tab persistence in localStorage.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 126
+  "next_id": 131
 }
