@@ -106,13 +106,27 @@ export async function fetchModels(): Promise<ModelsResponse> {
 }
 
 export async function fetchProviders(): Promise<ProvidersResponse> {
-  return apiFetch<ProvidersResponse>("/api/v1/providers");
+  const raw = await apiFetch<{ providers: Record<string, unknown>[]; active?: string }>(
+    "/api/v1/providers",
+  );
+  return {
+    ...raw,
+    providers: raw.providers.map((p) => ({
+      ...p,
+      name: p.name as string,
+      healthy:
+        typeof p.healthy === "boolean"
+          ? p.healthy
+          : !!(p.health as Record<string, unknown> | undefined)?.healthy,
+      active: p.active as boolean | undefined,
+    })),
+  };
 }
 
 export async function setActiveProvider(name: string): Promise<unknown> {
   return apiFetch<unknown>("/api/v1/providers/active", {
     method: "POST",
-    body: JSON.stringify({ provider: name }),
+    body: JSON.stringify({ name }),
   });
 }
 
