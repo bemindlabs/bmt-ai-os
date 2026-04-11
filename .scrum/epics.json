@@ -228,7 +228,25 @@
         "Hybrid BM25 + vector memory search with temporal decay",
         "Conversation history API: list, search, export"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-10",
+      "title": "Dashboard AI Assistant Enhancement",
+      "description": "Upgrade the Next.js dashboard chat page from a basic request-response interface to a production-grade AI assistant with streaming, session persistence, context awareness, and rich interaction features. Inspired by OpenClaw UI patterns.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-76", "BMTOS-77", "BMTOS-78", "BMTOS-79",
+        "BMTOS-80", "BMTOS-81", "BMTOS-82", "BMTOS-83"
+      ],
+      "acceptance_criteria": [
+        "Chat responses stream token-by-token via SSE",
+        "Conversations persist across page refreshes",
+        "Context usage meter shows token budget consumption",
+        "Dashboard requires JWT login before accessing protected pages",
+        "RAG can be toggled per conversation"
+      ]
     }
   ],
-  "next_id": 10
+  "next_id": 11
 }

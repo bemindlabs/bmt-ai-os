@@ -1997,7 +1997,196 @@
       "created_at": "2026-04-11",
       "updated_at": "2026-04-11",
       "completed_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-76",
+      "title": "Add SSE streaming to dashboard chat",
+      "description": "Chat page waits for full response. Implement Server-Sent Events streaming: parse EventSource from /v1/chat/completions with stream=true, render tokens incrementally, show typing indicator during generation.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "streaming"
+      ],
+      "acceptance_criteria": [
+        "Chat responses stream token-by-token in the UI",
+        "Typing indicator (animated dots) during generation",
+        "Streaming can be aborted mid-response with Stop button",
+        "Fallback to non-streaming if SSE connection fails"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-77",
+      "title": "Add session persistence to dashboard chat",
+      "description": "Chat history is lost on page refresh (React state only). Connect to the session/conversation API (BMTOS-69) to persist messages. Add session list sidebar, session switching, and auto-load history on revisit.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "sessions"
+      ],
+      "acceptance_criteria": [
+        "Messages persist across page refreshes",
+        "Session list sidebar shows previous conversations",
+        "Click session to load its history",
+        "New Session button creates fresh conversation",
+        "Delete session with confirmation"
+      ],
+      "dependencies": [
+        "BMTOS-69"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-78",
+      "title": "Add context usage meter to chat interface",
+      "description": "No visibility into token budget consumption. Add a context meter bar showing percentage of model context window used, with color gradient: green (<70%), amber (70-85%), red (>85%). Display token counts per message.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "ux"
+      ],
+      "acceptance_criteria": [
+        "Context meter bar above message area showing % used",
+        "Color gradient: green \u2192 amber (70%) \u2192 red (85%)",
+        "Hover shows exact token counts (used / total)",
+        "Per-message token badge (input/output tokens)"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-79",
+      "title": "Add JWT auth integration to dashboard",
+      "description": "Dashboard has no authentication. Add login page, JWT token storage in httpOnly cookie or localStorage, protected route middleware, and user display in sidebar header.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "auth",
+        "security"
+      ],
+      "acceptance_criteria": [
+        "Login page at /login with username/password form",
+        "JWT stored securely (httpOnly cookie preferred)",
+        "All pages except /login require authentication",
+        "Redirect to /login on 401 response",
+        "User role displayed in sidebar header",
+        "Logout button that revokes token"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-80",
+      "title": "Add RAG toggle and source display to chat",
+      "description": "RAG is disconnected from chat in the dashboard. Add a toggle button to enable/disable RAG auto-injection per conversation. When enabled, show retrieved source documents with attribution below the assistant response.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "rag"
+      ],
+      "acceptance_criteria": [
+        "RAG toggle button in chat header (on/off per session)",
+        "When on: relevant documents auto-retrieved and injected",
+        "Source attribution cards below assistant response",
+        "Source cards show: document name, relevance score, snippet",
+        "Click source card to expand full context"
+      ],
+      "dependencies": [
+        "BMTOS-71"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-81",
+      "title": "Add message grouping and improved chat styling",
+      "description": "Current chat uses flat message list. Implement OpenClaw-style message grouping: consecutive messages from same role grouped with avatar, timestamps between groups, improved bubble styling with code block rendering.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "ux"
+      ],
+      "acceptance_criteria": [
+        "Consecutive same-role messages grouped under single avatar",
+        "Timestamps shown between message groups (relative: '2 min ago')",
+        "Code blocks rendered with syntax highlighting",
+        "Markdown rendering in assistant messages",
+        "Copy button on code blocks"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-82",
+      "title": "Add slash commands to chat input",
+      "description": "No command shortcuts in chat. Add slash command support with autocomplete menu: /clear (reset), /model (switch model), /rag (toggle RAG), /export (download conversation), /system (set system prompt).",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "ux"
+      ],
+      "acceptance_criteria": [
+        "Typing / shows autocomplete dropdown with available commands",
+        "Arrow keys navigate, Enter selects, Escape dismisses",
+        "Commands: /clear, /model, /rag, /export, /system",
+        "/model shows model picker inline",
+        "/export downloads conversation as Markdown"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-83",
+      "title": "Add file attachment and voice input to chat",
+      "description": "Chat input only supports text. Add drag-drop file attachment (for RAG ingestion or image analysis) and voice input via Web Speech API. Show attachment preview thumbnails in compose area.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "media"
+      ],
+      "acceptance_criteria": [
+        "Drag-drop files onto chat input area",
+        "Paste images from clipboard",
+        "Attachment thumbnail preview before sending",
+        "Microphone button for voice-to-text input",
+        "Voice input uses Web Speech API (browser native)"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 76
+  "next_id": 84
 }
