@@ -386,12 +386,12 @@ def _make_app(tmp_db: str) -> tuple[FastAPI, TestClient]:
     async def healthz():
         return {"status": "ok"}
 
-    @app.get("/api/v1/status")
-    async def status():
-        return {"status": "running"}
+    @app.get("/api/v1/users")
+    async def users():
+        return {"users": []}
 
-    @app.post("/api/v1/models")
-    async def create_model():
+    @app.post("/api/v1/users")
+    async def create_user():
         return {"created": True}
 
     return app, TestClient(app, raise_server_exceptions=False), store
@@ -406,7 +406,7 @@ class TestJWTMiddleware:
     def test_no_users_open_access(self, tmp_db):
         """With no users registered, all paths pass through."""
         app, client, _ = _make_app(tmp_db)
-        resp = client.get("/api/v1/status")
+        resp = client.get("/api/v1/users")
         assert resp.status_code == 200
 
     def test_no_users_api_key_fallthrough(self, tmp_db, monkeypatch):
@@ -414,13 +414,13 @@ class TestJWTMiddleware:
         monkeypatch.setenv("BMT_API_KEY", "test-key")
         app, client, _ = _make_app(tmp_db)
         # No JWT needed — falls through to whatever is next (no APIKeyMiddleware here)
-        resp = client.get("/api/v1/status")
+        resp = client.get("/api/v1/users")
         assert resp.status_code == 200
 
     def test_missing_token_when_users_exist(self, tmp_db):
         app, client, store = _make_app(tmp_db)
         store.create_user("testuser", "SecurePass1!", "viewer")
-        resp = client.get("/api/v1/status")
+        resp = client.get("/api/v1/users")
         assert resp.status_code == 401
 
     def test_valid_token_grants_access(self, tmp_db):
@@ -429,7 +429,7 @@ class TestJWTMiddleware:
         app, client, store = _make_app(tmp_db)
         user = store.create_user("validuser", "SecurePass1!", "viewer")
         token = create_token(user)
-        resp = client.get("/api/v1/status", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
 
     def test_viewer_forbidden_on_write(self, tmp_db):
@@ -438,7 +438,7 @@ class TestJWTMiddleware:
         app, client, store = _make_app(tmp_db)
         user = store.create_user("readonly", "SecurePass1!", "viewer")
         token = create_token(user)
-        resp = client.post("/api/v1/models", headers={"Authorization": f"Bearer {token}"})
+        resp = client.post("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
 
     def test_admin_allowed_on_write(self, tmp_db):
@@ -447,13 +447,13 @@ class TestJWTMiddleware:
         app, client, store = _make_app(tmp_db)
         user = store.create_user("superuser", "SecurePass1!", "admin")
         token = create_token(user)
-        resp = client.post("/api/v1/models", headers={"Authorization": f"Bearer {token}"})
+        resp = client.post("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
 
     def test_invalid_token_returns_401(self, tmp_db):
         app, client, store = _make_app(tmp_db)
         store.create_user("someone", "SecurePass1!", "viewer")
-        resp = client.get("/api/v1/status", headers={"Authorization": "Bearer not.a.real.token"})
+        resp = client.get("/api/v1/users", headers={"Authorization": "Bearer not.a.real.token"})
         assert resp.status_code == 401
 
     def test_revoked_token_returns_401(self, tmp_db):
@@ -465,7 +465,7 @@ class TestJWTMiddleware:
         payload = verify_token(token)
         store.revoke_token(payload["jti"], float(payload["exp"]))
 
-        resp = client.get("/api/v1/status", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 401
         assert resp.json()["error"]["code"] == "token_revoked"
 

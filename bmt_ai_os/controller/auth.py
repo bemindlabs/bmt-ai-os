@@ -68,6 +68,13 @@ _EXEMPT_PREFIXES = (
     "/redoc",
     "/metrics",
     "/api/v1/auth/login",  # token acquisition must be exempt
+    "/api/v1/status",  # read-only monitoring (dashboard)
+    "/api/v1/metrics",  # read-only monitoring (dashboard)
+    "/api/v1/providers",  # provider list + switching (dashboard)
+    "/api/v1/logs",  # request log viewer (dashboard)
+    "/api/models",  # Ollama model list (dashboard)
+    "/api/pull",  # Ollama model pull (dashboard)
+    "/v1/",  # OpenAI-compatible API (models, chat, completions)
 )
 
 # Paths that require a valid JWT but bypass RBAC write-restrictions.
