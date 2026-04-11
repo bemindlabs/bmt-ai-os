@@ -9,6 +9,7 @@ import argparse
 import importlib
 import logging
 import signal
+import ssl
 import subprocess
 import sys
 import threading
@@ -276,14 +277,55 @@ class BMTAIOSController:
         # Start background health checks
         self.start_health_checks()
 
-        # Attach controller to API and run the HTTP server
+        # Resolve TLS settings (opt-in via BMT_TLS_ENABLED=true).
+        from bmt_ai_os.tls.config import load_tls_config
+
+        tls_cfg = load_tls_config()
+
+        # Attach controller to API and run the server (HTTP or HTTPS).
         set_controller(self)
-        uvicorn.run(
-            app,
-            host=self.config.api_host,
-            port=self.config.api_port,
-            log_level=self.config.log_level.lower(),
-        )
+
+        if tls_cfg.enabled:
+            cert = tls_cfg.resolved_cert()
+            key = tls_cfg.resolved_key()
+
+            if not cert or not key:
+                logger.error(
+                    "TLS is enabled but certificate/key paths could not be resolved. "
+                    "Set BMT_TLS_CERT / BMT_TLS_KEY or ensure auto-generation succeeds."
+                )
+                sys.exit(1)
+
+            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            try:
+                ssl_ctx.load_cert_chain(certfile=cert, keyfile=key)
+            except (ssl.SSLError, OSError) as exc:
+                logger.error("Failed to load TLS certificate/key: %s", exc)
+                sys.exit(1)
+
+            logger.info(
+                "TLS enabled — HTTPS on %s:%d (cert=%s)",
+                self.config.api_host,
+                tls_cfg.port,
+                cert,
+            )
+            uvicorn.run(
+                app,
+                host=self.config.api_host,
+                port=tls_cfg.port,
+                log_level=self.config.log_level.lower(),
+                ssl_certfile=cert,
+                ssl_keyfile=key,
+            )
+        else:
+            logger.info("TLS disabled — HTTP only (set BMT_TLS_ENABLED=true to enable)")
+            uvicorn.run(
+                app,
+                host=self.config.api_host,
+                port=self.config.api_port,
+                log_level=self.config.log_level.lower(),
+            )
 
 
 def _setup_logging(config: ControllerConfig) -> None:

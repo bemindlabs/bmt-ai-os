@@ -1,10 +1,11 @@
 """BMT AI OS CLI — `bmt-ai-os` command entry point.
 
-Provides subcommands for managing the AI stack, models, providers, and
-interactive chat. Uses synchronous HTTP (requests) and subprocess for
-docker compose operations.
+Provides subcommands for managing the AI stack, models, providers,
+interactive chat, and OTA updates. Uses synchronous HTTP (requests) and
+subprocess for docker compose operations.
 """
 
+import os
 import subprocess
 import sys
 from typing import Any
@@ -591,6 +592,573 @@ def benchmark_compare(file1: str, file2: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# user management
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def user() -> None:
+    """Manage BMT AI OS users (authentication / RBAC)."""
+
+
+@user.command("create")
+@click.argument("username")
+@click.option(
+    "--role",
+    "-r",
+    default="viewer",
+    show_default=True,
+    type=click.Choice(["admin", "operator", "viewer"], case_sensitive=False),
+    help="Role to assign to the new user.",
+)
+@click.option(
+    "--db",
+    default=None,
+    envvar="BMT_AUTH_DB",
+    help="Path to the auth SQLite database (default: /tmp/bmt-auth.db).",
+)
+def user_create(username: str, role: str, db: str | None) -> None:
+    """Create a new user USERNAME and prompt for a password.
+
+    Example: bmt-ai-os user create alice --role admin
+    """
+    from bmt_ai_os.controller.auth import UserStore
+
+    password = click.prompt("Password", hide_input=True, confirmation_prompt=True)
+    if not password:
+        click.echo("Error: password must not be empty.", err=True)
+        sys.exit(1)
+
+    store = UserStore(db_path=db)
+    try:
+        created = store.create_user(username, password, role)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(f"User '{created.username}' created with role '{created.role.value}'.")
+
+
+@user.command("list")
+@click.option(
+    "--db",
+    default=None,
+    envvar="BMT_AUTH_DB",
+    help="Path to the auth SQLite database.",
+)
+def user_list(db: str | None) -> None:
+    """List all registered users."""
+    from bmt_ai_os.controller.auth import UserStore
+
+    store = UserStore(db_path=db)
+    users = store.list_users()
+
+    if not users:
+        click.echo("No users registered.")
+        return
+
+    col_w = [20, 10, 28]
+    click.echo(
+        "  ".join(
+            [
+                _fmt_col("USERNAME", col_w[0]),
+                _fmt_col("ROLE", col_w[1]),
+                _fmt_col("CREATED AT", col_w[2]),
+            ]
+        )
+    )
+    click.echo(_separator(col_w))
+    for u in users:
+        click.echo(
+            "  ".join(
+                [
+                    _fmt_col(u.username, col_w[0]),
+                    _fmt_col(u.role.value, col_w[1]),
+                    _fmt_col(u.created_at[:19], col_w[2]),
+                ]
+            )
+        )
+
+
+@user.command("delete")
+@click.argument("username")
+@click.option(
+    "--db",
+    default=None,
+    envvar="BMT_AUTH_DB",
+    help="Path to the auth SQLite database.",
+)
+@click.confirmation_option(prompt="Are you sure you want to delete this user?")
+def user_delete(username: str, db: str | None) -> None:
+    """Delete user USERNAME from the store."""
+    from bmt_ai_os.controller.auth import UserStore
+
+    store = UserStore(db_path=db)
+    if store.delete_user(username):
+        click.echo(f"User '{username}' deleted.")
+    else:
+        click.echo(f"Error: user '{username}' not found.", err=True)
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# tls
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def tls() -> None:
+    """TLS certificate management for BMT AI OS."""
+
+
+@tls.command("setup")
+@click.option(
+    "--cert-dir",
+    default=None,
+    envvar="BMT_TLS_DIR",
+    help="Directory to store certificate files (default: /data/secrets/tls or /tmp/bmt-tls).",
+)
+@click.option(
+    "--hostname",
+    default=None,
+    envvar="BMT_TLS_HOSTNAME",
+    help="Hostname / CN for the certificate (default: system hostname).",
+)
+@click.option(
+    "--days",
+    default=365,
+    show_default=True,
+    type=int,
+    help="Certificate validity in days.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing certificate and key.",
+)
+def tls_setup(cert_dir: str | None, hostname: str | None, days: int, force: bool) -> None:
+    """Generate a self-signed TLS certificate for the controller API.
+
+    Example: bmt-ai-os tls setup --hostname my-device.local --days 730
+    """
+    from pathlib import Path
+
+    try:
+        from bmt_ai_os.tls.certs import generate_self_signed
+    except ImportError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    if cert_dir is None:
+        prod = Path("/data/secrets/tls")
+        dev = Path("/tmp/bmt-tls")
+        try:
+            prod.mkdir(parents=True, exist_ok=True)
+            probe = prod / ".write_probe"
+            probe.touch()
+            probe.unlink()
+            base = prod
+        except OSError:
+            base = dev
+    else:
+        base = Path(cert_dir)
+
+    cert_path = base / "server.crt"
+    key_path = base / "server.key"
+
+    if cert_path.exists() and key_path.exists() and not force:
+        click.echo(f"Certificates already exist in {base}.")
+        click.echo("Use --force to overwrite.")
+        return
+
+    if hostname is None:
+        import socket
+
+        try:
+            hostname = socket.gethostname() or "localhost"
+        except OSError:
+            hostname = "localhost"
+
+    try:
+        generate_self_signed(cert_path, key_path, hostname=hostname, days=days)
+    except Exception as exc:
+        click.echo(f"Error generating certificate: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo("Certificate generated successfully.")
+    click.echo(f"  Cert : {cert_path}")
+    click.echo(f"  Key  : {key_path}")
+    click.echo(f"  CN   : {hostname}")
+    click.echo(f"  Days : {days}")
+    click.echo()
+    click.echo("To enable TLS, set in your environment:")
+    click.echo("  BMT_TLS_ENABLED=true")
+    click.echo(f"  BMT_TLS_CERT={cert_path}")
+    click.echo(f"  BMT_TLS_KEY={key_path}")
+
+
+@tls.command("status")
+def tls_status() -> None:
+    """Show current TLS configuration and certificate details (expiry, CN).
+
+    Example: bmt-ai-os tls status
+    """
+    import datetime
+    from pathlib import Path
+
+    from bmt_ai_os.tls.config import load_tls_config
+
+    cfg = load_tls_config()
+
+    click.echo("TLS Configuration")
+    click.echo("=" * 50)
+    click.echo(f"  Enabled       : {cfg.enabled}")
+    click.echo(f"  Port          : {cfg.port}")
+    click.echo(f"  Redirect HTTP : {cfg.redirect_http}")
+
+    cert_display = cfg.resolved_cert() or cfg.cert_path or "(not set)"
+    key_display = cfg.resolved_key() or cfg.key_path or "(not set)"
+    click.echo(f"  Certificate   : {cert_display}")
+    click.echo(f"  Key           : {key_display}")
+
+    cert_path = cfg.resolved_cert() or cfg.cert_path
+    if cert_path:
+        p = Path(cert_path)
+        if p.exists():
+            try:
+                from cryptography import x509
+
+                cert_obj = x509.load_pem_x509_certificate(p.read_bytes())
+
+                cn_attrs = cert_obj.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
+                cn = cn_attrs[0].value if cn_attrs else "(unknown)"
+
+                not_after = cert_obj.not_valid_after_utc
+                now = datetime.datetime.now(datetime.timezone.utc)
+                remaining = (not_after - now).days
+
+                click.echo()
+                click.echo("Certificate Details")
+                click.echo("=" * 50)
+                click.echo(f"  CN            : {cn}")
+                click.echo(
+                    f"  Not before    : {cert_obj.not_valid_before_utc.strftime('%Y-%m-%d')}"
+                )
+                click.echo(f"  Expires       : {not_after.strftime('%Y-%m-%d')}")
+                click.echo(f"  Days remaining: {remaining}")
+                if remaining <= 30:
+                    click.echo(
+                        "  WARNING: Certificate expires soon. "
+                        "Run `bmt-ai-os tls setup --force` to renew.",
+                        err=True,
+                    )
+
+                try:
+                    san_ext = cert_obj.extensions.get_extension_for_class(
+                        x509.SubjectAlternativeName
+                    )
+                    sans: list[str] = san_ext.value.get_values_for_type(x509.DNSName) + [
+                        str(ip) for ip in san_ext.value.get_values_for_type(x509.IPAddress)
+                    ]
+                    click.echo(f"  SANs          : {', '.join(sans)}")
+                except x509.extensions.ExtensionNotFound:
+                    pass
+
+            except ImportError:
+                click.echo("  (install 'cryptography>=43.0' for certificate details)")
+            except Exception as exc:
+                click.echo(f"  (error reading certificate: {exc})")
+        else:
+            click.echo()
+            click.echo(f"  Certificate file not found: {cert_path}")
+            click.echo("  Run `bmt-ai-os tls setup` to generate one.")
+    else:
+        click.echo()
+        if not cfg.enabled:
+            click.echo("TLS is disabled. Set BMT_TLS_ENABLED=true to enable.")
+        else:
+            click.echo("No certificate configured. Run `bmt-ai-os tls setup`.")
+
+
+# ---------------------------------------------------------------------------
+# plugin
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def plugin() -> None:
+    """Manage BMT AI OS plugins."""
+
+
+@plugin.command("list")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_PLUGIN_STATE",
+    help="Path to plugin state JSON file (default: /tmp/bmt-plugins.json).",
+)
+def plugin_list(state_file: str | None) -> None:
+    """Show all discovered plugins and their enabled/disabled state."""
+    from bmt_ai_os.plugins.manager import PluginManager
+
+    kwargs = {"state_file": state_file} if state_file else {}
+    manager = PluginManager(**kwargs)
+    plugins = manager.list_plugins()
+
+    if not plugins:
+        click.echo("No plugins discovered.")
+        click.echo("Hint: install a package that declares entry-points in 'bmt_ai_os.plugins'.")
+        return
+
+    col_w = [28, 12, 16, 8]
+    click.echo(
+        "  ".join(
+            [
+                _fmt_col("NAME", col_w[0]),
+                _fmt_col("VERSION", col_w[1]),
+                _fmt_col("HOOK", col_w[2]),
+                _fmt_col("ENABLED", col_w[3]),
+            ]
+        )
+    )
+    click.echo(_separator(col_w))
+    for p in plugins:
+        click.echo(
+            "  ".join(
+                [
+                    _fmt_col(p.name, col_w[0]),
+                    _fmt_col(p.version, col_w[1]),
+                    _fmt_col(p.hook_type.value, col_w[2]),
+                    _fmt_col("yes" if p.enabled else "no", col_w[3]),
+                ]
+            )
+        )
+
+
+@plugin.command("enable")
+@click.argument("name")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_PLUGIN_STATE",
+    help="Path to plugin state JSON file.",
+)
+def plugin_enable(name: str, state_file: str | None) -> None:
+    """Enable plugin NAME."""
+    from bmt_ai_os.plugins.manager import PluginManager
+
+    kwargs = {"state_file": state_file} if state_file else {}
+    manager = PluginManager(**kwargs)
+    try:
+        manager.enable(name)
+    except KeyError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    click.echo(f"Plugin '{name}' enabled.")
+
+
+@plugin.command("disable")
+@click.argument("name")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_PLUGIN_STATE",
+    help="Path to plugin state JSON file.",
+)
+def plugin_disable(name: str, state_file: str | None) -> None:
+    """Disable plugin NAME."""
+    from bmt_ai_os.plugins.manager import PluginManager
+
+    kwargs = {"state_file": state_file} if state_file else {}
+    manager = PluginManager(**kwargs)
+    try:
+        manager.disable(name)
+    except KeyError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    click.echo(f"Plugin '{name}' disabled.")
+
+
+# ---------------------------------------------------------------------------
+# fleet
+# ---------------------------------------------------------------------------
+
+_FLEET_STATE_FILE = "/tmp/bmt-fleet-state.json"
+
+
+def _load_fleet_state() -> dict:
+    """Load persisted fleet registration state, or return empty dict."""
+    import json as _json
+    from pathlib import Path
+
+    try:
+        raw = Path(_FLEET_STATE_FILE).read_text()
+        return _json.loads(raw)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_fleet_state(state: dict) -> None:
+    """Persist fleet registration state to a file."""
+    import json as _json
+    from pathlib import Path
+
+    Path(_FLEET_STATE_FILE).write_text(_json.dumps(state, indent=2))
+
+
+@main.group()
+def fleet() -> None:
+    """Fleet management — register this device and manage server communication."""
+
+
+@fleet.command("register")
+@click.option(
+    "--server",
+    required=True,
+    metavar="URL",
+    help="Fleet server base URL, e.g. https://fleet.example.com",
+)
+@click.option(
+    "--device-id",
+    default=None,
+    help="Override auto-detected device ID.",
+)
+def fleet_register(server: str, device_id: str | None) -> None:
+    """Enroll this device with the fleet server.
+
+    Sends a registration request to SERVER and saves the server URL and
+    device ID locally so subsequent commands can use them without flags.
+
+    Example: bmt-ai-os fleet register --server https://fleet.example.com
+    """
+    import os as _os
+
+    from bmt_ai_os.fleet.collector import get_device_id as _get_device_id
+    from bmt_ai_os.fleet.collector import get_hardware_info
+
+    resolved_id = device_id or _os.environ.get("BMT_FLEET_DEVICE_ID") or _get_device_id()
+    server_url = server.rstrip("/")
+
+    click.echo(f"Registering device {resolved_id} with fleet server: {server_url}")
+
+    hardware = get_hardware_info()
+    payload = {
+        "device_id": resolved_id,
+        "hostname": hardware.get("hostname", ""),
+        "arch": hardware.get("arch", ""),
+        "board": hardware.get("board", ""),
+        "hardware": hardware,
+    }
+
+    url = f"{server_url}/api/v1/fleet/register"
+    result = _http_post(url, payload)
+    if result is None:
+        click.echo(
+            f"Warning: fleet server at {server_url} did not respond — "
+            "saving config locally anyway.",
+            err=True,
+        )
+    else:
+        click.echo(f"Server responded: {result}")
+
+    state = {"server_url": server_url, "device_id": resolved_id}
+    _save_fleet_state(state)
+    click.echo(f"Fleet config saved to {_FLEET_STATE_FILE}")
+    click.echo(f"Device ID : {resolved_id}")
+    click.echo(f"Server URL: {server_url}")
+
+
+@fleet.command("status")
+def fleet_status() -> None:
+    """Show fleet connection status for this device.
+
+    Displays the registered server URL, device ID, and the result of a
+    lightweight connectivity probe to the fleet server.
+    """
+    import os as _os
+
+    state = _load_fleet_state()
+    server_url = state.get("server_url") or _os.environ.get("BMT_FLEET_SERVER", "")
+    device_id = state.get("device_id") or _os.environ.get("BMT_FLEET_DEVICE_ID", "")
+
+    if not server_url:
+        click.echo(
+            "Not registered. Run: bmt-ai-os fleet register --server <url>",
+            err=True,
+        )
+        sys.exit(1)
+
+    if not device_id:
+        from bmt_ai_os.fleet.collector import get_device_id as _get_device_id
+
+        device_id = _get_device_id()
+
+    click.echo("Fleet Status")
+    click.echo("=" * 40)
+    click.echo(f"  Device ID : {device_id}")
+    click.echo(f"  Server URL: {server_url}")
+
+    # Probe the server health endpoint (best-effort).
+    data = _http_get(f"{server_url}/api/v1/fleet/health")
+    if data is not None:
+        click.echo("  Connection: OK")
+    else:
+        fallback = _http_get(f"{server_url}/health")
+        if fallback is not None:
+            click.echo("  Connection: OK (via /health)")
+        else:
+            click.echo("  Connection: UNREACHABLE")
+
+
+@fleet.command("heartbeat")
+@click.option(
+    "--server",
+    default=None,
+    metavar="URL",
+    envvar="BMT_FLEET_SERVER",
+    help="Fleet server URL (overrides saved registration).",
+)
+def fleet_heartbeat(server: str | None) -> None:
+    """Send one heartbeat to the fleet server and print any returned command.
+
+    Useful for testing connectivity and verifying that the server receives
+    correct device telemetry without starting the background agent.
+
+    Example: bmt-ai-os fleet heartbeat
+    """
+    import os as _os
+
+    from bmt_ai_os.fleet.agent import FleetAgent
+
+    state = _load_fleet_state()
+    server_url = server or state.get("server_url") or _os.environ.get("BMT_FLEET_SERVER", "")
+    device_id = state.get("device_id") or _os.environ.get("BMT_FLEET_DEVICE_ID")
+
+    if not server_url:
+        click.echo(
+            "No fleet server configured. Run: bmt-ai-os fleet register --server <url>",
+            err=True,
+        )
+        sys.exit(1)
+
+    click.echo(f"Sending heartbeat to: {server_url}")
+
+    agent = FleetAgent(server_url=server_url, device_id=device_id)
+    try:
+        cmd = agent.send_heartbeat()
+    except Exception as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo("Heartbeat sent successfully.")
+    if not cmd.is_noop():
+        click.echo(f"Server returned command: action={cmd.action!r} params={cmd.params}")
+    else:
+        click.echo("No command from server.")
+
+
+# ---------------------------------------------------------------------------
 # health
 # ---------------------------------------------------------------------------
 
@@ -641,3 +1209,218 @@ def health() -> None:
     else:
         click.echo("One or more services are DOWN. Run `bmt-ai-os stack up` to start them.")
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# update (OTA)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_OTA_SERVER = os.environ.get(
+    "BMT_OTA_SERVER_URL",
+    "https://releases.bemindlabs.com/bmt-ai-os/latest.json",
+)
+
+
+@main.group()
+def update() -> None:
+    """OTA update commands (A/B slot switching)."""
+
+
+@update.command("check")
+@click.option(
+    "--server",
+    default=_DEFAULT_OTA_SERVER,
+    show_default=True,
+    envvar="BMT_OTA_SERVER_URL",
+    help="Release-info endpoint URL.",
+)
+def update_check(server: str) -> None:
+    """Check whether a newer OS image is available.
+
+    Queries the release server and prints the available version (if any).
+    No download or write is performed.
+
+    Example: bmt-ai-os update check
+    """
+    from bmt_ai_os.ota.engine import check_update, get_current_slot
+
+    current_slot = get_current_slot()
+    click.echo(f"Current slot : {current_slot}")
+    click.echo(f"Querying     : {server}")
+
+    info = check_update(server, current_version=__version__)
+    if info is None:
+        click.echo("No update available (already up to date or server unreachable).")
+        return
+
+    click.echo("\nUpdate available:")
+    click.echo(f"  Version      : {info.version}")
+    click.echo(f"  URL          : {info.url}")
+    click.echo(f"  SHA-256      : {info.sha256}")
+    if info.size_bytes:
+        click.echo(f"  Size         : {info.size_bytes / 1_048_576:.1f} MB")
+    if info.release_notes:
+        click.echo(f"  Release notes: {info.release_notes}")
+    click.echo("\nRun `bmt-ai-os update apply` to download and apply the update.")
+
+
+@update.command("apply")
+@click.option(
+    "--server",
+    default=_DEFAULT_OTA_SERVER,
+    show_default=True,
+    envvar="BMT_OTA_SERVER_URL",
+    help="Release-info endpoint URL.",
+)
+@click.option(
+    "--image-url",
+    default=None,
+    help="Direct image URL (skips the check step when provided).",
+)
+@click.option(
+    "--sha256",
+    "expected_sha256",
+    default=None,
+    help="Expected SHA-256 hex digest (required with --image-url).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Use file-backed slot store instead of writing to a block device.",
+)
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+def update_apply(
+    server: str,
+    image_url: str | None,
+    expected_sha256: str | None,
+    dry_run: bool,
+    state_file: str | None,
+) -> None:
+    """Download and apply an OS update to the standby slot.
+
+    The device will NOT reboot automatically.  After the next reboot,
+    run `bmt-ai-os update confirm` to mark the new slot as healthy.
+
+    Example: bmt-ai-os update apply --dry-run
+    """
+    import tempfile
+
+    from bmt_ai_os.ota.engine import (
+        UpdateInfo,
+        apply_update,
+        check_update,
+        download_image,
+        get_current_slot,
+    )
+    from bmt_ai_os.ota.state import StateManager
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+    current_slot = get_current_slot(sm)
+    standby_slot = "b" if current_slot == "a" else "a"
+
+    click.echo(f"Current slot : {current_slot}")
+    click.echo(f"Target slot  : {standby_slot}")
+
+    # Resolve image metadata.
+    if image_url and expected_sha256:
+        info = UpdateInfo(version="(manual)", url=image_url, sha256=expected_sha256)
+    else:
+        click.echo(f"Checking for updates at: {server}")
+        info = check_update(server, current_version=__version__)
+        if info is None:
+            click.echo("No update available or server unreachable.")
+            return
+        click.echo(f"Update found : version {info.version}")
+
+    # Download to a temp file.
+    with tempfile.TemporaryDirectory(prefix="bmt-ota-") as tmpdir:
+        dest = os.path.join(tmpdir, "update.img")
+
+        click.echo(f"Downloading  : {info.url}")
+
+        def _progress(received: int, total: int) -> None:
+            if total:
+                pct = received / total * 100
+                click.echo(
+                    f"\r  {received // 1_048_576} / {total // 1_048_576} MB  ({pct:.1f}%)",
+                    nl=False,
+                )
+            else:
+                click.echo(f"\r  {received // 1_048_576} MB received", nl=False)
+
+        ok = download_image(info.url, dest, info.sha256, progress_cb=_progress)
+        click.echo()  # newline after progress
+        if not ok:
+            click.echo("Error: download or checksum verification failed.", err=True)
+            sys.exit(1)
+
+        click.echo("Download OK.  Applying to standby slot...")
+        ok = apply_update(dest, standby_slot, dry_run=dry_run, state_manager=sm)
+
+    if not ok:
+        click.echo("Error: failed to write image to standby slot.", err=True)
+        sys.exit(1)
+
+    click.echo(f"Update applied to slot '{standby_slot}'.")
+    click.echo("Reboot the device, then run `bmt-ai-os update confirm` to confirm the new boot.")
+
+
+@update.command("confirm")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+def update_confirm(state_file: str | None) -> None:
+    """Confirm the current boot as healthy (reset bootcount).
+
+    Call this after a successful reboot into the new slot to prevent
+    automatic rollback to the previous slot.
+
+    Example: bmt-ai-os update confirm
+    """
+    from bmt_ai_os.ota.engine import confirm_boot
+    from bmt_ai_os.ota.state import StateManager
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+    confirm_boot(state_manager=sm)
+    state = sm.load()
+    click.echo(f"Boot confirmed for slot '{state.current_slot}'.")
+    click.echo("Bootcount reset to 0.  Rollback protection disabled.")
+
+
+@update.command("status")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+def update_status(state_file: str | None) -> None:
+    """Show current OTA state (slots, bootcount, last update).
+
+    Example: bmt-ai-os update status
+    """
+    from bmt_ai_os.ota.engine import get_current_slot
+    from bmt_ai_os.ota.state import StateManager
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+    state = sm.load()
+    active = get_current_slot(sm)
+
+    click.echo("OTA Update Status")
+    click.echo("=" * 40)
+    click.echo(f"  Current slot   : {state.current_slot}")
+    click.echo(f"  Standby slot   : {state.standby_slot}")
+    click.echo(f"  Active slot    : {active}")
+    click.echo(f"  Confirmed      : {'yes' if state.confirmed else 'no  (pending confirmation)'}")
+    click.echo(f"  Bootcount      : {state.bootcount}")
+    click.echo(f"  Last update    : {state.last_update or 'never'}")
+    click.echo(f"  State file     : {sm.path}")
