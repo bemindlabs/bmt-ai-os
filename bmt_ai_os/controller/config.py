@@ -51,13 +51,13 @@ class ControllerConfig:
                 ServiceDef(
                     name="ollama",
                     container_name="bmt-ollama",
-                    health_url="http://localhost:11434/api/tags",
+                    health_url="http://bmt-ollama:11434/api/tags",
                     port=11434,
                 ),
                 ServiceDef(
                     name="chromadb",
                     container_name="bmt-chromadb",
-                    health_url="http://localhost:8000/api/v1/heartbeat",
+                    health_url="http://bmt-chromadb:8000/api/v1/heartbeat",
                     port=8000,
                 ),
             ]
