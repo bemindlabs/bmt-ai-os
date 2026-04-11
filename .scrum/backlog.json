@@ -3037,7 +3037,82 @@
       ],
       "epic_id": "BMTOS-EPIC-16",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-131",
+      "title": "Guided provider setup wizard (multi-step)",
+      "description": "Multi-step wizard: 1) Select provider type 2) Choose auth method (API key/OAuth) 3) Enter credentials 4) Test connection 5) Select default model. Stepper UI with back/next.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-132",
+      "title": "Rich model catalog with cost and context info",
+      "description": "Unified model catalog showing: model name, provider, context window size, max tokens, cost per 1M tokens (input/output), quantization. Sortable/filterable table on a /models/catalog page.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-133",
+      "title": "Provider health dashboard with expiry tracking",
+      "description": "Enhanced provider cards: credential freshness indicator, API key last-used timestamp, error count with cooldown timer, response latency trend (last 10 checks), auto-refresh every 30s.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-134",
+      "title": "Multi-credential profiles per provider",
+      "description": "Support multiple API keys per provider for load balancing. Round-robin or failover selection. Per-profile usage stats. Cooldown on rate-limit errors.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-135",
+      "title": "Provider auto-discovery (scan local ports)",
+      "description": "Scan common local ports (11434 Ollama, 8001 vLLM, 8002 llama.cpp) on startup. Auto-register discovered providers. Show 'Discovered' badge in dashboard.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 131
+  "next_id": 136
 }

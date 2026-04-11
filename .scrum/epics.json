@@ -369,7 +369,21 @@
         "BMTOS-129",
         "BMTOS-130"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-17",
+      "title": "Enhanced Provider Management (OpenClaw-inspired)",
+      "description": "Guided setup wizards, rich model catalog, provider health dashboard, multi-credential profiles, and auto-discovery. Inspired by OpenClaw's provider architecture.",
+      "status": "planned",
+      "priority": "medium",
+      "stories": [
+        "BMTOS-131",
+        "BMTOS-132",
+        "BMTOS-133",
+        "BMTOS-134",
+        "BMTOS-135"
+      ]
     }
   ],
-  "next_id": 17
+  "next_id": 18
 }
