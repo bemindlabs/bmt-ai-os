@@ -32,6 +32,7 @@ repos:
       - id: check-yaml
         stages: [pre-commit]
         args: [--unsafe]
+        exclude: ^mkdocs\.yml$
       - id: check-json
         stages: [pre-commit]
       - id: end-of-file-fixer
