@@ -220,7 +220,8 @@ def _make_chat_message(role: str, content: str) -> Any:
         from bmt_ai_os.providers.base import ChatMessage
 
         return ChatMessage(role=role, content=content)
-    except Exception:
+    except ImportError:
+        logger.exception("Failed to import ChatMessage from providers.base; using fallback")
         return _ChatMessage(role=role, content=content)
 
 
@@ -233,7 +234,8 @@ def _get_provider_router():
         from bmt_ai_os.providers.registry import get_registry
 
         return get_registry()
-    except Exception:
+    except ImportError:
+        logger.exception("Failed to import provider registry")
         return None
 
 
@@ -245,6 +247,8 @@ def _get_provider_router():
 @router.post("/v1/chat/completions")
 async def chat_completions(body: ChatCompletionRequest, request: Request):
     """OpenAI-compatible chat completions with optional SSE streaming."""
+    request_id = _make_id("chatcmpl")
+
     registry = _get_provider_router()
     if registry is None:
         raise HTTPException(status_code=503, detail="No provider available")
@@ -255,8 +259,9 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
 
     try:
         provider = registry.get_active()
-    except Exception:
-        raise HTTPException(status_code=503, detail="No active provider")
+    except (RuntimeError, LookupError) as exc:
+        logger.exception("Failed to get active provider [request_id=%s]", request_id)
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     if body.stream:
         try:
@@ -267,11 +272,20 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
                 max_tokens=max_tokens,
                 stream=True,
             )
-        except Exception as exc:
-            logger.error("Streaming chat failed: %s", exc)
-            raise HTTPException(status_code=502, detail=str(exc))
+        except (ConnectionError, TimeoutError) as exc:
+            logger.exception(
+                "Upstream connection error during streaming chat [request_id=%s]", request_id
+            )
+            raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
+        except (ValueError, TypeError) as exc:
+            logger.exception(
+                "Invalid request parameters for streaming chat [request_id=%s]", request_id
+            )
+            raise HTTPException(status_code=400, detail="Invalid request parameters") from exc
+        except OSError as exc:
+            logger.exception("I/O error during streaming chat [request_id=%s]", request_id)
+            raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
 
-        request_id = _make_id("chatcmpl")
         model_name = model or provider.name
 
         return StreamingResponse(
@@ -293,9 +307,19 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
             max_tokens=max_tokens,
             stream=False,
         )
-    except Exception as exc:
-        logger.error("Chat completion failed: %s", exc)
-        raise HTTPException(status_code=502, detail=str(exc))
+    except (ConnectionError, TimeoutError) as exc:
+        logger.exception(
+            "Upstream connection error during chat completion [request_id=%s]", request_id
+        )
+        raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
+    except (ValueError, TypeError) as exc:
+        logger.exception(
+            "Invalid request parameters for chat completion [request_id=%s]", request_id
+        )
+        raise HTTPException(status_code=400, detail="Invalid request parameters") from exc
+    except OSError as exc:
+        logger.exception("I/O error during chat completion [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
 
     _in = getattr(response, "input_tokens", None)
     prompt_tokens = _in if _in is not None else getattr(response, "prompt_tokens", 0)
@@ -313,6 +337,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
 @router.post("/v1/completions")
 async def completions(body: CompletionRequest, request: Request):
     """OpenAI-compatible legacy completions (used by Copilot for code completion)."""
+    request_id = _make_id("cmpl")
+
     registry = _get_provider_router()
     if registry is None:
         raise HTTPException(status_code=503, detail="No provider available")
@@ -323,8 +349,9 @@ async def completions(body: CompletionRequest, request: Request):
 
     try:
         provider = registry.get_active()
-    except Exception:
-        raise HTTPException(status_code=503, detail="No active provider")
+    except (RuntimeError, LookupError) as exc:
+        logger.exception("Failed to get active provider [request_id=%s]", request_id)
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     if body.stream:
         try:
@@ -335,10 +362,20 @@ async def completions(body: CompletionRequest, request: Request):
                 max_tokens=body.max_tokens,
                 stream=True,
             )
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=str(exc))
+        except (ConnectionError, TimeoutError) as exc:
+            logger.exception(
+                "Upstream connection error during streaming completion [request_id=%s]", request_id
+            )
+            raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
+        except (ValueError, TypeError) as exc:
+            logger.exception(
+                "Invalid request parameters for streaming completion [request_id=%s]", request_id
+            )
+            raise HTTPException(status_code=400, detail="Invalid request parameters") from exc
+        except OSError as exc:
+            logger.exception("I/O error during streaming completion [request_id=%s]", request_id)
+            raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
 
-        request_id = _make_id("cmpl")
         model_name = body.model if body.model != "default" else provider.name
 
         async def _stream_completion() -> AsyncIterator[str]:
@@ -380,8 +417,15 @@ async def completions(body: CompletionRequest, request: Request):
             max_tokens=body.max_tokens,
             stream=False,
         )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+    except (ConnectionError, TimeoutError) as exc:
+        logger.exception("Upstream connection error during completion [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
+    except (ValueError, TypeError) as exc:
+        logger.exception("Invalid request parameters for completion [request_id=%s]", request_id)
+        raise HTTPException(status_code=400, detail="Invalid request parameters") from exc
+    except OSError as exc:
+        logger.exception("I/O error during completion [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
 
     _in = getattr(response, "input_tokens", None)
     prompt_tokens = _in if _in is not None else getattr(response, "prompt_tokens", 0)
@@ -399,6 +443,8 @@ async def completions(body: CompletionRequest, request: Request):
 @router.post("/v1/embeddings")
 async def embeddings(body: EmbeddingRequest):
     """OpenAI-compatible embeddings endpoint (used by Cody for RAG)."""
+    request_id = _make_id("embed")
+
     registry = _get_provider_router()
     if registry is None:
         raise HTTPException(status_code=503, detail="No provider available")
@@ -408,14 +454,21 @@ async def embeddings(body: EmbeddingRequest):
 
     try:
         provider = registry.get_active()
-    except Exception:
-        raise HTTPException(status_code=503, detail="No active provider")
+    except (RuntimeError, LookupError) as exc:
+        logger.exception("Failed to get active provider [request_id=%s]", request_id)
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     try:
         result = await provider.embed(texts, model=model)
-    except Exception as exc:
-        logger.error("Embedding failed: %s", exc)
-        raise HTTPException(status_code=502, detail=str(exc))
+    except (ConnectionError, TimeoutError) as exc:
+        logger.exception("Upstream connection error during embedding [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
+    except (ValueError, TypeError) as exc:
+        logger.exception("Invalid request parameters for embedding [request_id=%s]", request_id)
+        raise HTTPException(status_code=400, detail="Invalid request parameters") from exc
+    except OSError as exc:
+        logger.exception("I/O error during embedding [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Upstream provider unavailable") from exc
 
     # Normalise result to a list of embedding vectors
     if isinstance(result, list) and len(result) > 0:
@@ -466,18 +519,24 @@ async def embeddings(body: EmbeddingRequest):
 @router.get("/v1/models")
 async def list_models():
     """OpenAI-compatible model listing."""
+    request_id = _make_id("models")
+
     registry = _get_provider_router()
     if registry is None:
         raise HTTPException(status_code=503, detail="No provider available")
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError):
+        logger.exception(
+            "Failed to get active provider for model listing [request_id=%s]", request_id
+        )
         return {"object": "list", "data": []}
 
     try:
         models = await provider.list_models()
-    except Exception:
+    except (ConnectionError, TimeoutError, OSError):
+        logger.exception("Failed to list models from provider [request_id=%s]", request_id)
         return {"object": "list", "data": []}
 
     data = []
