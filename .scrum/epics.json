@@ -285,7 +285,21 @@
       ],
       "total_points": 21,
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-EPIC-12",
+      "title": "AI Assistant Persona & Personality",
+      "description": "Add configurable AI persona via SOUL.md workspace files, system prompt assembly, multi-agent personality support, and dashboard persona editor. Inspired by OpenClaw's context file architecture.",
+      "status": "planned",
+      "priority": "medium",
+      "stories": [
+        "BMTOS-87",
+        "BMTOS-88",
+        "BMTOS-89",
+        "BMTOS-90",
+        "BMTOS-91"
+      ]
     }
   ],
-  "next_id": 11
+  "next_id": 13
 }
