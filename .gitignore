@@ -54,5 +54,6 @@ htmlcov/
 reports/.json/
 
 # Tools
-.claude/
+.claude/settings.local.json
+.claude/worktrees/
 .agents/
