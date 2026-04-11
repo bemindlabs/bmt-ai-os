@@ -4,8 +4,6 @@ Provides:
 - SQLite-backed user store with bcrypt password hashing
 - JWT token issuance and verification (PyJWT)
 - Three-tier RBAC: admin / operator / viewer
-- Token blacklist for explicit revocation (jti-based)
-- Account lockout after repeated failed logins
 - JWTAuthMiddleware that falls through to legacy APIKeyMiddleware when no
   users exist and BMT_API_KEY is configured (backward compatible)
 """
@@ -14,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import sqlite3
 import sys
 import time
@@ -44,21 +41,10 @@ _ENV_API_KEY = "BMT_API_KEY"
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_SECONDS = 86400  # 24 hours
-_JWT_SECRET_MIN_LENGTH = 32
-
-# Password complexity requirements
-_PASSWORD_MIN_LENGTH = 12
-_PASSWORD_REQUIRES_UPPERCASE = re.compile(r"[A-Z]")
-_PASSWORD_REQUIRES_LOWERCASE = re.compile(r"[a-z]")
-_PASSWORD_REQUIRES_DIGIT = re.compile(r"\d")
-
-_ENV_BMT_ENV = "BMT_ENV"
-_DEFAULT_ADMIN_USERNAME = "admin"
-_DEFAULT_ADMIN_PASSWORD = "admin"
 
 # Account lockout settings
-_MAX_FAILED_LOGINS = 10
-_LOCKOUT_SECONDS = 900  # 15 minutes
+_MAX_FAILED_ATTEMPTS = 5
+_LOCKOUT_DURATION_SECONDS = 900  # 15 minutes
 
 # Paths that never require authentication
 _EXEMPT_PREFIXES = (
@@ -77,16 +63,9 @@ _EXEMPT_PREFIXES = (
     "/v1/",  # OpenAI-compatible API (models, chat, completions)
     "/api/v1/fleet/register",  # edge devices register without user tokens
     "/api/v1/fleet/heartbeat",  # edge devices send heartbeats without user tokens
-    "/api/v1/fleet/health",  # fleet health check (unauthenticated monitoring)
-    "/api/v1/fleet/summary",  # read-only fleet summary (dashboard monitoring)
-    "/api/v1/fleet/devices",  # read-only device list (dashboard monitoring)
-)
-
-# Paths that require a valid JWT but bypass RBAC write-restrictions.
-# Any authenticated user (regardless of role) may call these.
-_AUTH_SELF_SERVICE_PREFIXES = (
-    "/api/v1/auth/logout",
-    "/api/v1/auth/me",
+    "/api/v1/fleet/health",  # fleet health check
+    "/api/v1/fleet/summary",  # read-only fleet summary
+    "/api/v1/fleet/devices",  # read-only device list
 )
 
 
@@ -133,33 +112,6 @@ def _role_allows(role: Role, method: str, path: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Password complexity validation
-# ---------------------------------------------------------------------------
-
-
-def validate_password_complexity(password: str) -> None:
-    """Raise ValueError if *password* does not meet complexity requirements.
-
-    Requirements:
-    - Minimum 12 characters
-    - At least one uppercase letter (A-Z)
-    - At least one lowercase letter (a-z)
-    - At least one digit (0-9)
-    """
-    errors: list[str] = []
-    if len(password) < _PASSWORD_MIN_LENGTH:
-        errors.append(f"at least {_PASSWORD_MIN_LENGTH} characters")
-    if not _PASSWORD_REQUIRES_UPPERCASE.search(password):
-        errors.append("at least one uppercase letter (A-Z)")
-    if not _PASSWORD_REQUIRES_LOWERCASE.search(password):
-        errors.append("at least one lowercase letter (a-z)")
-    if not _PASSWORD_REQUIRES_DIGIT.search(password):
-        errors.append("at least one digit (0-9)")
-    if errors:
-        raise ValueError("Password must contain " + ", ".join(errors) + ".")
-
-
-# ---------------------------------------------------------------------------
 # User model
 # ---------------------------------------------------------------------------
 
@@ -171,8 +123,6 @@ class User:
     password_hash: str
     role: Role
     created_at: str
-    failed_logins: int = 0
-    locked_until: float | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -180,14 +130,7 @@ class User:
             "username": self.username,
             "role": self.role.value,
             "created_at": self.created_at,
-            "locked": self.is_locked(),
         }
-
-    def is_locked(self) -> bool:
-        """Return True if the account is currently locked."""
-        if self.locked_until is None:
-            return False
-        return time.time() < self.locked_until
 
 
 # ---------------------------------------------------------------------------
@@ -219,29 +162,32 @@ class UserStore:
             con.execute(
                 """
                 CREATE TABLE IF NOT EXISTS users (
-                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username        TEXT    NOT NULL UNIQUE,
-                    password_hash   TEXT    NOT NULL,
-                    role            TEXT    NOT NULL DEFAULT 'viewer',
-                    created_at      TEXT    NOT NULL,
-                    failed_logins   INTEGER NOT NULL DEFAULT 0,
-                    locked_until    REAL
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username    TEXT    NOT NULL UNIQUE,
+                    password_hash TEXT  NOT NULL,
+                    role        TEXT    NOT NULL DEFAULT 'viewer',
+                    created_at  TEXT    NOT NULL
                 )
                 """
             )
-            # Migrate: add columns to existing DBs that lack them
-            existing_cols = {row[1] for row in con.execute("PRAGMA table_info(users)").fetchall()}
-            if "failed_logins" not in existing_cols:
-                con.execute("ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0")
-            if "locked_until" not in existing_cols:
-                con.execute("ALTER TABLE users ADD COLUMN locked_until REAL")
-
+            # Token revocation blacklist — jti is the JWT "JWT ID" claim.
             con.execute(
                 """
-                CREATE TABLE IF NOT EXISTS token_blacklist (
-                    jti         TEXT    PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS revoked_tokens (
+                    jti         TEXT    NOT NULL PRIMARY KEY,
                     revoked_at  REAL    NOT NULL,
                     expires_at  REAL    NOT NULL
+                )
+                """
+            )
+            # Per-user lockout tracking.
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS login_attempts (
+                    username        TEXT    NOT NULL PRIMARY KEY,
+                    failed_count    INTEGER NOT NULL DEFAULT 0,
+                    last_failed_at  REAL    NOT NULL DEFAULT 0,
+                    locked_until    REAL    NOT NULL DEFAULT 0
                 )
                 """
             )
@@ -254,27 +200,14 @@ class UserStore:
             password_hash=row["password_hash"],
             role=Role(row["role"]),
             created_at=row["created_at"],
-            failed_logins=row["failed_logins"] if row["failed_logins"] is not None else 0,
-            locked_until=row["locked_until"],
         )
 
     # --- Public API ---
 
-    def create_user(
-        self,
-        username: str,
-        password: str,
-        role: Role | str = Role.viewer,
-        skip_complexity: bool = False,
-    ) -> User:
+    def create_user(self, username: str, password: str, role: Role | str = Role.viewer) -> User:
         """Create a new user with a bcrypt-hashed password.
 
-        Raises ValueError if the username already exists, the role is invalid,
-        or the password does not meet complexity requirements.
-
-        Pass ``skip_complexity=True`` only for internal/test fixtures where
-        complexity enforcement is intentionally bypassed (e.g. default-admin
-        bootstrap in dev mode).
+        Raises ValueError if the username already exists or the role is invalid.
         """
         if isinstance(role, str):
             try:
@@ -282,9 +215,6 @@ class UserStore:
             except ValueError:
                 valid = [r.value for r in Role]
                 raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
-
-        if not skip_complexity:
-            validate_password_complexity(password)
 
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         created_at = datetime.now(timezone.utc).isoformat()
@@ -305,50 +235,6 @@ class UserStore:
             id=user_id, username=username, password_hash=pw_hash, role=role, created_at=created_at
         )
 
-    def authenticate(self, username: str, password: str) -> User | None:
-        """Return the User if credentials are valid, else None.
-
-        Tracks failed attempts and locks the account after _MAX_FAILED_LOGINS
-        consecutive failures for _LOCKOUT_SECONDS.
-        """
-        user = self.get_user(username)
-        if user is None:
-            # Constant-time dummy check to prevent timing attacks
-            bcrypt.checkpw(b"dummy", bcrypt.hashpw(b"dummy", bcrypt.gensalt()))
-            return None
-
-        # Reject immediately if the account is locked
-        if user.is_locked():
-            logger.warning("Authentication rejected for locked account '%s'", username)
-            return None
-
-        if bcrypt.checkpw(password.encode(), user.password_hash.encode()):
-            # Successful login — reset failure counter
-            with self._conn() as con:
-                con.execute(
-                    "UPDATE users SET failed_logins = 0, locked_until = NULL WHERE username = ?",
-                    (username,),
-                )
-            return user
-
-        # Failed login — increment counter and possibly lock
-        new_count = user.failed_logins + 1
-        locked_until: float | None = None
-        if new_count >= _MAX_FAILED_LOGINS:
-            locked_until = time.time() + _LOCKOUT_SECONDS
-            logger.warning(
-                "Account '%s' locked for %d seconds after %d failed attempts",
-                username,
-                _LOCKOUT_SECONDS,
-                new_count,
-            )
-        with self._conn() as con:
-            con.execute(
-                "UPDATE users SET failed_logins = ?, locked_until = ? WHERE username = ?",
-                (new_count, locked_until, username),
-            )
-        return None
-
     def get_user(self, username: str) -> User | None:
         """Return User by username, or None if not found."""
         with self._conn() as con:
@@ -362,13 +248,7 @@ class UserStore:
         return [self._row_to_user(r) for r in rows]
 
     def delete_user(self, username: str) -> bool:
-        """Delete user by username. Returns True if the user existed.
-
-        Also revokes all active tokens belonging to this user by inserting
-        their jtis into the blacklist would require storing jti-to-user
-        mappings; instead, deletion is recorded so callers can also call
-        revoke_tokens_for_user() if they maintain that mapping.
-        """
+        """Delete user by username. Returns True if the user existed."""
         with self._conn() as con:
             cur = con.execute("DELETE FROM users WHERE username = ?", (username,))
         deleted = cur.rowcount > 0
@@ -382,101 +262,149 @@ class UserStore:
             count = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         return count > 0
 
-    def update_user_role(self, username: str, new_role: Role | str) -> bool:
-        """Change a user's role. Returns True if the user was found and updated.
-
-        Callers should also revoke existing tokens for the user so that role
-        changes take effect immediately.
-        """
-        if isinstance(new_role, str):
-            try:
-                new_role = Role(new_role)
-            except ValueError:
-                valid = [r.value for r in Role]
-                raise ValueError(f"Invalid role '{new_role}'. Must be one of: {valid}")
-
-        with self._conn() as con:
-            cur = con.execute(
-                "UPDATE users SET role = ? WHERE username = ?",
-                (new_role.value, username),
-            )
-        updated = cur.rowcount > 0
-        if updated:
-            logger.info("Updated role for user '%s' to '%s'", username, new_role.value)
-        return updated
-
-    def lock_account(self, username: str, duration_seconds: int = _LOCKOUT_SECONDS) -> bool:
-        """Manually lock an account for *duration_seconds*. Returns True if found."""
-        locked_until = time.time() + duration_seconds
-        with self._conn() as con:
-            cur = con.execute(
-                "UPDATE users SET locked_until = ? WHERE username = ?",
-                (locked_until, username),
-            )
-        updated = cur.rowcount > 0
-        if updated:
-            logger.info("Manually locked account '%s'", username)
-        return updated
-
-    def unlock_account(self, username: str) -> bool:
-        """Remove any lock from an account. Returns True if the user was found."""
-        with self._conn() as con:
-            cur = con.execute(
-                "UPDATE users SET locked_until = NULL, failed_logins = 0 WHERE username = ?",
-                (username,),
-            )
-        updated = cur.rowcount > 0
-        if updated:
-            logger.info("Unlocked account '%s'", username)
-        return updated
-
-    # --- Token blacklist ---
+    # --- Token revocation ---
 
     def revoke_token(self, jti: str, expires_at: float) -> None:
-        """Add *jti* to the blacklist so it cannot be used for authentication."""
-        with self._conn() as con:
-            con.execute(
-                "INSERT OR IGNORE INTO token_blacklist (jti, revoked_at, expires_at)"
-                " VALUES (?,?,?)",
-                (jti, time.time(), expires_at),
-            )
-        logger.debug("Revoked token jti=%s", jti)
+        """Add a JWT ID to the revocation blacklist.
 
-    def is_token_revoked(self, jti: str) -> bool:
-        """Return True if *jti* is in the blacklist."""
-        with self._conn() as con:
-            row = con.execute("SELECT 1 FROM token_blacklist WHERE jti = ?", (jti,)).fetchone()
-        return row is not None
-
-    def purge_expired_blacklist_entries(self) -> int:
-        """Remove blacklist entries whose tokens have already expired.
-
-        Returns the number of rows removed.
+        Args:
+            jti: The ``jti`` claim from the JWT payload.
+            expires_at: Unix timestamp when the token would naturally expire.
+                Used to prune the blacklist of stale entries.
         """
         now = time.time()
         with self._conn() as con:
-            cur = con.execute("DELETE FROM token_blacklist WHERE expires_at < ?", (now,))
-        return cur.rowcount
+            con.execute(
+                "INSERT OR REPLACE INTO revoked_tokens (jti, revoked_at, expires_at)"
+                " VALUES (?, ?, ?)",
+                (jti, now, expires_at),
+            )
+        logger.info("Revoked token jti=%s", jti)
+
+    def is_token_revoked(self, jti: str) -> bool:
+        """Return True if the given JWT ID has been revoked."""
+        self._prune_revoked_tokens()
+        with self._conn() as con:
+            row = con.execute("SELECT 1 FROM revoked_tokens WHERE jti = ?", (jti,)).fetchone()
+        return row is not None
+
+    def _prune_revoked_tokens(self) -> None:
+        """Remove expired entries from the revocation blacklist."""
+        now = time.time()
+        with self._conn() as con:
+            con.execute("DELETE FROM revoked_tokens WHERE expires_at < ?", (now,))
+
+    # --- Account lockout ---
+
+    def record_failed_login(self, username: str) -> bool:
+        """Record a failed login attempt for *username*.
+
+        Returns True if the account is now locked (threshold reached).
+        """
+        now = time.time()
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT failed_count, locked_until FROM login_attempts WHERE username = ?",
+                (username,),
+            ).fetchone()
+
+            if row is None:
+                # First failure for this username
+                con.execute(
+                    "INSERT INTO login_attempts"
+                    " (username, failed_count, last_failed_at, locked_until)"
+                    " VALUES (?, 1, ?, 0)",
+                    (username, now),
+                )
+                new_count = 1
+            else:
+                new_count = row["failed_count"] + 1
+                locked_until = row["locked_until"]
+
+                # If already locked, don't increment further; just reject
+                if locked_until > now:
+                    return True
+
+                locked_until_new = (
+                    now + _LOCKOUT_DURATION_SECONDS if new_count >= _MAX_FAILED_ATTEMPTS else 0
+                )
+                con.execute(
+                    "UPDATE login_attempts"
+                    " SET failed_count = ?, last_failed_at = ?, locked_until = ?"
+                    " WHERE username = ?",
+                    (new_count, now, locked_until_new, username),
+                )
+
+        if new_count >= _MAX_FAILED_ATTEMPTS:
+            logger.warning(
+                "Account '%s' locked after %d failed login attempts (cooldown=%ds)",
+                username,
+                new_count,
+                _LOCKOUT_DURATION_SECONDS,
+            )
+            return True
+        return False
+
+    def reset_failed_logins(self, username: str) -> None:
+        """Clear the failed login counter after a successful authentication."""
+        with self._conn() as con:
+            con.execute(
+                "UPDATE login_attempts SET failed_count = 0, locked_until = 0 WHERE username = ?",
+                (username,),
+            )
+
+    def is_account_locked(self, username: str) -> bool:
+        """Return True if the account is currently locked out."""
+        now = time.time()
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT locked_until FROM login_attempts WHERE username = ?",
+                (username,),
+            ).fetchone()
+        if row is None:
+            return False
+        return float(row["locked_until"]) > now
+
+    def authenticate(self, username: str, password: str) -> User | None:
+        """Return the User if credentials are valid, else None.
+
+        Enforces account lockout: returns None immediately when the account is
+        locked, and records failed attempts (locking after the threshold).
+        Resets the failure counter on success.
+        """
+        # Check lockout *before* hitting bcrypt to avoid unnecessary computation
+        if self.is_account_locked(username):
+            logger.warning("Login rejected: account '%s' is locked", username)
+            return None
+
+        user = self.get_user(username)
+        if user is None:
+            # Constant-time dummy check to prevent timing attacks
+            bcrypt.checkpw(b"dummy", bcrypt.hashpw(b"dummy", bcrypt.gensalt()))
+            # Record failure against the username even if it doesn't exist
+            # to prevent username enumeration via lockout timing differences.
+            self.record_failed_login(username)
+            return None
+
+        if bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+            self.reset_failed_logins(username)
+            return user
+
+        # Wrong password — record failure, potentially locking the account
+        self.record_failed_login(username)
+        return None
 
 
 # ---------------------------------------------------------------------------
 # JWT token utilities
 # ---------------------------------------------------------------------------
 
-from bmt_ai_os.secret_files import read_secret  # noqa: E402
-
 
 def _jwt_secret() -> str:
-    secret = read_secret(_ENV_JWT_SECRET)
+    secret = os.environ.get(_ENV_JWT_SECRET)
     if not secret:
         raise RuntimeError(
-            f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable "
-            f"or mount it as /run/secrets/{_ENV_JWT_SECRET}."
-        )
-    if len(secret) < _JWT_SECRET_MIN_LENGTH:
-        raise RuntimeError(
-            f"{_ENV_JWT_SECRET} must be at least {_JWT_SECRET_MIN_LENGTH} characters long "
-            f"(got {len(secret)})."
+            f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable."
         )
     return secret
 
@@ -484,8 +412,8 @@ def _jwt_secret() -> str:
 def create_token(user: User) -> str:
     """Issue a signed JWT for *user* valid for 24 hours.
 
-    The token includes a unique ``jti`` (JWT ID) claim that can be placed on
-    the blacklist to revoke it before natural expiry.
+    Includes a ``jti`` (JWT ID) claim so tokens can be individually revoked
+    via :py:meth:`UserStore.revoke_token`.
     """
     now = int(time.time())
     payload = {
@@ -493,7 +421,7 @@ def create_token(user: User) -> str:
         "role": user.role.value,
         "iat": now,
         "exp": now + _JWT_EXPIRY_SECONDS,
-        "jti": str(uuid.uuid4()),
+        "jti": uuid.uuid4().hex,
     }
     return jwt.encode(payload, _jwt_secret(), algorithm=_JWT_ALGORITHM)
 
@@ -503,17 +431,53 @@ def verify_token(token: str, store: UserStore | None = None) -> dict:
 
     Returns the payload dict on success.
     Raises jwt.PyJWTError (or subclass) on any validation failure.
-    Raises jwt.InvalidTokenError with message 'Token has been revoked' when
-    the token's jti is on the blacklist.
+    Raises jwt.InvalidTokenError when the token has been explicitly revoked.
+
+    Args:
+        token: The raw JWT string from an Authorization header.
+        store: Optional :class:`UserStore` used to check the revocation
+            blacklist.  When ``None``, the module-level default store is used.
     """
     payload = jwt.decode(token, _jwt_secret(), algorithms=[_JWT_ALGORITHM])
 
-    # Check blacklist when a store is available
+    # Check revocation blacklist when a jti claim is present
     jti = payload.get("jti")
-    if jti and store is not None and store.is_token_revoked(jti):
-        raise jwt.InvalidTokenError("Token has been revoked.")
+    if jti:
+        active_store = store or _get_default_store()
+        if active_store.is_token_revoked(jti):
+            raise jwt.InvalidTokenError("Token has been revoked.")
 
     return payload
+
+
+def revoke_token(token: str, store: UserStore | None = None) -> None:
+    """Revoke a JWT by adding its ``jti`` to the blacklist.
+
+    Decodes the token *without* verifying expiry (to allow revoking already-
+    expired tokens during cleanup) and records the ``jti`` in the revocation
+    table.
+
+    Args:
+        token: The raw JWT string.
+        store: Optional :class:`UserStore`.  Defaults to the module singleton.
+
+    Raises:
+        jwt.PyJWTError: When the token cannot be decoded at all (malformed).
+        ValueError: When the token has no ``jti`` claim.
+    """
+    # Decode without verification so we can extract the jti even for expired tokens.
+    payload = jwt.decode(
+        token,
+        _jwt_secret(),
+        algorithms=[_JWT_ALGORITHM],
+        options={"verify_exp": False},
+    )
+    jti = payload.get("jti")
+    if not jti:
+        raise ValueError("Token does not contain a 'jti' claim and cannot be revoked.")
+    exp = payload.get("exp", int(time.time()) + _JWT_EXPIRY_SECONDS)
+    active_store = store or _get_default_store()
+    active_store.revoke_token(jti, float(exp))
 
 
 # ---------------------------------------------------------------------------
@@ -534,13 +498,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: FastAPI, store: UserStore | None = None) -> None:
         super().__init__(app)
-        # When an explicit store is provided (tests, custom deployments) we use
-        # it directly.  Otherwise we resolve the current module-level singleton
-        # on every request so that test teardown/reset is picked up correctly.
-        self._explicit_store: UserStore | None = store
-
-    def _get_store(self) -> UserStore:
-        return self._explicit_store if self._explicit_store is not None else _get_default_store()
+        self._store = store or _get_default_store()
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
@@ -549,14 +507,12 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(p) for p in _EXEMPT_PREFIXES):
             return await call_next(request)
 
-        store = self._get_store()
-
         # Backward-compatible: no users + API key configured → skip JWT auth
-        if not store.has_users() and os.environ.get(_ENV_API_KEY):
+        if not self._store.has_users() and os.environ.get(_ENV_API_KEY):
             return await call_next(request)
 
         # Backward-compatible: no users, no API key → open access (local dev)
-        if not store.has_users():
+        if not self._store.has_users():
             return await call_next(request)
 
         # Extract Bearer token
@@ -567,12 +523,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         token = auth_header[7:]
 
         try:
-            payload = verify_token(token, store=store)
+            payload = verify_token(token, store=self._store)
         except jwt.ExpiredSignatureError:
             return _auth_error("Token has expired.", code="token_expired")
         except jwt.InvalidTokenError as exc:
-            if "revoked" in str(exc).lower():
-                return _auth_error("Token has been revoked.", code="token_revoked")
             logger.warning("JWT validation failed: %s", exc)
             return _auth_error("Invalid token.", code="invalid_token")
         except jwt.PyJWTError as exc:
@@ -582,11 +536,6 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         # Attach user info to request state for downstream handlers
         request.state.user = payload.get("sub")
         request.state.role = payload.get("role", Role.viewer.value)
-        request.state.jti = payload.get("jti")
-
-        # Self-service auth paths bypass RBAC (any authenticated user may call them)
-        if any(path.startswith(p) for p in _AUTH_SELF_SERVICE_PREFIXES):
-            return await call_next(request)
 
         # Enforce RBAC
         role = Role(request.state.role)
@@ -643,76 +592,58 @@ def get_store() -> UserStore:
 # Startup security validation
 # ---------------------------------------------------------------------------
 
+_ENV_ADMIN_PASS = "BMT_ADMIN_PASS"
+_MIN_JWT_SECRET_LEN = 32
+_DEFAULT_ADMIN_PASS = "admin"
 
-def ensure_default_admin(store: UserStore | None = None) -> None:
-    """Bootstrap a default admin user when no users exist.
 
-    In production (BMT_ENV != 'dev'), the default admin/admin credentials are
-    explicitly rejected — the operator must pre-seed a real admin user or set
-    BMT_ENV=dev to allow a temporary insecure default.
+def validate_startup_security(store: UserStore | None = None) -> None:
+    """Validate critical security configuration at startup.
 
-    Raises RuntimeError in production when no users exist (would require
-    default credentials), directing the operator to create a proper admin.
+    Checks:
+    - BMT_JWT_SECRET is set and at least 32 characters long. Exits with
+      error code 1 if not, because running without a strong secret is a
+      security vulnerability.
+    - BMT_ADMIN_PASS is not the default "admin" value when users exist.
+      Emits a warning (does not exit) because this may be intentional in
+      development.
+
+    Call this function early in the startup sequence, before binding the
+    HTTP server.
     """
-    _store = store or _get_default_store()
-
-    if _store.has_users():
-        return  # users already exist — nothing to bootstrap
-
-    is_dev = os.environ.get(_ENV_BMT_ENV, "").lower() == "dev"
-
-    if not is_dev:
-        print(
-            "FATAL: No users found in the auth store and BMT_ENV is not 'dev'.\n"
-            "       Default admin/admin credentials are not permitted in production.\n"
-            "       Create an initial admin user or set BMT_ENV=dev for development.",
-            file=sys.stderr,
-        )
-        raise RuntimeError(
-            "Default admin credentials rejected in production. "
-            "Create a real admin user or set BMT_ENV=dev."
-        )
-
-    # Dev mode only — create insecure default admin with complexity bypass
-    logger.warning(
-        "BMT_ENV=dev: bootstrapping default admin/admin credentials. "
-        "Change the password before deploying to production."
-    )
-    _store.create_user(
-        _DEFAULT_ADMIN_USERNAME,
-        _DEFAULT_ADMIN_PASSWORD,
-        Role.admin,
-        skip_complexity=True,
-    )
-
-
-def validate_startup_security() -> None:
-    """Validate security-critical configuration at controller startup.
-
-    Checks performed (in order):
-    1. BMT_JWT_SECRET is set and at least 32 characters long.
-
-    Prints a descriptive error to stderr and raises SystemExit(1) on failure
-    so the process terminates before binding any ports.
-    """
-    secret = read_secret(_ENV_JWT_SECRET) or ""
-    if not secret:
-        print(
-            f"FATAL: {_ENV_JWT_SECRET} is not configured.\n"
-            f"       Set the {_ENV_JWT_SECRET} environment variable or mount it as\n"
-            f"       /run/secrets/{_ENV_JWT_SECRET}.\n"
-            "       Generate a secret with: "
-            'python3 -c "import secrets; print(secrets.token_hex(32))"',
-            file=sys.stderr,
+    # --- JWT secret check ---
+    jwt_secret = os.environ.get(_ENV_JWT_SECRET, "")
+    if not jwt_secret:
+        logger.critical(
+            "FATAL: %s environment variable is not set. "
+            "A strong JWT secret is required to sign authentication tokens. "
+            "Set it to a random string of at least %d characters and restart.",
+            _ENV_JWT_SECRET,
+            _MIN_JWT_SECRET_LEN,
         )
         sys.exit(1)
 
-    if len(secret) < _JWT_SECRET_MIN_LENGTH:
-        print(
-            f"FATAL: {_ENV_JWT_SECRET} is too short "
-            f"({len(secret)} chars, minimum {_JWT_SECRET_MIN_LENGTH}).\n"
-            "       Generate a secret with: "
-            'python3 -c "import secrets; print(secrets.token_hex(32))"',
-            file=sys.stderr,
+    if len(jwt_secret) < _MIN_JWT_SECRET_LEN:
+        logger.critical(
+            "FATAL: %s is too short (%d chars). "
+            "Minimum length is %d characters. "
+            "Use a cryptographically random value (e.g. `openssl rand -hex 32`).",
+            _ENV_JWT_SECRET,
+            len(jwt_secret),
+            _MIN_JWT_SECRET_LEN,
         )
         sys.exit(1)
+
+    logger.info("JWT secret: OK (length=%d)", len(jwt_secret))
+
+    # --- Admin password check (warn only) ---
+    active_store = store or _get_default_store()
+    if active_store.has_users():
+        admin_pass = os.environ.get(_ENV_ADMIN_PASS, "")
+        if admin_pass == _DEFAULT_ADMIN_PASS:
+            logger.warning(
+                "SECURITY WARNING: %s is set to the default value '%s'. "
+                "Change it to a strong password before exposing this service.",
+                _ENV_ADMIN_PASS,
+                _DEFAULT_ADMIN_PASS,
+            )

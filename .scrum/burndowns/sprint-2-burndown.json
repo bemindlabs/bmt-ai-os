@@ -1,0 +1,13 @@
+{
+  "sprint_number": 2,
+  "planned_points": 74,
+  "daily": [
+    {
+      "date": "2026-04-11",
+      "day": 1,
+      "remaining_points": 74,
+      "completed_items": [],
+      "notes": "Sprint 2 started"
+    }
+  ]
+}

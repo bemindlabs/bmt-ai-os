@@ -388,7 +388,7 @@
         "providers"
       ],
       "acceptance_criteria": [
-        "Fallback chain defined in config (e.g., ollama → llama.cpp → openai → anthropic)",
+        "Fallback chain defined in config (e.g., ollama \u2192 llama.cpp \u2192 openai \u2192 anthropic)",
         "Automatic failover to next provider on timeout or error",
         "Configurable timeout per provider (default 30s local, 15s cloud)",
         "Circuit breaker: skip unhealthy providers for configurable cooldown period",
@@ -604,7 +604,7 @@
     {
       "id": "BMTOS-17",
       "title": "Configure init system and service boot ordering",
-      "description": "Define the full boot sequence: network → storage → containerd → AI stack → controller. Handle first-boot initialization (volume creation, initial model pull). Use OpenRC as init system per base-config.toml.",
+      "description": "Define the full boot sequence: network \u2192 storage \u2192 containerd \u2192 AI stack \u2192 controller. Handle first-boot initialization (volume creation, initial model pull). Use OpenRC as init system per base-config.toml.",
       "type": "story",
       "priority": "high",
       "points": 8,
@@ -735,7 +735,7 @@
     {
       "id": "BMTOS-22",
       "title": "Build BMT AI OS CLI tool (bmt_ai_os command)",
-      "_epic_note": "Standalone — cross-cutting CLI used by all epics",
+      "_epic_note": "Standalone \u2014 cross-cutting CLI used by all epics",
       "description": "Create the primary user-facing CLI for interacting with BMT AI OS: manage models, query RAG, check status, configure providers. Single entry point for all OS AI capabilities.",
       "type": "story",
       "priority": "medium",
@@ -746,12 +746,12 @@
         "developer-experience"
       ],
       "acceptance_criteria": [
-        "bmt_ai_os status — show system health, active provider, loaded model",
-        "bmt_ai_os models list/install/remove — model management via Ollama",
-        "bmt_ai_os query 'question' — RAG query against indexed workspace",
-        "bmt_ai_os ingest /path/to/docs — index documents into ChromaDB",
-        "bmt_ai_os provider set ollama|vllm|openai — switch active provider",
-        "bmt_ai_os workspace add /path — mount and index a project",
+        "bmt_ai_os status \u2014 show system health, active provider, loaded model",
+        "bmt_ai_os models list/install/remove \u2014 model management via Ollama",
+        "bmt_ai_os query 'question' \u2014 RAG query against indexed workspace",
+        "bmt_ai_os ingest /path/to/docs \u2014 index documents into ChromaDB",
+        "bmt_ai_os provider set ollama|vllm|openai \u2014 switch active provider",
+        "bmt_ai_os workspace add /path \u2014 mount and index a project",
         "Help text and --help for all subcommands"
       ],
       "dependencies": [
@@ -774,11 +774,11 @@
         "developer-experience"
       ],
       "acceptance_criteria": [
-        "POST /api/v1/chat — chat completion (OpenAI-compatible format)",
-        "POST /api/v1/embeddings — generate embeddings",
-        "POST /api/v1/query — RAG-augmented query with source attribution",
-        "GET /api/v1/models — list available models",
-        "GET /api/v1/health — system health check",
+        "POST /api/v1/chat \u2014 chat completion (OpenAI-compatible format)",
+        "POST /api/v1/embeddings \u2014 generate embeddings",
+        "POST /api/v1/query \u2014 RAG-augmented query with source attribution",
+        "GET /api/v1/models \u2014 list available models",
+        "GET /api/v1/health \u2014 system health check",
         "Streaming responses via SSE for chat completions",
         "API key authentication (optional, configurable)"
       ],
@@ -805,8 +805,8 @@
         "All container logs aggregated to syslog or journal",
         "System metrics collected: CPU, RAM, disk, temperature",
         "Inference metrics: tokens/sec, model load time, queue depth",
-        "bmt_ai_os logs — tail aggregated logs",
-        "bmt_ai_os metrics — show current system stats",
+        "bmt_ai_os logs \u2014 tail aggregated logs",
+        "bmt_ai_os metrics \u2014 show current system stats",
         "Log retention policy: rotate at 100MB, keep 7 days"
       ],
       "dependencies": [
@@ -833,7 +833,7 @@
         "Automatic rollback if new partition fails health check",
         "Container image updates independent (docker compose pull)",
         "Model data and ChromaDB data preserved across updates",
-        "bmt_ai_os update — single command for full system update"
+        "bmt_ai_os update \u2014 single command for full system update"
       ],
       "dependencies": [
         "BMTOS-16",
@@ -845,7 +845,7 @@
     {
       "id": "BMTOS-26",
       "title": "Add Jetson Orin board support package",
-      "description": "Specific BSP for NVIDIA Jetson Orin Nano Super: CUDA toolkit, TensorRT-LLM, JetPack components integration. Primary Tier 1 target — 67 TOPS, 7B models at 15-22 tok/s.",
+      "description": "Specific BSP for NVIDIA Jetson Orin Nano Super: CUDA toolkit, TensorRT-LLM, JetPack components integration. Primary Tier 1 target \u2014 67 TOPS, 7B models at 15-22 tok/s.",
       "type": "story",
       "priority": "high",
       "points": 8,
@@ -1145,7 +1145,7 @@
     {
       "id": "BMTOS-36",
       "title": "Build terminal UI (TUI) dashboard with Textual",
-      "description": "Terminal-based dashboard using Python Textual framework. Provides the same system monitoring and management as the web dashboard but directly in the terminal — no browser needed. Essential for headless servers and SSH sessions.",
+      "description": "Terminal-based dashboard using Python Textual framework. Provides the same system monitoring and management as the web dashboard but directly in the terminal \u2014 no browser needed. Essential for headless servers and SSH sessions.",
       "type": "story",
       "priority": "medium",
       "points": 8,
@@ -1249,12 +1249,12 @@
         "cli"
       ],
       "acceptance_criteria": [
-        "bmt_ai_os data prepare --input /docs --format alpaca — convert docs to training format",
+        "bmt_ai_os data prepare --input /docs --format alpaca \u2014 convert docs to training format",
         "Supported input: .txt, .md, .jsonl, .csv, code files",
         "Output formats: Alpaca (instruction/input/output), ShareGPT (conversations), ChatML",
         "Auto-generate instruction/response pairs from documents using local LLM",
-        "bmt_ai_os data validate /path/to/dataset.jsonl — check format, stats, issues",
-        "bmt_ai_os data preview /path/to/dataset.jsonl — show sample entries",
+        "bmt_ai_os data validate /path/to/dataset.jsonl \u2014 check format, stats, issues",
+        "bmt_ai_os data preview /path/to/dataset.jsonl \u2014 show sample entries",
         "Dataset splitting: auto train/eval split (default 90/10)"
       ],
       "dependencies": [
@@ -1338,9 +1338,9 @@
         "models"
       ],
       "acceptance_criteria": [
-        "bmt_ai_os model merge --base qwen2.5:1.5b --adapter /path/to/lora — merge LoRA weights",
-        "bmt_ai_os model export --format gguf — convert merged model to GGUF (Q4_K_M default)",
-        "bmt_ai_os model export --format ollama — create Ollama Modelfile and register model",
+        "bmt_ai_os model merge --base qwen2.5:1.5b --adapter /path/to/lora \u2014 merge LoRA weights",
+        "bmt_ai_os model export --format gguf \u2014 convert merged model to GGUF (Q4_K_M default)",
+        "bmt_ai_os model export --format ollama \u2014 create Ollama Modelfile and register model",
         "Exported model immediately available in Ollama (ollama run my-fine-tuned-model)",
         "Export preserves tokenizer and chat template",
         "Validation: run inference on 10 test prompts, compare base vs fine-tuned"
@@ -1356,7 +1356,7 @@
     {
       "id": "BMTOS-43",
       "title": "Add Apple Silicon board support package (Asahi Linux, CPU-only)",
-      "description": "BSP for Apple Silicon Macs (M1-M4) via Asahi Linux. CPU-only — no GPU acceleration on Linux (Apple GPU driver incomplete). ARM64 CPU with NEON is exceptionally fast for LLM inference via llama.cpp. Highest single-core performance of any Tier 1 target. Unified memory enables large models that don't fit on other boards.",
+      "description": "BSP for Apple Silicon Macs (M1-M4) via Asahi Linux. CPU-only \u2014 no GPU acceleration on Linux (Apple GPU driver incomplete). ARM64 CPU with NEON is exceptionally fast for LLM inference via llama.cpp. Highest single-core performance of any Tier 1 target. Unified memory enables large models that don't fit on other boards.",
       "type": "story",
       "priority": "high",
       "points": 8,
@@ -1470,15 +1470,19 @@
       "type": "story",
       "priority": "critical",
       "points": 3,
-      "status": "backlog",
-      "labels": ["security", "auth"],
+      "status": "in_progress",
+      "labels": [
+        "security",
+        "auth"
+      ],
       "acceptance_criteria": [
         "Controller refuses to start if BMT_JWT_SECRET is missing or < 32 chars",
         "Controller refuses to start if default admin/admin credentials are active",
         "Clear error message printed to stderr on startup failure"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-55",
@@ -1487,8 +1491,11 @@
       "type": "story",
       "priority": "critical",
       "points": 5,
-      "status": "backlog",
-      "labels": ["quality", "error-handling"],
+      "status": "in_progress",
+      "labels": [
+        "quality",
+        "error-handling"
+      ],
       "acceptance_criteria": [
         "Zero bare except Exception clauses in controller/ directory",
         "All exceptions logged with logger.exception() for stack trace",
@@ -1496,7 +1503,8 @@
         "Request ID included in error log entries"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-56",
@@ -1505,8 +1513,11 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["security", "api"],
+      "status": "in_progress",
+      "labels": [
+        "security",
+        "api"
+      ],
       "acceptance_criteria": [
         "Login endpoint limited to 5 attempts per 5 minutes per IP",
         "Inference endpoints limited to configurable rate (default 60/min)",
@@ -1514,7 +1525,8 @@
         "429 Too Many Requests returned when exceeded"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-57",
@@ -1523,8 +1535,11 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
-      "labels": ["security", "rag"],
+      "status": "in_progress",
+      "labels": [
+        "security",
+        "rag"
+      ],
       "acceptance_criteria": [
         "Configurable allowed_ingest_dirs whitelist",
         "Path.resolve() used to prevent symlink traversal",
@@ -1532,7 +1547,8 @@
         "Collection name validated with regex: ^[a-zA-Z0-9_-]{1,100}$"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-58",
@@ -1541,8 +1557,11 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["security", "secrets"],
+      "status": "in_progress",
+      "labels": [
+        "security",
+        "secrets"
+      ],
       "acceptance_criteria": [
         "JWT secret read from /run/secrets/BMT_JWT_SECRET first, then env var",
         "API key read from /run/secrets/BMT_API_KEY first, then env var",
@@ -1550,7 +1569,8 @@
         "Warning logged when falling back to env var in production"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-59",
@@ -1559,8 +1579,11 @@
       "type": "story",
       "priority": "critical",
       "points": 3,
-      "status": "backlog",
-      "labels": ["ci", "testing"],
+      "status": "in_progress",
+      "labels": [
+        "ci",
+        "testing"
+      ],
       "acceptance_criteria": [
         "Unit tests (857) run on every push and PR",
         "E2E tests (28) run on every push and PR",
@@ -1569,7 +1592,8 @@
         "Test results uploaded as artifacts"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-60",
@@ -1578,8 +1602,11 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
-      "labels": ["security", "auth"],
+      "status": "in_progress",
+      "labels": [
+        "security",
+        "auth"
+      ],
       "acceptance_criteria": [
         "Token blacklist table in SQLite; checked during verification",
         "Tokens revoked on user deletion and role change",
@@ -1587,17 +1614,21 @@
         "Admin can manually lock/unlock accounts"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-61",
       "title": "Add fleet registry persistence with SQLite",
-      "description": "Fleet registry is in-memory only — lost on controller restart. Add SQLite persistence so devices and pending commands survive restarts.",
+      "description": "Fleet registry is in-memory only \u2014 lost on controller restart. Add SQLite persistence so devices and pending commands survive restarts.",
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["fleet", "persistence"],
+      "status": "in_progress",
+      "labels": [
+        "fleet",
+        "persistence"
+      ],
       "acceptance_criteria": [
         "Device records persisted to SQLite on registration and heartbeat",
         "Pending commands persisted and survive controller restart",
@@ -1605,7 +1636,8 @@
         "In-memory cache used for hot path (heartbeats)"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-62",
@@ -1614,8 +1646,11 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
-      "labels": ["ci", "security"],
+      "status": "in_progress",
+      "labels": [
+        "ci",
+        "security"
+      ],
       "acceptance_criteria": [
         "Trivy scans Docker image on every PR",
         "Critical/High vulnerabilities fail the CI build",
@@ -1623,7 +1658,8 @@
         "Base image digest pinned in Dockerfile"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-63",
@@ -1633,7 +1669,9 @@
       "priority": "medium",
       "points": 2,
       "status": "backlog",
-      "labels": ["ci"],
+      "labels": [
+        "ci"
+      ],
       "acceptance_criteria": [
         "Integration test job fails the pipeline on failure",
         "Build image job fails the pipeline on failure",
@@ -1650,7 +1688,10 @@
       "priority": "medium",
       "points": 2,
       "status": "backlog",
-      "labels": ["security", "auth"],
+      "labels": [
+        "security",
+        "auth"
+      ],
       "acceptance_criteria": [
         "Minimum password length: 12 characters",
         "Must contain uppercase, lowercase, and digit",
@@ -1667,8 +1708,10 @@
       "type": "story",
       "priority": "high",
       "points": 13,
-      "status": "backlog",
-      "labels": ["testing"],
+      "status": "in_progress",
+      "labels": [
+        "testing"
+      ],
       "acceptance_criteria": [
         "Tests for providers/ollama.py, providers/registry.py, providers/config.py",
         "Tests for controller/health.py, controller/config.py",
@@ -1677,7 +1720,8 @@
         "Total test count >= 1100"
       ],
       "epic_id": "BMTOS-EPIC-8",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-66",
@@ -1687,7 +1731,10 @@
       "priority": "medium",
       "points": 5,
       "status": "backlog",
-      "labels": ["docs", "operations"],
+      "labels": [
+        "docs",
+        "operations"
+      ],
       "acceptance_criteria": [
         "First-boot checklist (secrets, TLS, admin user)",
         "Monitoring setup guide (Prometheus + Grafana)",
@@ -1706,7 +1753,10 @@
       "priority": "medium",
       "points": 3,
       "status": "backlog",
-      "labels": ["quality", "plugins"],
+      "labels": [
+        "quality",
+        "plugins"
+      ],
       "acceptance_criteria": [
         "Lock is per-instance, not module-level",
         "State file writes use tmp+rename pattern (atomic)",
@@ -1723,7 +1773,10 @@
       "priority": "medium",
       "points": 3,
       "status": "backlog",
-      "labels": ["security", "ota"],
+      "labels": [
+        "security",
+        "ota"
+      ],
       "acceptance_criteria": [
         "Ed25519 signature verification required by default",
         "Public key shipped with OS image or configurable via BMT_OTA_PUBKEY",
@@ -1736,33 +1789,42 @@
     {
       "id": "BMTOS-69",
       "title": "Add session/conversation persistence with SQLite",
-      "description": "BMT AI OS chat is stateless — no conversation history stored. Add a sessions table (SQLite) with session_key, model, token counts, timestamps. Store all chat messages with session_id foreign key. Each /v1/chat/completions request optionally binds to a session.",
+      "description": "BMT AI OS chat is stateless \u2014 no conversation history stored. Add a sessions table (SQLite) with session_key, model, token counts, timestamps. Store all chat messages with session_id foreign key. Each /v1/chat/completions request optionally binds to a session.",
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["chat", "persistence", "sessions"],
+      "status": "in_progress",
+      "labels": [
+        "chat",
+        "persistence",
+        "sessions"
+      ],
       "acceptance_criteria": [
         "SQLite sessions table with session_key, model, created_at, updated_at, total_tokens",
         "SQLite messages table with session_id, role, content, tokens, timestamp",
         "Optional session_id parameter on /v1/chat/completions for multi-turn binding",
         "Session auto-created on first message if not specified",
-        "GET /api/v1/sessions — list sessions with metadata",
-        "GET /api/v1/sessions/{id}/messages — retrieve conversation history"
+        "GET /api/v1/sessions \u2014 list sessions with metadata",
+        "GET /api/v1/sessions/{id}/messages \u2014 retrieve conversation history"
       ],
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-70",
       "title": "Build context engine with token budget and compaction",
-      "description": "No context window management exists. Build a pluggable context engine that assembles messages within the model's token budget, auto-summarizes old turns when budget is exceeded, and maintains conversation coherence across long sessions. Inspired by OpenClaw's context engine pattern: bootstrap → ingest → assemble → compact → afterTurn.",
+      "description": "No context window management exists. Build a pluggable context engine that assembles messages within the model's token budget, auto-summarizes old turns when budget is exceeded, and maintains conversation coherence across long sessions. Inspired by OpenClaw's context engine pattern: bootstrap \u2192 ingest \u2192 assemble \u2192 compact \u2192 afterTurn.",
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["chat", "context", "compaction"],
+      "status": "in_progress",
+      "labels": [
+        "chat",
+        "context",
+        "compaction"
+      ],
       "acceptance_criteria": [
         "ContextEngine interface: assemble(), compact(), ingest()",
         "Token counting before sending to LLM (tiktoken or model-specific)",
@@ -1770,9 +1832,12 @@
         "Compaction checkpoints persisted in session metadata",
         "Configurable token budget per model (default: 80% of context window)"
       ],
-      "dependencies": ["BMTOS-69"],
+      "dependencies": [
+        "BMTOS-69"
+      ],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-71",
@@ -1781,8 +1846,12 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["chat", "rag", "integration"],
+      "status": "in_progress",
+      "labels": [
+        "chat",
+        "rag",
+        "integration"
+      ],
       "acceptance_criteria": [
         "Chat completions auto-query RAG when rag_mode=auto (default)",
         "Retrieved chunks injected as system context with source attribution",
@@ -1790,9 +1859,12 @@
         "Source citations included in response metadata",
         "RAG query uses last user message as search query"
       ],
-      "dependencies": ["BMTOS-69"],
+      "dependencies": [
+        "BMTOS-69"
+      ],
       "epic_id": "BMTOS-EPIC-9",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "updated_at": "2026-04-11"
     },
     {
       "id": "BMTOS-72",
@@ -1802,7 +1874,11 @@
       "priority": "medium",
       "points": 5,
       "status": "backlog",
-      "labels": ["rag", "search", "memory"],
+      "labels": [
+        "rag",
+        "search",
+        "memory"
+      ],
       "acceptance_criteria": [
         "SQLite FTS5 index for ingested documents alongside ChromaDB",
         "Hybrid merge: configurable vector_weight (0.5) + text_weight (0.3)",
@@ -1822,15 +1898,21 @@
       "priority": "medium",
       "points": 5,
       "status": "backlog",
-      "labels": ["chat", "api", "sessions"],
-      "acceptance_criteria": [
-        "GET /api/v1/sessions — paginated list with filters (date, model, token count)",
-        "GET /api/v1/sessions/{id} — full session metadata",
-        "GET /api/v1/sessions/search?q=... — full-text search across message content",
-        "GET /api/v1/sessions/{id}/export?format=json|markdown — conversation export",
-        "DELETE /api/v1/sessions/{id} — delete conversation and messages"
+      "labels": [
+        "chat",
+        "api",
+        "sessions"
       ],
-      "dependencies": ["BMTOS-69"],
+      "acceptance_criteria": [
+        "GET /api/v1/sessions \u2014 paginated list with filters (date, model, token count)",
+        "GET /api/v1/sessions/{id} \u2014 full session metadata",
+        "GET /api/v1/sessions/search?q=... \u2014 full-text search across message content",
+        "GET /api/v1/sessions/{id}/export?format=json|markdown \u2014 conversation export",
+        "DELETE /api/v1/sessions/{id} \u2014 delete conversation and messages"
+      ],
+      "dependencies": [
+        "BMTOS-69"
+      ],
       "epic_id": "BMTOS-EPIC-9",
       "created_at": "2026-04-11"
     },
@@ -1842,7 +1924,10 @@
       "priority": "low",
       "points": 5,
       "status": "backlog",
-      "labels": ["memory", "consolidation"],
+      "labels": [
+        "memory",
+        "consolidation"
+      ],
       "acceptance_criteria": [
         "Short-term recall tracker: records which RAG chunks are returned per query",
         "Promotion scoring: 6-component weighted score (frequency 0.24, relevance 0.30, diversity 0.15, recency 0.15, consolidation 0.10, conceptual 0.06)",
@@ -1850,7 +1935,9 @@
         "Cron-scheduled consolidation (default: daily at 2 AM)",
         "Promoted facts written to MEMORY.md with timestamps"
       ],
-      "dependencies": ["BMTOS-72"],
+      "dependencies": [
+        "BMTOS-72"
+      ],
       "epic_id": "BMTOS-EPIC-9",
       "created_at": "2026-04-11"
     },
@@ -1862,7 +1949,11 @@
       "priority": "low",
       "points": 8,
       "status": "backlog",
-      "labels": ["channels", "messaging", "iot"],
+      "labels": [
+        "channels",
+        "messaging",
+        "iot"
+      ],
       "acceptance_criteria": [
         "Channel plugin interface: deliver(message, channel_config) -> DeliveryResult",
         "Webhook channel: POST response to configurable URL",
@@ -1870,7 +1961,9 @@
         "Per-session channel binding: responses delivered to configured channels",
         "Channel configuration via /api/v1/channels endpoints"
       ],
-      "dependencies": ["BMTOS-69"],
+      "dependencies": [
+        "BMTOS-69"
+      ],
       "epic_id": "BMTOS-EPIC-9",
       "created_at": "2026-04-11"
     }

@@ -225,7 +225,7 @@ class BMTAIOSController:
                 try:
                     module = importlib.import_module(module_path)
                     provider_cls = getattr(module, class_name)
-                    base_url = f"http://{svc.container_name}:{svc.port}"
+                    base_url = f"http://localhost:{svc.port}"
                     provider = provider_cls(base_url=base_url)
                     registry.register(svc.name, provider)
                     logger.info(
@@ -234,16 +234,18 @@ class BMTAIOSController:
                         class_name,
                         base_url,
                     )
-                except Exception as exc:
+                except (ImportError, AttributeError, TypeError, ValueError) as exc:
                     logger.warning("Failed to register provider '%s': %s", svc.name, exc)
+                except OSError as exc:
+                    logger.warning("Network/OS error registering provider '%s': %s", svc.name, exc)
 
             logger.info(
                 "Provider registry: %s (active: %s)",
                 registry.list(),
                 registry.active_name,
             )
-        except Exception as exc:
-            logger.warning("Provider registration failed: %s", exc)
+        except (ImportError, RuntimeError) as exc:
+            logger.exception("Provider registration failed: %s", exc)
 
     # --- Signal handling & main loop ---
 
@@ -268,6 +270,11 @@ class BMTAIOSController:
         logger.info("Compose file: %s", self.config.compose_file)
         logger.info("API server: %s:%d", self.config.api_host, self.config.api_port)
 
+        # Validate security configuration before binding the server.
+        from .auth import validate_startup_security
+
+        validate_startup_security()
+
         # Start the AI stack
         self.start_stack()
 
@@ -281,11 +288,6 @@ class BMTAIOSController:
         from bmt_ai_os.tls.config import load_tls_config
 
         tls_cfg = load_tls_config()
-
-        # Ensure a default admin user exists on first boot.
-        from bmt_ai_os.controller.auth import ensure_default_admin
-
-        ensure_default_admin()
 
         # Attach controller to API and run the server (HTTP or HTTPS).
         set_controller(self)
@@ -301,20 +303,19 @@ class BMTAIOSController:
                 )
                 sys.exit(1)
 
+            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             try:
-                # build_ssl_context() enforces TLS 1.2+, disables weak ciphers,
-                # and applies OP_NO_COMPRESSION / forward-secrecy options.
-                tls_cfg.build_ssl_context()
-            except (ssl.SSLError, OSError, ValueError) as exc:
-                logger.error("Failed to build TLS context: %s", exc)
+                ssl_ctx.load_cert_chain(certfile=cert, keyfile=key)
+            except (ssl.SSLError, OSError) as exc:
+                logger.error("Failed to load TLS certificate/key: %s", exc)
                 sys.exit(1)
 
             logger.info(
-                "TLS enabled — HTTPS on %s:%d (cert=%s, mtls=%s)",
+                "TLS enabled — HTTPS on %s:%d (cert=%s)",
                 self.config.api_host,
                 tls_cfg.port,
                 cert,
-                tls_cfg.mtls_enabled,
             )
             uvicorn.run(
                 app,
@@ -335,33 +336,22 @@ class BMTAIOSController:
 
 
 def _setup_logging(config: ControllerConfig) -> None:
-    """Configure structured JSON logging with rotation for all subsystems.
+    """Configure structured logging to stdout and log file."""
+    fmt = "%(asctime)s %(levelname)-8s [%(name)s] %(message)s"
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
 
-    Uses :func:`bmt_ai_os.logging.configure_log_streams` to create separate
-    rotating log files for controller, providers, health, and rag streams.
-    Falls back to stdout when the log directory is not writable.
+    log_path = Path(config.log_file)
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(config.log_file))
+    except OSError:
+        # Cannot write to log file (e.g. /var/log not writable), stdout only
+        pass
 
-    Format is controlled by the ``BMT_LOG_FORMAT`` env variable:
-    - ``json`` (default) — machine-parseable JSON for log aggregators
-    - ``text`` — human-readable format for interactive use
-    """
-    from bmt_ai_os.logging import configure_log_streams
-
-    log_dir = Path(config.log_file).parent
-
-    configure_log_streams(
-        log_dir=log_dir,
-        level=config.log_level,
-    )
-
-    # Also configure the root bmt-controller logger so existing logger.info()
-    # calls in this module route through the structured handler.
-    from bmt_ai_os.logging import setup_logging
-
-    setup_logging(
-        "bmt-controller",
-        log_dir=log_dir,
-        level=config.log_level,
+    logging.basicConfig(
+        level=getattr(logging, config.log_level.upper(), logging.INFO),
+        format=fmt,
+        handlers=handlers,
     )
 
 
@@ -377,12 +367,6 @@ def main() -> None:
 
     config = load_config(args.config)
     _setup_logging(config)
-
-    # Security checks must run before any network ports are bound.
-    from bmt_ai_os.controller.auth import ensure_default_admin, validate_startup_security
-
-    validate_startup_security()
-    ensure_default_admin()
 
     controller = BMTAIOSController(config)
     controller.run()
