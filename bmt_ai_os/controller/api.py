@@ -11,6 +11,7 @@ from .conversation_routes import router as conversation_router
 from .metrics import get_collector
 from .middleware import apply_middleware
 from .openai_compat import router as openai_router
+from .persona_routes import router as persona_router
 from .prometheus import router as prometheus_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
@@ -45,6 +46,7 @@ app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(openai_router)
 app.include_router(rag_router, prefix="/api/v1")
+app.include_router(persona_router)
 app.include_router(conversation_router)
 app.include_router(provider_router)
 app.include_router(prometheus_router)

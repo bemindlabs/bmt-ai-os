@@ -566,22 +566,54 @@ def persona_set(preset: str, workspace: str | None, force: bool) -> None:
 
 
 @persona.command("show")
-@click.argument("preset", type=click.Choice(list(_PERSONA_PRESETS), case_sensitive=False))
-def persona_show(preset: str) -> None:
+@click.argument(
+    "preset",
+    type=click.Choice(list(_PERSONA_PRESETS), case_sensitive=False),
+    required=False,
+    default=None,
+)
+def persona_show(preset: str | None) -> None:
     """Print the content of a preset SOUL.md to stdout.
 
-    Example: bmt-ai-os persona show coding
+    When PRESET is omitted, prints the currently active workspace SOUL.md
+    (resolved via BMT_PERSONA_DIR / BMT_DEFAULT_PERSONA).
+
+    Examples:
+      bmt-ai-os persona show
+      bmt-ai-os persona show coding
     """
     from pathlib import Path
 
-    presets_dir = Path(__file__).parent / "persona" / "presets"
-    src = presets_dir / f"{preset}.md"
+    if preset is not None:
+        # Show a named preset from the package
+        presets_dir = Path(__file__).parent / "persona" / "presets"
+        src = presets_dir / f"{preset}.md"
+        if not src.is_file():
+            click.echo(f"Error: preset file not found: {src}", err=True)
+            sys.exit(1)
+        click.echo(src.read_text(encoding="utf-8"))
+    else:
+        # Show the active workspace SOUL.md
+        env_dir = os.environ.get("BMT_PERSONA_DIR", "").strip()
+        if env_dir:
+            workspace = Path(env_dir)
+        else:
+            name = os.environ.get("BMT_DEFAULT_PERSONA", "").strip() or "default"
+            workspace = Path.home() / ".bmt-ai-os" / "personas" / name
 
-    if not src.is_file():
-        click.echo(f"Error: preset file not found: {src}", err=True)
-        sys.exit(1)
-
-    click.echo(src.read_text(encoding="utf-8"))
+        soul_path = workspace / "SOUL.md"
+        if soul_path.is_file():
+            click.echo(soul_path.read_text(encoding="utf-8"))
+        else:
+            # Fall back to the bundled general preset
+            fallback = Path(__file__).parent / "persona" / "presets" / "general.md"
+            if fallback.is_file():
+                click.echo("(No active SOUL.md found — showing built-in 'general' preset)\n")
+                click.echo(fallback.read_text(encoding="utf-8"))
+            else:
+                msg = "No active persona found. Use 'bmt-ai-os persona set <preset>'"
+                click.echo(msg + " to configure one.", err=True)
+                sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

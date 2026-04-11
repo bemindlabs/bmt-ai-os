@@ -192,6 +192,51 @@ export async function streamChat(
 }
 
 // ---------------------------------------------------------------------------
+// Persona API (BMTOS-106)
+// ---------------------------------------------------------------------------
+
+export interface PersonaResponse {
+  content: string;
+  workspace: string;
+}
+
+export interface PresetInfo {
+  name: string;
+  content: string;
+}
+
+export interface PresetsResponse {
+  presets: PresetInfo[];
+}
+
+export interface ApplyPresetResponse {
+  name: string;
+  workspace: string;
+  message: string;
+}
+
+export async function getPersona(): Promise<PersonaResponse> {
+  return apiFetch<PersonaResponse>("/api/v1/persona");
+}
+
+export async function savePersona(content: string): Promise<PersonaResponse> {
+  return apiFetch<PersonaResponse>("/api/v1/persona", {
+    method: "PUT",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function listPresets(): Promise<PresetsResponse> {
+  return apiFetch<PresetsResponse>("/api/v1/persona/presets");
+}
+
+export async function applyPreset(name: string): Promise<ApplyPresetResponse> {
+  return apiFetch<ApplyPresetResponse>(`/api/v1/persona/presets/${name}/apply`, {
+    method: "POST",
+  });
+}
+
+// ---------------------------------------------------------------------------
 // RAG Query (BMTOS-80)
 // ---------------------------------------------------------------------------
 
