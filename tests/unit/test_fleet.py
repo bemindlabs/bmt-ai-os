@@ -457,6 +457,276 @@ class TestFleetAgentRunStop:
 
 
 # ---------------------------------------------------------------------------
+# fleet.registry — FleetRegistry with SQLite persistence
+# ---------------------------------------------------------------------------
+
+import sqlite3
+
+from bmt_ai_os.fleet.registry import DeviceRecord, FleetRegistry
+
+
+def _make_registry(tmp_path) -> FleetRegistry:
+    """Return a fresh FleetRegistry backed by a temp SQLite file."""
+    db_path = str(tmp_path / "fleet-test.db")
+    return FleetRegistry(db_path=db_path)
+
+
+def _sample_info(device_id: str = "dev-abc") -> dict:
+    return {
+        "device_id": device_id,
+        "hostname": "bmt-1",
+        "os_version": "2026.4",
+        "arch": "aarch64",
+        "board": "rk3588",
+        "cpu_model": "Cortex-A76",
+        "cpu_cores": 8,
+        "memory_total_mb": 8192,
+        "disk_total_gb": 64.0,
+    }
+
+
+def _sample_heartbeat(device_id: str = "dev-abc") -> DeviceHeartbeat:
+    return DeviceHeartbeat.now(
+        device_id=device_id,
+        os_version="2026.4",
+        hardware={"board": "rk3588"},
+        loaded_models=["qwen2.5:7b"],
+        service_health={"ollama": "up"},
+        cpu_percent=10.0,
+        memory_percent=30.0,
+        disk_percent=20.0,
+    )
+
+
+class TestFleetRegistryRegister:
+    def test_register_returns_device_record(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        rec = reg.register(_sample_info())
+        assert isinstance(rec, DeviceRecord)
+        assert rec.device_id == "dev-abc"
+        assert rec.hostname == "bmt-1"
+
+    def test_register_increments_count(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        assert reg.device_count() == 0
+        reg.register(_sample_info("dev-1"))
+        reg.register(_sample_info("dev-2"))
+        assert reg.device_count() == 2
+
+    def test_register_idempotent_preserves_registered_at(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        rec1 = reg.register(_sample_info())
+        rec2 = reg.register(_sample_info())
+        assert rec1.registered_at == rec2.registered_at
+
+    def test_register_persists_to_sqlite(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg = FleetRegistry(db_path=db_path)
+        reg.register(_sample_info())
+        # Verify row exists in SQLite directly
+        con = sqlite3.connect(db_path)
+        row = con.execute(
+            "SELECT device_id FROM devices WHERE device_id = ?", ("dev-abc",)
+        ).fetchone()
+        con.close()
+        assert row is not None
+        assert row[0] == "dev-abc"
+
+
+class TestFleetRegistryHeartbeat:
+    def test_heartbeat_updates_last_seen(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info())
+        hb = _sample_heartbeat()
+        reg.heartbeat(hb)
+        rec = reg.get_device("dev-abc")
+        assert rec is not None
+        assert rec.last_seen != ""
+
+    def test_heartbeat_returns_noop_when_no_commands(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info())
+        cmd = reg.heartbeat(_sample_heartbeat())
+        assert cmd.is_noop()
+
+    def test_heartbeat_auto_registers_unknown_device(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        cmd = reg.heartbeat(_sample_heartbeat("new-device"))
+        assert reg.get_device("new-device") is not None
+        assert cmd.is_noop()
+
+    def test_heartbeat_persists_last_heartbeat_to_sqlite(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg = FleetRegistry(db_path=db_path)
+        reg.register(_sample_info())
+        reg.heartbeat(_sample_heartbeat())
+
+        con = sqlite3.connect(db_path)
+        row = con.execute(
+            "SELECT last_heartbeat FROM devices WHERE device_id = ?", ("dev-abc",)
+        ).fetchone()
+        con.close()
+        assert row is not None
+        hb_data = json.loads(row[0])
+        assert hb_data["device_id"] == "dev-abc"
+        assert "cpu_percent" in hb_data
+
+    def test_heartbeat_returns_pending_command_and_marks_delivered(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg = FleetRegistry(db_path=db_path)
+        reg.register(_sample_info())
+        enqueued = reg.enqueue_command("dev-abc", "pull-model", {"model": "qwen2.5:7b"})
+
+        cmd = reg.heartbeat(_sample_heartbeat())
+        assert cmd.action == "pull-model"
+        assert cmd.command_id == enqueued.command_id
+
+        # No further commands in queue
+        cmd2 = reg.heartbeat(_sample_heartbeat())
+        assert cmd2.is_noop()
+
+        # DB row should be marked delivered
+        con = sqlite3.connect(db_path)
+        row = con.execute(
+            "SELECT status FROM pending_commands WHERE command_id = ?",
+            (enqueued.command_id,),
+        ).fetchone()
+        con.close()
+        assert row is not None
+        assert row[0] == "delivered"
+
+
+class TestFleetRegistryEnqueueCommand:
+    def test_enqueue_returns_fleet_command(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info())
+        cmd = reg.enqueue_command("dev-abc", "update")
+        assert cmd.action == "update"
+        assert cmd.status == "pending"
+        assert cmd.command_id != ""
+
+    def test_enqueue_generates_unique_command_ids(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info())
+        cmd1 = reg.enqueue_command("dev-abc", "update")
+        cmd2 = reg.enqueue_command("dev-abc", "update")
+        assert cmd1.command_id != cmd2.command_id
+
+    def test_enqueue_custom_command_id(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info())
+        cmd = reg.enqueue_command("dev-abc", "update", command_id="my-cmd-id")
+        assert cmd.command_id == "my-cmd-id"
+
+    def test_enqueue_raises_for_unknown_device(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        import pytest
+
+        with pytest.raises(KeyError, match="no-such-device"):
+            reg.enqueue_command("no-such-device", "update")
+
+    def test_enqueue_persists_to_sqlite(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg = FleetRegistry(db_path=db_path)
+        reg.register(_sample_info())
+        cmd = reg.enqueue_command("dev-abc", "pull-model", {"model": "qwen2.5:7b"})
+
+        con = sqlite3.connect(db_path)
+        row = con.execute(
+            "SELECT action, params, status FROM pending_commands WHERE command_id = ?",
+            (cmd.command_id,),
+        ).fetchone()
+        con.close()
+        assert row is not None
+        assert row[0] == "pull-model"
+        assert json.loads(row[1]) == {"model": "qwen2.5:7b"}
+        assert row[2] == "pending"
+
+    def test_multiple_commands_delivered_in_order(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info())
+        reg.enqueue_command("dev-abc", "update")
+        reg.enqueue_command("dev-abc", "pull-model", {"model": "qwen2.5:7b"})
+
+        cmd1 = reg.heartbeat(_sample_heartbeat())
+        cmd2 = reg.heartbeat(_sample_heartbeat())
+        cmd3 = reg.heartbeat(_sample_heartbeat())
+
+        assert cmd1.action == "update"
+        assert cmd2.action == "pull-model"
+        assert cmd3.is_noop()
+
+
+class TestFleetRegistryPersistence:
+    """Verify that state survives registry restart (simulating controller restart)."""
+
+    def test_devices_survive_restart(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg1 = FleetRegistry(db_path=db_path)
+        reg1.register(_sample_info("dev-persist"))
+
+        # Simulate restart
+        reg2 = FleetRegistry(db_path=db_path)
+        assert reg2.device_count() == 1
+        rec = reg2.get_device("dev-persist")
+        assert rec is not None
+        assert rec.hostname == "bmt-1"
+
+    def test_pending_commands_survive_restart(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg1 = FleetRegistry(db_path=db_path)
+        reg1.register(_sample_info())
+        cmd = reg1.enqueue_command("dev-abc", "pull-model", {"model": "qwen2.5:7b"})
+
+        # Simulate restart
+        reg2 = FleetRegistry(db_path=db_path)
+        rec = reg2.get_device("dev-abc")
+        assert rec is not None
+        assert len(rec.pending_commands) == 1
+        assert rec.pending_commands[0].command_id == cmd.command_id
+        assert rec.pending_commands[0].action == "pull-model"
+
+    def test_delivered_commands_not_loaded_on_restart(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg1 = FleetRegistry(db_path=db_path)
+        reg1.register(_sample_info())
+        reg1.enqueue_command("dev-abc", "update")
+
+        # Consume the command
+        reg1.heartbeat(_sample_heartbeat())
+
+        # Restart — delivered command must not appear
+        reg2 = FleetRegistry(db_path=db_path)
+        rec = reg2.get_device("dev-abc")
+        assert rec is not None
+        assert len(rec.pending_commands) == 0
+
+    def test_multiple_devices_survive_restart(self, tmp_path):
+        db_path = str(tmp_path / "fleet.db")
+        reg1 = FleetRegistry(db_path=db_path)
+        for i in range(5):
+            reg1.register(_sample_info(f"dev-{i}"))
+
+        reg2 = FleetRegistry(db_path=db_path)
+        assert reg2.device_count() == 5
+
+    def test_env_var_db_path(self, tmp_path, monkeypatch):
+        db_path = str(tmp_path / "env-fleet.db")
+        monkeypatch.setenv("BMT_FLEET_DB", db_path)
+        reg = FleetRegistry()  # no explicit db_path — should read env var
+        reg.register(_sample_info())
+        assert reg.device_count() == 1
+
+    def test_list_devices(self, tmp_path):
+        reg = _make_registry(tmp_path)
+        reg.register(_sample_info("dev-x"))
+        reg.register(_sample_info("dev-y"))
+        devices = reg.list_devices()
+        ids = {d.device_id for d in devices}
+        assert ids == {"dev-x", "dev-y"}
+
+
+# ---------------------------------------------------------------------------
 # CLI integration (Click test runner)
 # ---------------------------------------------------------------------------
 
