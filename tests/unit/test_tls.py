@@ -132,10 +132,10 @@ class TestGenerateSelfSigned:
         key = tmp_path / "server.key"
 
         generate_self_signed(cert, key, hostname="host-a")
-        mtime_first = cert.stat().st_mtime
+        _mtime_first = cert.stat().st_mtime
 
         generate_self_signed(cert, key, hostname="host-b")
-        mtime_second = cert.stat().st_mtime
+        _mtime_second = cert.stat().st_mtime
 
         # Second call must produce a new file (mtime changes) with a new CN.
         from cryptography import x509
@@ -386,8 +386,6 @@ class TestLoadTLSConfig:
         expected_key = str(tmp_path / "server.key")
 
         import bmt_ai_os.tls.certs as certs_mod
-
-        original_ensure = certs_mod.ensure_certs
 
         def fake_ensure(cert_dir=None):
             return expected_cert, expected_key
