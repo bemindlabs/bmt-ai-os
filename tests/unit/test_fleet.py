@@ -567,3 +567,539 @@ class TestFleetCLI:
 
         assert result.exit_code == 0, result.output
         assert "pull-model" in result.output
+
+
+# ---------------------------------------------------------------------------
+# fleet.registry
+# ---------------------------------------------------------------------------
+
+from bmt_ai_os.fleet.registry import DeviceRecord, FleetRegistry
+
+
+def _make_heartbeat(device_id: str = "dev-1") -> DeviceHeartbeat:
+    return DeviceHeartbeat.now(
+        device_id=device_id,
+        os_version="2026.4",
+        hardware={"board": "rk3588", "arch": "aarch64", "hostname": f"host-{device_id}"},
+        loaded_models=["qwen2.5:7b"],
+        service_health={"ollama": "up", "chromadb": "up"},
+        cpu_percent=10.0,
+        memory_percent=40.0,
+        disk_percent=20.0,
+    )
+
+
+class TestDeviceRecord:
+    def test_initial_state(self):
+        rec = DeviceRecord(
+            device_id="abc",
+            hostname="pi5",
+            arch="aarch64",
+            board="rpi5",
+        )
+        assert rec.device_id == "abc"
+        assert rec.is_online() is False  # no heartbeat yet
+        assert rec.pending_command_count() == 0
+
+    def test_apply_heartbeat_updates_fields(self):
+        rec = DeviceRecord(device_id="dev-1")
+        hb = _make_heartbeat("dev-1")
+        rec.apply_heartbeat(hb)
+
+        assert rec.loaded_models == ["qwen2.5:7b"]
+        assert rec.service_health == {"ollama": "up", "chromadb": "up"}
+        assert rec.cpu_percent == 10.0
+        assert rec.memory_percent == 40.0
+        assert rec.os_version == "2026.4"
+        assert rec.last_seen == hb.timestamp
+
+    def test_is_online_after_fresh_heartbeat(self):
+        rec = DeviceRecord(device_id="dev-1")
+        hb = _make_heartbeat("dev-1")
+        rec.apply_heartbeat(hb)
+        assert rec.is_online() is True
+
+    def test_is_online_false_for_stale_timestamp(self):
+        rec = DeviceRecord(device_id="dev-1")
+        # Set last_seen to a timestamp far in the past.
+        rec.last_seen = "2020-01-01T00:00:00+00:00"
+        assert rec.is_online() is False
+
+    def test_command_queue_fifo(self):
+        rec = DeviceRecord(device_id="dev-1")
+        cmd1 = FleetCommand(action="update", params={})
+        cmd2 = FleetCommand(action="pull-model", params={"model": "qwen2.5:7b"})
+
+        rec.enqueue_command(cmd1)
+        rec.enqueue_command(cmd2)
+
+        assert rec.pending_command_count() == 2
+        out1 = rec.dequeue_command()
+        assert out1.action == "update"
+        assert rec.pending_command_count() == 1
+        out2 = rec.dequeue_command()
+        assert out2.action == "pull-model"
+        assert rec.pending_command_count() == 0
+
+    def test_dequeue_returns_noop_when_empty(self):
+        rec = DeviceRecord(device_id="dev-1")
+        cmd = rec.dequeue_command()
+        assert cmd.is_noop()
+
+    def test_to_dict_keys(self):
+        rec = DeviceRecord(device_id="dev-1", hostname="h", arch="aarch64", board="rk3588")
+        hb = _make_heartbeat("dev-1")
+        rec.apply_heartbeat(hb)
+        d = rec.to_dict()
+        for key in (
+            "device_id",
+            "hostname",
+            "arch",
+            "board",
+            "os_version",
+            "hardware",
+            "registered_at",
+            "last_seen",
+            "online",
+            "loaded_models",
+            "service_health",
+            "cpu_percent",
+            "memory_percent",
+            "disk_percent",
+            "pending_commands",
+        ):
+            assert key in d, f"Missing key in to_dict: {key}"
+
+
+class TestFleetRegistry:
+    def _registry(self) -> FleetRegistry:
+        """Return a fresh registry for each test."""
+        return FleetRegistry()
+
+    def test_register_new_device(self):
+        reg = self._registry()
+        rec = reg.register_device(device_id="d1", hostname="h1", arch="aarch64", board="rk3588")
+        assert rec.device_id == "d1"
+        assert reg.device_count() == 1
+
+    def test_register_idempotent(self):
+        reg = self._registry()
+        reg.register_device(device_id="d1")
+        reg.register_device(device_id="d1", hostname="updated-host")
+        assert reg.device_count() == 1
+        rec = reg.get_device("d1")
+        assert rec is not None
+        assert rec.hostname == "updated-host"
+
+    def test_remove_device(self):
+        reg = self._registry()
+        reg.register_device(device_id="d1")
+        assert reg.remove_device("d1") is True
+        assert reg.device_count() == 0
+        assert reg.remove_device("d1") is False  # already gone
+
+    def test_apply_heartbeat_auto_registers(self):
+        reg = self._registry()
+        hb = _make_heartbeat("new-device")
+        reg.apply_heartbeat(hb)
+        assert reg.device_count() == 1
+        rec = reg.get_device("new-device")
+        assert rec is not None
+        assert rec.loaded_models == ["qwen2.5:7b"]
+
+    def test_apply_heartbeat_returns_queued_command(self):
+        reg = self._registry()
+        reg.register_device("d1")
+        cmd = FleetCommand(action="update", params={})
+        reg.enqueue_command("d1", cmd)
+
+        hb = _make_heartbeat("d1")
+        returned = reg.apply_heartbeat(hb)
+        assert returned.action == "update"
+
+    def test_apply_heartbeat_returns_noop_when_no_command(self):
+        reg = self._registry()
+        hb = _make_heartbeat("d1")
+        returned = reg.apply_heartbeat(hb)
+        assert returned.is_noop()
+
+    def test_enqueue_command_unknown_device(self):
+        reg = self._registry()
+        cmd = FleetCommand(action="update")
+        result = reg.enqueue_command("nonexistent", cmd)
+        assert result is False
+
+    def test_broadcast_command(self):
+        reg = self._registry()
+        reg.register_device("d1")
+        reg.register_device("d2")
+        cmd = FleetCommand(action="restart-service", params={"service": "ollama"})
+        targets = reg.broadcast_command(cmd)
+
+        assert set(targets) == {"d1", "d2"}
+        assert reg.get_device("d1").pending_command_count() == 1  # type: ignore[union-attr]
+        assert reg.get_device("d2").pending_command_count() == 1  # type: ignore[union-attr]
+
+    def test_deploy_model_all_devices(self):
+        reg = self._registry()
+        reg.register_device("d1")
+        reg.register_device("d2")
+        targeted = reg.deploy_model("qwen2.5-coder:7b")
+
+        assert set(targeted) == {"d1", "d2"}
+        d1 = reg.get_device("d1")
+        assert d1 is not None
+        cmd = d1.dequeue_command()
+        assert cmd.action == "pull-model"
+        assert cmd.params["model"] == "qwen2.5-coder:7b"
+
+    def test_deploy_model_specific_devices(self):
+        reg = self._registry()
+        reg.register_device("d1")
+        reg.register_device("d2")
+        targeted = reg.deploy_model("qwen2.5:7b", device_ids=["d1"])
+
+        assert targeted == ["d1"]
+        assert reg.get_device("d1").pending_command_count() == 1  # type: ignore[union-attr]
+        assert reg.get_device("d2").pending_command_count() == 0  # type: ignore[union-attr]
+
+    def test_list_devices(self):
+        reg = self._registry()
+        reg.register_device("d1", hostname="h1")
+        reg.register_device("d2", hostname="h2")
+        devices = reg.list_devices()
+        assert len(devices) == 2
+        ids = {d["device_id"] for d in devices}
+        assert ids == {"d1", "d2"}
+
+    def test_summary(self):
+        reg = self._registry()
+        reg.register_device("d1")
+        reg.register_device("d2")
+        # Give d1 a fresh heartbeat (online), d2 stays offline.
+        hb = _make_heartbeat("d1")
+        reg.apply_heartbeat(hb)
+
+        s = reg.summary()
+        assert s["total_devices"] == 2
+        assert s["online_devices"] == 1
+        assert s["offline_devices"] == 1
+        assert "qwen2.5:7b" in s["unique_models"]
+
+    def test_online_count(self):
+        reg = self._registry()
+        reg.register_device("d1")
+        assert reg.online_count() == 0
+        reg.apply_heartbeat(_make_heartbeat("d1"))
+        assert reg.online_count() == 1
+
+    def test_get_registry_singleton(self):
+        from bmt_ai_os.fleet.registry import get_registry
+
+        r1 = get_registry()
+        r2 = get_registry()
+        assert r1 is r2
+
+
+# ---------------------------------------------------------------------------
+# fleet.routes (via FastAPI TestClient)
+# ---------------------------------------------------------------------------
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from bmt_ai_os.fleet.routes import router as fleet_router
+
+
+def _make_test_app(registry: FleetRegistry | None = None) -> TestClient:
+    """Build a minimal FastAPI app with the fleet router for testing."""
+    from bmt_ai_os.fleet import registry as reg_module
+
+    app = FastAPI()
+    app.include_router(fleet_router, prefix="/api/v1")
+
+    if registry is not None:
+        # Monkey-patch the module-level singleton for test isolation.
+        reg_module._registry = registry
+
+    return TestClient(app)
+
+
+class TestFleetRoutes:
+    def setup_method(self):
+        """Give each test a fresh, isolated registry."""
+        from bmt_ai_os.fleet import registry as reg_module
+
+        self._orig_registry = reg_module._registry
+        self._test_registry = FleetRegistry()
+        reg_module._registry = self._test_registry
+        self._client = TestClient(_make_test_app(self._test_registry).app)
+
+    def teardown_method(self):
+        from bmt_ai_os.fleet import registry as reg_module
+
+        reg_module._registry = self._orig_registry
+
+    def test_health_endpoint(self):
+        resp = self._client.get("/api/v1/fleet/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert "total_devices" in data
+
+    def test_register_new_device(self):
+        resp = self._client.post(
+            "/api/v1/fleet/register",
+            json={
+                "device_id": "d1",
+                "hostname": "bmt-rk3588",
+                "arch": "aarch64",
+                "board": "rk3588",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "registered"
+        assert data["device_id"] == "d1"
+
+    def test_register_is_idempotent(self):
+        for _ in range(2):
+            resp = self._client.post(
+                "/api/v1/fleet/register",
+                json={"device_id": "d1", "hostname": "bmt-1"},
+            )
+            assert resp.status_code == 200
+        assert self._test_registry.device_count() == 1
+
+    def test_heartbeat_auto_registers_and_returns_noop(self):
+        resp = self._client.post(
+            "/api/v1/fleet/heartbeat",
+            json={
+                "device_id": "new-device",
+                "timestamp": "2026-04-11T00:00:00+00:00",
+                "os_version": "2026.4",
+                "hardware": {"board": "rk3588"},
+                "loaded_models": [],
+                "service_health": {},
+                "cpu_percent": 5.0,
+                "memory_percent": 20.0,
+                "disk_percent": 10.0,
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["action"] is None
+        assert self._test_registry.device_count() == 1
+
+    def test_heartbeat_returns_queued_command(self):
+        self._test_registry.register_device("d1")
+        self._test_registry.enqueue_command("d1", FleetCommand(action="update", params={}))
+        resp = self._client.post(
+            "/api/v1/fleet/heartbeat",
+            json={
+                "device_id": "d1",
+                "timestamp": "2026-04-11T00:00:00+00:00",
+                "os_version": "2026.4",
+                "hardware": {},
+                "loaded_models": [],
+                "service_health": {},
+                "cpu_percent": 0.0,
+                "memory_percent": 0.0,
+                "disk_percent": 0.0,
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["action"] == "update"
+
+    def test_list_devices_empty(self):
+        resp = self._client.get("/api/v1/fleet/devices")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["devices"] == []
+        assert data["total"] == 0
+
+    def test_list_devices_populated(self):
+        self._test_registry.register_device("d1")
+        self._test_registry.register_device("d2")
+        resp = self._client.get("/api/v1/fleet/devices")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        assert len(data["devices"]) == 2
+
+    def test_get_device_found(self):
+        self._test_registry.register_device("d1", hostname="pi5")
+        resp = self._client.get("/api/v1/fleet/devices/d1")
+        assert resp.status_code == 200
+        assert resp.json()["device_id"] == "d1"
+
+    def test_get_device_not_found(self):
+        resp = self._client.get("/api/v1/fleet/devices/nonexistent")
+        assert resp.status_code == 404
+
+    def test_remove_device(self):
+        self._test_registry.register_device("d1")
+        resp = self._client.delete("/api/v1/fleet/devices/d1")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "removed"
+        assert self._test_registry.device_count() == 0
+
+    def test_remove_device_not_found(self):
+        resp = self._client.delete("/api/v1/fleet/devices/ghost")
+        assert resp.status_code == 404
+
+    def test_summary_endpoint(self):
+        self._test_registry.register_device("d1")
+        resp = self._client.get("/api/v1/fleet/summary")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_devices"] == 1
+        assert "online_devices" in data
+
+    def test_queue_command(self):
+        self._test_registry.register_device("d1")
+        resp = self._client.post(
+            "/api/v1/fleet/devices/d1/command",
+            json={"action": "restart-service", "params": {"service": "ollama"}, "command_id": "c1"},
+        )
+        assert resp.status_code == 202
+        data = resp.json()
+        assert data["status"] == "queued"
+        assert data["action"] == "restart-service"
+        assert self._test_registry.get_device("d1").pending_command_count() == 1  # type: ignore[union-attr]
+
+    def test_queue_command_unknown_device(self):
+        resp = self._client.post(
+            "/api/v1/fleet/devices/ghost/command",
+            json={"action": "update"},
+        )
+        assert resp.status_code == 404
+
+    def test_deploy_model_all_devices(self):
+        self._test_registry.register_device("d1")
+        self._test_registry.register_device("d2")
+        resp = self._client.post(
+            "/api/v1/fleet/deploy-model",
+            json={"model": "qwen2.5-coder:7b"},
+        )
+        assert resp.status_code == 202
+        data = resp.json()
+        assert data["model"] == "qwen2.5-coder:7b"
+        assert data["device_count"] == 2
+        assert set(data["targeted_devices"]) == {"d1", "d2"}
+
+    def test_deploy_model_specific_devices(self):
+        self._test_registry.register_device("d1")
+        self._test_registry.register_device("d2")
+        resp = self._client.post(
+            "/api/v1/fleet/deploy-model",
+            json={"model": "qwen2.5:7b", "device_ids": ["d1"]},
+        )
+        assert resp.status_code == 202
+        assert resp.json()["device_count"] == 1
+
+    def test_deploy_model_empty_string_rejected(self):
+        resp = self._client.post(
+            "/api/v1/fleet/deploy-model",
+            json={"model": "   "},
+        )
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# fleet.agent — offline queue behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestFleetAgentOfflineQueue:
+    def test_offline_queue_starts_empty(self):
+        agent = _make_agent()
+        assert agent.offline_queue_size() == 0
+
+    def test_status_includes_offline_queue_size(self):
+        agent = _make_agent()
+        s = agent.status()
+        assert "offline_queue_size" in s
+        assert s["offline_queue_size"] == 0
+
+    def test_enqueue_offline_increments_size(self):
+        agent = _make_agent()
+        agent._enqueue_offline({"device_id": "test", "timestamp": "now"})
+        assert agent.offline_queue_size() == 1
+
+    def test_offline_queue_max_not_exceeded(self):
+        from bmt_ai_os.fleet import agent as agent_mod
+
+        orig_max = agent_mod._OFFLINE_QUEUE_MAX
+        agent_mod._OFFLINE_QUEUE_MAX = 3
+        try:
+            ag = FleetAgent("http://fleet.test", device_id="d1")
+            for i in range(10):
+                ag._enqueue_offline({"seq": i})
+            # deque maxlen caps at 3
+            assert ag.offline_queue_size() == 3
+        finally:
+            agent_mod._OFFLINE_QUEUE_MAX = orig_max
+
+    def test_flush_offline_queue_drains_on_success(self):
+        agent = _make_agent()
+        agent._enqueue_offline({"device_id": "t", "timestamp": "t1"})
+        agent._enqueue_offline({"device_id": "t", "timestamp": "t2"})
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("bmt_ai_os.fleet.agent.requests.post", return_value=mock_resp):
+            agent._flush_offline_queue()
+
+        assert agent.offline_queue_size() == 0
+
+    def test_flush_offline_queue_stops_on_failure(self):
+        import requests as _req
+
+        agent = _make_agent()
+        agent._enqueue_offline({"device_id": "t", "timestamp": "t1"})
+        agent._enqueue_offline({"device_id": "t", "timestamp": "t2"})
+
+        with patch(
+            "bmt_ai_os.fleet.agent.requests.post",
+            side_effect=_req.exceptions.ConnectionError("offline"),
+        ):
+            agent._flush_offline_queue()
+
+        # Nothing was drained because every attempt fails.
+        assert agent.offline_queue_size() == 2
+
+    def test_loop_queues_offline_on_connection_error(self):
+        """When the server is unreachable the loop enqueues the heartbeat."""
+        import requests as _req
+
+        agent = _make_agent()
+        # Prevent the loop from sleeping (it runs exactly one iteration).
+        iterations = [0]
+
+        original_wait = agent._stop_event.wait
+
+        def _wait_once(timeout=None):
+            iterations[0] += 1
+            agent._stop_event.set()  # stop after first iteration
+            return original_wait(timeout=0)
+
+        agent._stop_event.wait = _wait_once
+
+        with (
+            patch(
+                "bmt_ai_os.fleet.agent.requests.post",
+                side_effect=_req.exceptions.ConnectionError("no server"),
+            ),
+            patch("bmt_ai_os.fleet.agent.get_hardware_info", return_value={}),
+            patch("bmt_ai_os.fleet.agent.get_loaded_models", return_value=[]),
+            patch("bmt_ai_os.fleet.agent.get_service_health", return_value={}),
+            patch(
+                "bmt_ai_os.fleet.agent.get_resource_usage",
+                return_value={"cpu_percent": 0.0, "memory_percent": 0.0, "disk_percent": 0.0},
+            ),
+        ):
+            agent._loop()
+
+        assert agent.offline_queue_size() == 1

@@ -6,6 +6,8 @@ import time
 
 from fastapi import FastAPI
 
+from bmt_ai_os.fleet.routes import router as fleet_router
+
 from .auth_routes import router as auth_router
 from .metrics import get_collector
 from .middleware import apply_middleware
@@ -41,6 +43,7 @@ apply_middleware(app)
 app.include_router(auth_router)
 app.include_router(openai_router)
 app.include_router(rag_router, prefix="/api/v1")
+app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(provider_router)
 app.include_router(prometheus_router)
 
