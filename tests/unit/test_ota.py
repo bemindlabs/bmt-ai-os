@@ -705,3 +705,214 @@ class TestCLIUpdateCommands:
         result = runner.invoke(main, ["update", "status", "--state-file", state_file])
         assert result.exit_code == 0
         assert state_file in result.output
+
+    def test_rollback_switches_slots(self, runner, state_file, tmp_path):
+        from bmt_ai_os.cli import main
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=state_file)
+        sm.save(OTAState(current_slot="b", standby_slot="a", confirmed=False))
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            result = runner.invoke(
+                main, ["update", "rollback", "--state-file", state_file, "--yes"]
+            )
+
+        assert result.exit_code == 0
+        assert "rolled back" in result.output.lower()
+
+        state = sm.load()
+        assert state.current_slot == "a"
+        assert state.standby_slot == "b"
+
+    def test_rollback_prompts_without_yes(self, runner, state_file):
+        from bmt_ai_os.cli import main
+
+        result = runner.invoke(
+            main, ["update", "rollback", "--state-file", state_file], input="n\n"
+        )
+        assert result.exit_code != 0  # aborted
+
+    def test_containers_calls_docker_compose_pull(self, runner, state_file, tmp_path):
+        from bmt_ai_os.cli import main
+
+        compose_file = str(tmp_path / "docker-compose.yml")
+        Path(compose_file).write_text("version: '3'")
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
+            result = runner.invoke(
+                main,
+                ["update", "containers", "--compose-file", compose_file],
+            )
+
+        assert result.exit_code == 0
+        assert "updated successfully" in result.output.lower()
+        cmd = mock_run.call_args[0][0]
+        assert "docker" in cmd
+        assert "pull" in cmd
+
+    def test_containers_specific_service(self, runner, state_file, tmp_path):
+        from bmt_ai_os.cli import main
+
+        compose_file = str(tmp_path / "docker-compose.yml")
+        Path(compose_file).write_text("version: '3'")
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
+            result = runner.invoke(
+                main,
+                [
+                    "update",
+                    "containers",
+                    "--compose-file",
+                    compose_file,
+                    "--service",
+                    "ollama",
+                ],
+            )
+
+        assert result.exit_code == 0
+        cmd = mock_run.call_args[0][0]
+        assert "ollama" in cmd
+
+    def test_containers_docker_not_found(self, runner, tmp_path):
+        from bmt_ai_os.cli import main
+
+        compose_file = str(tmp_path / "docker-compose.yml")
+        Path(compose_file).write_text("version: '3'")
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = runner.invoke(
+                main,
+                ["update", "containers", "--compose-file", compose_file],
+            )
+
+        assert result.exit_code != 0
+        assert "docker" in result.output.lower()
+
+
+# ===========================================================================
+# engine.py — rollback and should_rollback
+# ===========================================================================
+
+
+class TestRollbackUpdate:
+    def test_swaps_slots_and_resets_bootcount(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="b", standby_slot="a", bootcount=2, confirmed=False))
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            result = rollback_update(state_manager=sm)
+
+        assert result is True
+        state = sm.load()
+        assert state.current_slot == "a"
+        assert state.standby_slot == "b"
+        assert state.bootcount == 0
+        assert state.confirmed is False
+
+    def test_calls_fw_setenv_slot_name(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="b", standby_slot="a"))
+
+        calls = []
+
+        def _mock_run(cmd, **kwargs):
+            calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=_mock_run):
+            rollback_update(state_manager=sm)
+
+        cmds = [" ".join(c) for c in calls if c[0] == "fw_setenv"]
+        assert any("slot_name" in c for c in cmds)
+        assert any("bootcount" in c for c in cmds)
+
+    def test_rollback_from_a_returns_to_b(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="a", standby_slot="b", confirmed=True))
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            rollback_update(state_manager=sm)
+
+        state = sm.load()
+        assert state.current_slot == "b"
+        assert state.standby_slot == "a"
+
+    def test_works_when_fw_setenv_unavailable(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="b", standby_slot="a"))
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = rollback_update(state_manager=sm)
+
+        assert result is True
+        state = sm.load()
+        assert state.current_slot == "a"
+
+
+class TestShouldRollback:
+    def test_returns_false_when_confirmed(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=True, bootcount=10))
+
+        assert should_rollback(state_manager=sm) is False
+
+    def test_returns_false_below_threshold(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=2))
+
+        assert should_rollback(max_bootcount=3, state_manager=sm) is False
+
+    def test_returns_true_at_threshold(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=3))
+
+        assert should_rollback(max_bootcount=3, state_manager=sm) is True
+
+    def test_returns_true_above_threshold(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=5))
+
+        assert should_rollback(max_bootcount=3, state_manager=sm) is True
+
+    def test_env_var_overrides_max_bootcount(self, tmp_path, monkeypatch):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        monkeypatch.setenv("BMT_OTA_MAX_BOOTCOUNT", "1")
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=1))
+
+        assert should_rollback(max_bootcount=5, state_manager=sm) is True
+
+    def test_returns_false_for_fresh_state(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import StateManager
+
+        sm = StateManager(path=tmp_path / "nonexistent.json")
+        # Factory default: confirmed=True, bootcount=0
+        assert should_rollback(state_manager=sm) is False
