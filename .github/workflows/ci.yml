@@ -155,10 +155,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: |
-          pip install -e ".[dev]" --no-deps 2>/dev/null || true
-          pip install -e .
-          pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
 
       - name: Run unit tests
         run: |
