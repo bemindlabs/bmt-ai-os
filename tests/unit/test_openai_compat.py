@@ -373,8 +373,9 @@ class TestRagInjection:
 
         original = [_Msg("user", "What is RAG?")]
 
+        # Patch at source so lazy import inside _inject_rag_context is intercepted
         with patch(
-            "bmt_ai_os.controller.openai_compat.ChromaStorage",
+            "bmt_ai_os.rag.storage.ChromaStorage",
             side_effect=Exception("connection refused"),
         ):
             result = await _inject_rag_context(original)
@@ -397,10 +398,8 @@ class TestRagInjection:
         mock_storage = unittest.mock.MagicMock()
         mock_storage.query.return_value = fake_raw
 
-        with (
-            patch("bmt_ai_os.controller.openai_compat.ChromaStorage", return_value=mock_storage),
-            patch("bmt_ai_os.controller.openai_compat.RAGConfig"),
-        ):
+        # Patch ChromaStorage at its source module
+        with patch("bmt_ai_os.rag.storage.ChromaStorage", return_value=mock_storage):
             result = await _inject_rag_context(original)
 
         assert len(result) == 2
@@ -436,10 +435,7 @@ class TestRagInjection:
         mock_storage = unittest.mock.MagicMock()
         mock_storage.query.return_value = {"documents": [[]]}
 
-        with (
-            patch("bmt_ai_os.controller.openai_compat.ChromaStorage", return_value=mock_storage),
-            patch("bmt_ai_os.controller.openai_compat.RAGConfig"),
-        ):
+        with patch("bmt_ai_os.rag.storage.ChromaStorage", return_value=mock_storage):
             result = await _inject_rag_context(original)
 
         assert result is original
@@ -450,11 +446,11 @@ class TestRagInjection:
 
         with (
             patch(
-                "bmt_ai_os.controller.openai_compat._get_provider_router",
+                "controller.openai_compat._get_provider_router",
                 return_value=_FakeRegistry(),
             ),
             patch(
-                "bmt_ai_os.controller.openai_compat.ChromaStorage",
+                "bmt_ai_os.rag.storage.ChromaStorage",
                 side_effect=Exception("no chroma"),
             ),
         ):
