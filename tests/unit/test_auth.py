@@ -415,7 +415,7 @@ class TestJWTMiddleware:
     def test_missing_token_when_users_exist(self, tmp_db):
         app, client, store = _make_app(tmp_db)
         store.create_user("testuser", "pw", "viewer")
-        resp = client.get("/api/v1/providers")
+        resp = client.get("/api/v1/users")
         assert resp.status_code == 401
 
     def test_valid_token_grants_access(self, tmp_db):
@@ -448,7 +448,7 @@ class TestJWTMiddleware:
     def test_invalid_token_returns_401(self, tmp_db):
         app, client, store = _make_app(tmp_db)
         store.create_user("someone", "pw", "viewer")
-        resp = client.get("/api/v1/providers", headers={"Authorization": "Bearer not.a.real.token"})
+        resp = client.get("/api/v1/users", headers={"Authorization": "Bearer not.a.real.token"})
         assert resp.status_code == 401
 
 

@@ -53,6 +53,7 @@ _EXEMPT_PREFIXES = (
     "/v1/",  # OpenAI-compatible API (models, chat, completions)
     "/api/models",  # Ollama model list (dashboard)
     "/api/pull",  # Ollama model pull (dashboard)
+    "/api/v1/providers",  # provider list + switching (dashboard)
 )
 
 
