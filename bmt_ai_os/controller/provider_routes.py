@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from collections import defaultdict, deque
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -9,6 +12,21 @@ from bmt_ai_os.providers.base import ChatMessage, ModelNotFoundError, ProviderEr
 from bmt_ai_os.providers.registry import get_registry
 
 router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
+
+# ---------------------------------------------------------------------------
+# Per-provider health history (in-memory, last 5 checks per provider)
+# ---------------------------------------------------------------------------
+
+#: provider_name → deque of (timestamp, latency_ms, healthy, error|None)
+_health_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=5))
+
+#: provider_name → (timestamp, error_count, cooldown_until)
+_error_state: dict[str, dict] = defaultdict(lambda: {"count": 0, "cooldown_until": 0.0})
+
+#: provider_name → timestamp of last successful credential use
+_last_success_ts: dict[str, float] = {}
+
+_COOLDOWN_SECONDS = 60.0
 
 
 # ---------------------------------------------------------------------------
@@ -38,23 +56,59 @@ class ChatRequest(BaseModel):
 
 @router.get("")
 async def list_providers():
-    """List all registered providers with their health status."""
+    """List all registered providers with health status and trend data."""
+    from bmt_ai_os.controller.discovery import _CANDIDATE_PORTS
+
     registry = get_registry()
     names = registry.list()
     health_map = await registry.health_check_all()
 
+    # Determine which providers were auto-discovered (match port/type mapping)
+    discovered_types = {pt for _, pt, _, _, _ in _CANDIDATE_PORTS}
+
+    now = time.time()
     providers = []
     for name in names:
         health = health_map.get(name)
+        healthy = health.healthy if isinstance(health, ProviderHealth) else bool(health)
+        latency = health.latency_ms if isinstance(health, ProviderHealth) else 0.0
+        error = health.error if isinstance(health, ProviderHealth) else None
+
+        # Record health check in history
+        _health_history[name].append(
+            {"ts": now, "latency_ms": latency, "healthy": healthy, "error": error}
+        )
+
+        # Track error state and cooldown
+        estate = _error_state[name]
+        if healthy:
+            _last_success_ts[name] = now
+            estate["count"] = 0
+            estate["cooldown_until"] = 0.0
+        else:
+            estate["count"] = estate.get("count", 0) + 1
+            estate["cooldown_until"] = now + _COOLDOWN_SECONDS
+
+        cooldown_remaining = max(0.0, estate["cooldown_until"] - now)
+
+        # Provider is "discovered" if its name matches a known auto-discovery type
+        provider_type = name.split("-")[0]  # strip port suffix if present
+        is_discovered = provider_type in discovered_types
+
         providers.append(
             {
                 "name": name,
                 "active": name == registry.active_name,
+                "discovered": is_discovered,
                 "health": health.to_dict()
                 if isinstance(health, ProviderHealth)
                 else {"healthy": bool(health)}
                 if health is not None
                 else None,
+                "latency_history": [h["latency_ms"] for h in _health_history[name]],
+                "error_count": estate["count"],
+                "cooldown_remaining_s": round(cooldown_remaining, 1),
+                "last_success_ts": _last_success_ts.get(name),
             }
         )
     return {"providers": providers}
@@ -124,6 +178,23 @@ async def chat_with_provider(name: str, body: ChatRequest):
         raise HTTPException(status_code=502, detail=str(exc))
 
     return response.to_dict()
+
+
+@router.get("/discover")
+async def discover_providers():
+    """Scan local ports for LLM inference endpoints and auto-register new ones.
+
+    Scans ports 11434 (Ollama), 8001 (vLLM), and 8002 (llama.cpp).
+    Providers that are reachable but not yet registered are automatically
+    registered and returned with ``registered_now: true``.
+    """
+    from bmt_ai_os.controller.discovery import run_discovery
+
+    discovered = await run_discovery()
+    return {
+        "discovered": [d.to_dict() for d in discovered],
+        "count": len(discovered),
+    }
 
 
 @router.get("/{name}/models")

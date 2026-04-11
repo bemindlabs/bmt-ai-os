@@ -284,13 +284,21 @@ class BMTAIOSController:
         # Register LLM providers from running services
         self._register_providers()
 
-        # Restore any providers previously saved via the CRUD API
-        try:
-            from .provider_config_routes import restore_persisted_providers
+        # Auto-discover local inference endpoints not already registered
+        import asyncio
 
-            restore_persisted_providers()
+        from .discovery import run_discovery
+
+        try:
+            discovered = asyncio.run(run_discovery())
+            if discovered:
+                logger.info(
+                    "Auto-discovery found %d provider(s): %s",
+                    len(discovered),
+                    [d.name for d in discovered],
+                )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Could not restore persisted provider configs: %s", exc)
+            logger.warning("Provider auto-discovery failed: %s", exc)
 
         # Start background health checks
         self.start_health_checks()
