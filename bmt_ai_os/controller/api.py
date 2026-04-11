@@ -12,6 +12,7 @@ from .auth_routes import router as auth_router
 from .metrics import get_collector
 from .middleware import apply_middleware
 from .openai_compat import router as openai_router
+from .plugin_routes import router as plugin_router
 from .prometheus import router as prometheus_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
@@ -45,6 +46,7 @@ app.include_router(openai_router)
 app.include_router(rag_router, prefix="/api/v1")
 app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(provider_router)
+app.include_router(plugin_router)
 app.include_router(prometheus_router)
 
 
