@@ -317,7 +317,8 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         except jwt.ExpiredSignatureError:
             return _auth_error("Token has expired.", code="token_expired")
         except jwt.PyJWTError as exc:
-            return _auth_error(f"Invalid token: {exc}", code="invalid_token")
+            logger.warning("JWT validation failed: %s", exc)
+            return _auth_error("Invalid token.", code="invalid_token")
 
         # Attach user info to request state for downstream handlers
         request.state.user = payload.get("sub")
