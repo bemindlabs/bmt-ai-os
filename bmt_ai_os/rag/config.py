@@ -4,6 +4,19 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
+
+
+def _parse_allowed_ingest_dirs() -> list[Path]:
+    """Parse BMT_INGEST_ALLOWED_DIRS env var into a list of resolved Path objects.
+
+    The variable is a colon-separated list of absolute directory paths.
+    An empty or unset variable means *no* directories are whitelisted (deny-all).
+    """
+    raw = os.getenv("BMT_INGEST_ALLOWED_DIRS", "")
+    if not raw.strip():
+        return []
+    return [Path(p.strip()).resolve() for p in raw.split(":") if p.strip()]
 
 
 @dataclass
@@ -21,6 +34,11 @@ class RAGConfig:
     ollama_url: str = field(
         default_factory=lambda: os.getenv("BMT_RAG_OLLAMA_URL", "http://localhost:11434")
     )
+
+    # Security: whitelist of directories that the ingest endpoint may access.
+    # Populated from the BMT_INGEST_ALLOWED_DIRS env var (colon-separated paths).
+    # An empty list means no ingest is permitted via the API.
+    allowed_ingest_dirs: list[Path] = field(default_factory=_parse_allowed_ingest_dirs)
 
     # Embedding settings
     embedding_model: str = field(
