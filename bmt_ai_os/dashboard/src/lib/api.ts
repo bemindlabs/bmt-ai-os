@@ -225,94 +225,53 @@ export async function queryRag(
 }
 
 // ---------------------------------------------------------------------------
-// File Manager (BMTOS-116)
+// Training (BMTOS-117)
 // ---------------------------------------------------------------------------
 
-export interface FileEntry {
-  name: string;
-  path: string;
-  is_dir: boolean;
-  size: number | null;
-  modified: number;
-  mime: string | null;
+export interface TrainingJob {
+  id: string;
+  model: string;
+  dataset: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  created_at: string;
+  updated_at: string;
+  current_loss?: number | null;
+  tokens_per_sec?: number | null;
+  error_message?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  epochs?: number | null;
+  current_epoch?: number | null;
+  total_steps?: number | null;
+  current_step?: number | null;
+  learning_rate?: number | null;
+  dataset_rows?: number | null;
+  dataset_preview?: string[][] | null;
+  dataset_headers?: string[] | null;
 }
 
-export interface Breadcrumb {
-  name: string;
-  path: string;
+export interface TrainingMetricPoint {
+  step: number;
+  loss: number;
+  epoch?: number | null;
+  learning_rate?: number | null;
+  tokens_per_sec?: number | null;
 }
 
-export interface ListFilesResponse {
-  entries: FileEntry[];
-  breadcrumbs: Breadcrumb[];
+export interface TrainingMetricsResponse {
+  job_id: string;
+  metrics: TrainingMetricPoint[];
 }
 
-export interface ReadFileResponse {
-  path: string;
-  name: string;
-  content: string;
-  size: number;
-  mime: string;
+export async function fetchTrainingJob(id: string): Promise<TrainingJob> {
+  return apiFetch<TrainingJob>(`/api/v1/training/jobs/${id}`);
 }
 
-export interface UploadFileResponse {
-  status: string;
-  path: string;
-  name: string;
-  size: number;
-}
-
-export async function listFiles(path = ""): Promise<ListFilesResponse> {
-  const qs = path ? `?path=${encodeURIComponent(path)}` : "";
-  return apiFetch<ListFilesResponse>(`/api/v1/files/list${qs}`);
-}
-
-export async function readFile(path: string): Promise<ReadFileResponse> {
-  return apiFetch<ReadFileResponse>(
-    `/api/v1/files/read?path=${encodeURIComponent(path)}`,
+export async function fetchTrainingMetrics(
+  id: string,
+): Promise<TrainingMetricsResponse> {
+  return apiFetch<TrainingMetricsResponse>(
+    `/api/v1/training/jobs/${id}/metrics`,
   );
-}
-
-export function downloadFileUrl(path: string): string {
-  const token =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("bmt_auth_token") ?? "")
-      : "";
-  return `/api/v1/files/download?path=${encodeURIComponent(path)}&token=${encodeURIComponent(token)}`;
-}
-
-export async function uploadFile(
-  dirPath: string,
-  file: File,
-): Promise<UploadFileResponse> {
-  const token =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("bmt_auth_token") ?? "")
-      : "";
-  const formData = new FormData();
-  formData.append("file", file);
-  const qs = dirPath ? `?path=${encodeURIComponent(dirPath)}` : "";
-  const res = await fetch(`/api/v1/files/upload${qs}`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
-  if (res.status === 401 && typeof window !== "undefined") {
-    localStorage.removeItem("bmt_auth_token");
-    localStorage.removeItem("bmt_auth_user");
-    window.location.replace("/login");
-    throw new Error("Session expired");
-  }
-  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-  return res.json() as Promise<UploadFileResponse>;
-}
-
-export async function ingestPath(
-  path: string,
-  collection = "default",
-): Promise<unknown> {
-  return apiFetch<unknown>("/api/v1/ingest", {
-    method: "POST",
-    body: JSON.stringify({ path: `/${path}`, collection, recursive: true }),
-  });
 }
