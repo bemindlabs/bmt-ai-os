@@ -1,0 +1,41 @@
+{
+  "sprint_number": 6,
+  "goal": "Enhanced Provider Management \u2014 wizards, catalog, health, auto-discovery",
+  "start_date": "2026-04-11",
+  "end_date": "2026-04-12",
+  "status": "active",
+  "planned_points": 21,
+  "completed_points": 0,
+  "items": [
+    {
+      "id": "BMTOS-131",
+      "title": "Guided provider setup wizard (multi-step)",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-132",
+      "title": "Rich model catalog with cost and context info",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-133",
+      "title": "Provider health dashboard with expiry tracking",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-134",
+      "title": "Multi-credential profiles per provider",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-135",
+      "title": "Provider auto-discovery (scan local ports)",
+      "points": 3,
+      "status": "in_progress"
+    }
+  ]
+}

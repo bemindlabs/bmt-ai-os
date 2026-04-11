@@ -2965,7 +2965,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "terminal",
@@ -2981,7 +2981,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "terminal",
@@ -2997,7 +2997,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "terminal",
@@ -3013,7 +3013,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "terminal",
@@ -3029,7 +3029,7 @@
       "type": "story",
       "priority": "low",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "terminal",
