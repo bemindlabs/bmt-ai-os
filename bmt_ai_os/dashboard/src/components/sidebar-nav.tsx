@@ -11,6 +11,7 @@ import {
   Settings,
   ScrollText,
   LogOut,
+  Server,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/models", label: "Models", icon: BrainCircuit },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/providers", label: "Providers", icon: Layers },
+  { href: "/fleet", label: "Fleet", icon: Server },
   { href: "/training", label: "Training", icon: BrainCog },
   { href: "/logs", label: "Logs", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },

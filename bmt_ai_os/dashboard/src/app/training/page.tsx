@@ -105,11 +105,9 @@ export default async function TrainingPage() {
             Manage on-device fine-tuning jobs (LoRA / QLoRA).
           </p>
         </div>
-        <Button asChild>
-          <a href="/training/new">
-            <Plus className="mr-2 size-4" />
-            Start Training
-          </a>
+        <Button render={<a href="/training/new" />}>
+          <Plus className="mr-2 size-4" />
+          Start Training
         </Button>
       </div>
 
@@ -134,11 +132,9 @@ export default async function TrainingPage() {
                   ? "Training API is unreachable. Check controller logs."
                   : "No jobs yet. Start a training run to fine-tune a model on this device."}
               </p>
-              <Button variant="outline" asChild>
-                <a href="/training/new">
-                  <Plus className="mr-2 size-4" />
-                  Start Training
-                </a>
+              <Button variant="outline" render={<a href="/training/new" />}>
+                <Plus className="mr-2 size-4" />
+                Start Training
               </Button>
             </div>
           ) : (
