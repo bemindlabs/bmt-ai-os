@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProviderSwitcher } from "./provider-switcher";
+import { FallbackChain } from "@/components/fallback-chain";
+import { ProviderModels } from "@/components/provider-models";
 
 export default async function ProvidersPage() {
   const result = await fetchProviders().catch(() => null);
@@ -29,6 +31,14 @@ export default async function ProvidersPage() {
             <p className="text-sm text-muted-foreground">
               No providers found. Ensure the controller API is reachable.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {providers.length > 0 && (
+        <Card>
+          <CardContent className="pt-4">
+            <FallbackChain providers={providers} />
           </CardContent>
         </Card>
       )}
@@ -62,10 +72,14 @@ export default async function ProvidersPage() {
                     : "Not responding"}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <ProviderSwitcher
                   providerName={p.name}
                   isActive={isActive}
+                />
+                <ProviderModels
+                  providerName={p.name}
+                  isHealthy={p.healthy}
                 />
               </CardContent>
             </Card>

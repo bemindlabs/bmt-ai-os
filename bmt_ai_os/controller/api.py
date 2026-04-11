@@ -13,6 +13,7 @@ from .middleware import apply_middleware
 from .openai_compat import router as openai_router
 from .persona_routes import router as persona_router
 from .prometheus import router as prometheus_router
+from .provider_config_routes import router as provider_config_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
 from .terminal_ws import router as terminal_router
@@ -50,6 +51,7 @@ app.include_router(rag_router, prefix="/api/v1")
 app.include_router(persona_router)
 app.include_router(conversation_router)
 app.include_router(provider_router)
+app.include_router(provider_config_router)
 app.include_router(prometheus_router)
 
 # Fleet management routes

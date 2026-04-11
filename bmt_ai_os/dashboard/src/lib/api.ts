@@ -138,6 +138,19 @@ export async function fetchProviders(): Promise<ProvidersResponse> {
   };
 }
 
+export async function setFallbackOrder(order: string[]): Promise<{ order: string[] }> {
+  return apiFetch<{ order: string[] }>("/api/v1/providers/fallback-order", {
+    method: "PUT",
+    body: JSON.stringify({ order }),
+  });
+}
+
+export async function fetchProviderModels(name: string): Promise<{ models: { id: string; name?: string; [key: string]: unknown }[] }> {
+  return apiFetch<{ models: { id: string; name?: string; [key: string]: unknown }[] }>(
+    `/api/v1/providers/${encodeURIComponent(name)}/models`,
+  );
+}
+
 export async function setActiveProvider(name: string): Promise<unknown> {
   return apiFetch<unknown>("/api/v1/providers/active", {
     method: "POST",
@@ -225,182 +238,113 @@ export async function queryRag(
 }
 
 // ---------------------------------------------------------------------------
-// Fleet API (BMTOS-118)
+// Provider CRUD (BMTOS-120)
 // ---------------------------------------------------------------------------
 
-export interface FleetDevice {
-  device_id: string;
-  hostname: string;
-  arch: string;
-  board: string;
-  os_version: string;
-  cpu_percent: number;
-  memory_percent: number;
-  disk_percent: number;
-  loaded_models: string[];
-  last_seen: string;
-  registered_at: string;
-  online: boolean;
-  [key: string]: unknown;
+export type ProviderType =
+  | "ollama"
+  | "openai"
+  | "anthropic"
+  | "gemini"
+  | "groq"
+  | "mistral"
+  | "vllm"
+  | "llamacpp";
+
+export interface ProviderConfig {
+  name: string;
+  provider_type: ProviderType;
+  base_url: string;
+  api_key: string; // masked on reads
+  default_model: string;
+  enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface FleetDevicesResponse {
-  devices: FleetDevice[];
-  total: number;
-  online: number;
+export interface ProviderConfigsResponse {
+  providers: ProviderConfig[];
 }
 
-export interface FleetSummary {
-  total_devices: number;
-  online_devices: number;
-  offline_devices: number;
-  total_models: number;
-  unique_models: string[];
-  [key: string]: unknown;
+export interface ProviderConfigIn {
+  name: string;
+  provider_type: ProviderType;
+  base_url?: string;
+  api_key?: string;
+  default_model?: string;
+  enabled?: boolean;
 }
 
-export interface DeployModelRequest {
-  model: string;
-  device_ids?: string[] | null;
+export interface ProviderConfigUpdate {
+  base_url?: string;
+  api_key?: string;
+  default_model?: string;
+  enabled?: boolean;
 }
 
-export interface DeployModelResponse {
-  status: string;
-  model: string;
-  targeted_devices: string[];
-  device_count: number;
+export interface ProviderTestResult {
+  name: string;
+  healthy: boolean;
+  latency_ms: number;
+  error: string | null;
 }
 
-export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
-  return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
+export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
+  ollama: "http://localhost:11434",
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com",
+  gemini: "https://generativelanguage.googleapis.com",
+  groq: "https://api.groq.com/openai/v1",
+  mistral: "https://api.mistral.ai/v1",
+  vllm: "http://localhost:8000/v1",
+  llamacpp: "http://localhost:8080",
+};
+
+export async function fetchProviderConfigs(): Promise<ProviderConfigsResponse> {
+  return apiFetch<ProviderConfigsResponse>("/api/v1/providers/config");
 }
 
-export async function fetchFleetSummary(): Promise<FleetSummary> {
-  return apiFetch<FleetSummary>("/api/v1/fleet/summary");
-}
-
-export async function deployModel(
-  req: DeployModelRequest,
-): Promise<DeployModelResponse> {
-  return apiFetch<DeployModelResponse>("/api/v1/fleet/deploy-model", {
+export async function createProviderConfig(
+  data: ProviderConfigIn,
+): Promise<ProviderConfig> {
+  return apiFetch<ProviderConfig>("/api/v1/providers/config", {
     method: "POST",
-    body: JSON.stringify(req),
+    body: JSON.stringify(data),
   });
 }
 
-// ---------------------------------------------------------------------------
-// Persona API (BMTOS-106)
-// ---------------------------------------------------------------------------
-
-export interface PresetInfo {
-  name: string;
-  description: string;
-  content: string;
-}
-
-export async function getPersona(): Promise<{ content: string; workspace: string }> {
-  return apiFetch("/api/v1/persona");
-}
-
-export async function savePersona(content: string): Promise<{ status: string }> {
-  return apiFetch("/api/v1/persona", {
+export async function updateProviderConfig(
+  name: string,
+  data: ProviderConfigUpdate,
+): Promise<ProviderConfig> {
+  return apiFetch<ProviderConfig>(`/api/v1/providers/config/${encodeURIComponent(name)}`, {
     method: "PUT",
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(data),
   });
 }
 
-export async function listPresets(): Promise<{ presets: PresetInfo[] }> {
-  return apiFetch("/api/v1/persona/presets");
-}
-
-export async function applyPreset(name: string): Promise<{ status: string }> {
-  return apiFetch(`/api/v1/persona/presets/${name}/apply`, { method: "POST" });
-}
-
-// ---------------------------------------------------------------------------
-// Knowledge / RAG Collections API (BMTOS-112)
-// ---------------------------------------------------------------------------
-
-export interface RagCollection {
-  name: string;
-  count: number;
-}
-
-export async function fetchCollections(): Promise<{ collections: RagCollection[] }> {
-  return apiFetch("/api/v1/collections");
-}
-
-export async function ingestDocuments(req: { path: string; collection?: string }): Promise<{ status: string }> {
-  return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify(req) });
-}
-
-export async function searchKnowledge(req: { question: string; collection?: string; top_k?: number }): Promise<RagQueryResponse> {
-  return apiFetch("/api/v1/query", { method: "POST", body: JSON.stringify(req) });
-}
-
-export async function deleteCollection(name: string): Promise<{ status: string }> {
-  return apiFetch(`/api/v1/collections/${name}`, { method: "DELETE" });
-}
-
-// ---------------------------------------------------------------------------
-// File Manager API (BMTOS-116)
-// ---------------------------------------------------------------------------
-
-export interface FileEntry {
-  name: string;
-  path: string;
-  is_dir: boolean;
-  size: number;
-  modified: string;
-}
-
-export async function listFiles(path: string): Promise<{ entries: FileEntry[]; breadcrumbs: { name: string; path: string }[] }> {
-  return apiFetch(`/api/v1/files/list?path=${encodeURIComponent(path)}`);
-}
-
-export async function readFile(path: string): Promise<{ content: string; path: string }> {
-  return apiFetch(`/api/v1/files/read?path=${encodeURIComponent(path)}`);
-}
-
-export function downloadFileUrl(path: string): string {
-  return `/api/v1/files/download?path=${encodeURIComponent(path)}`;
-}
-
-export async function uploadFile(path: string, file: File): Promise<{ status: string }> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(`/api/v1/files/upload?path=${encodeURIComponent(path)}`, {
-    method: "POST",
-    body: form,
+export async function deleteProviderConfig(name: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/v1/providers/config/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader() },
+    cache: "no-store",
   });
-  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
-  return res.json();
-}
-
-export async function ingestPath(path: string): Promise<{ status: string }> {
-  return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify({ path }) });
-}
-
-// ---------------------------------------------------------------------------
-// Agents API (BMTOS-108)
-// ---------------------------------------------------------------------------
-
-export interface AgentPreset {
-  name: string;
-  description: string;
-  content?: string;
-}
-
-export async function fetchAgents(): Promise<{ presets: AgentPreset[] }> {
-  try {
-    return await apiFetch("/api/v1/persona/presets");
-  } catch {
-    return {
-      presets: [
-        { name: "default", description: "General-purpose AI assistant" },
-        { name: "coding", description: "Precise, technical coding assistant" },
-        { name: "creative", description: "Expressive creative writing partner" },
-      ],
-    };
+  if (res.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("bmt_auth_token");
+    localStorage.removeItem("bmt_auth_user");
+    window.location.replace("/login");
+    throw new Error("Session expired");
   }
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`API error ${res.status}: ${res.statusText}`);
+  }
+}
+
+export async function testProviderConnection(
+  name: string,
+): Promise<ProviderTestResult> {
+  return apiFetch<ProviderTestResult>(
+    `/api/v1/providers/config/${encodeURIComponent(name)}/test`,
+    { method: "POST" },
+  );
 }
