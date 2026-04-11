@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -41,7 +42,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Badge>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </>
   );
