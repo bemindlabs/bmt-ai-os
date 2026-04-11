@@ -345,7 +345,7 @@
       "id": "BMTOS-EPIC-15",
       "title": "Dynamic Provider Configuration",
       "description": "Dashboard UI for adding, configuring, and managing LLM providers with fallback chain drag-drop.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-120",

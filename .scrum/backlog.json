@@ -2875,7 +2875,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "providers"
@@ -2890,7 +2890,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "providers"
@@ -2905,7 +2905,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "providers"
@@ -2920,7 +2920,7 @@
       "type": "story",
       "priority": "medium",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "providers"
@@ -2935,7 +2935,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "providers"
@@ -2950,7 +2950,7 @@
       "type": "story",
       "priority": "low",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "providers"

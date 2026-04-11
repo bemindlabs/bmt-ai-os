@@ -3,45 +3,46 @@
   "goal": "Dynamic provider configuration \u2014 add, edit, delete providers from the dashboard",
   "start_date": "2026-04-11",
   "end_date": "2026-04-12",
-  "status": "active",
+  "status": "completed",
   "planned_points": 22,
-  "completed_points": 0,
+  "completed_points": 22,
   "items": [
     {
       "id": "BMTOS-120",
       "title": "Provider CRUD API (register/update/delete)",
       "points": 5,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-121",
       "title": "Add Provider form in dashboard",
       "points": 5,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-122",
       "title": "Per-provider edit/delete/toggle UI",
       "points": 3,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-123",
       "title": "Test Connection button",
       "points": 2,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-124",
       "title": "Fallback chain drag-drop configurator",
       "points": 5,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-125",
       "title": "Provider model list per provider",
       "points": 2,
-      "status": "in_progress"
+      "status": "done"
     }
-  ]
+  ],
+  "closed_at": "2026-04-11"
 }
