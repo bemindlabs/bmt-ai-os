@@ -399,3 +399,13 @@ export async function ingestPath(path: string): Promise<{ status: string }> { re
 // ---------------------------------------------------------------------------
 export interface AgentPreset { name: string; description: string; content?: string; }
 export async function fetchAgents(): Promise<{ presets: AgentPreset[] }> { try { return await apiFetch("/api/v1/persona/presets"); } catch { return { presets: [{ name: "default", description: "General AI assistant" }, { name: "coding", description: "Coding assistant" }, { name: "creative", description: "Creative writer" }] }; } }
+
+// ---------------------------------------------------------------------------
+// Fallback Chain + Provider Models
+// ---------------------------------------------------------------------------
+export async function setFallbackOrder(order: string[]): Promise<{ order: string[] }> {
+  return apiFetch("/api/v1/providers/fallback-order", { method: "PUT", body: JSON.stringify({ order }) });
+}
+export async function fetchProviderModels(name: string): Promise<{ data: { id: string; name?: string }[] }> {
+  return apiFetch(`/v1/models`);
+}

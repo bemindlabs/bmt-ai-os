@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ProviderSwitcher } from "./provider-switcher";
 import { ProviderKeyManager } from "./provider-key-manager";
+import { FallbackChain } from "@/components/fallback-chain";
 
 // ---------------------------------------------------------------------------
 // Latency colour helpers
