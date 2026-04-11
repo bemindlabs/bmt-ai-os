@@ -228,7 +228,64 @@
         "Hybrid BM25 + vector memory search with temporal decay",
         "Conversation history API: list, search, export"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-10",
+      "title": "Dashboard AI Assistant Enhancement",
+      "description": "Upgrade the Next.js dashboard chat page from a basic request-response interface to a production-grade AI assistant with streaming, session persistence, context awareness, and rich interaction features. Inspired by OpenClaw UI patterns.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-76",
+        "BMTOS-77",
+        "BMTOS-78",
+        "BMTOS-79",
+        "BMTOS-80",
+        "BMTOS-81",
+        "BMTOS-82",
+        "BMTOS-83"
+      ],
+      "acceptance_criteria": [
+        "Chat responses stream token-by-token via SSE",
+        "Conversations persist across page refreshes",
+        "Context usage meter shows token budget consumption",
+        "Dashboard requires JWT login before accessing protected pages",
+        "RAG can be toggled per conversation"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-10",
+      "title": "On-Device Training Pipeline (Implementation)",
+      "description": "Implement the actual training code \u2014 LoRA/QLoRA pipeline, TensorBoard integration, data prep, model export, training API, and dashboard UI.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-76",
+        "BMTOS-77",
+        "BMTOS-78",
+        "BMTOS-79",
+        "BMTOS-80",
+        "BMTOS-81",
+        "BMTOS-82",
+        "BMTOS-83",
+        "BMTOS-84"
+      ],
+      "total_points": 60,
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-EPIC-11",
+      "title": "Claude Code Deep Integration",
+      "description": "Native Claude Code integration via MCP server and tool_use support in the OpenAI-compatible API.",
+      "status": "planned",
+      "priority": "medium",
+      "stories": [
+        "BMTOS-85",
+        "BMTOS-86"
+      ],
+      "total_points": 21,
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 10
+  "next_id": 11
 }

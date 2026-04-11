@@ -232,3 +232,68 @@ def verify_download(
     pubkey_path = Path(pubkey_path)
 
     return verify_signature(image_path, sig_path, pubkey_path)
+
+
+# ---------------------------------------------------------------------------
+# Policy gate — enforce signature or raise
+# ---------------------------------------------------------------------------
+
+_ENV_ALLOW_UNSIGNED = "BMT_OTA_ALLOW_UNSIGNED"
+_ENV_PUBKEY = "BMT_OTA_PUBKEY"
+
+
+def enforce_signature(
+    image_path: str | Path,
+    sig_path: str | Path | None = None,
+) -> None:
+    """Enforce Ed25519 signature verification before an OTA write.
+
+    This is the single policy gate called by :func:`apply_update`.  It raises
+    :class:`PermissionError` when verification fails, unless the
+    ``BMT_OTA_ALLOW_UNSIGNED=true`` escape hatch is set.
+
+    Parameters
+    ----------
+    image_path:
+        Path to the OTA image file.
+    sig_path:
+        Explicit signature path.  Defaults to ``<image_path>.sig``.
+
+    Raises
+    ------
+    PermissionError
+        When the signature is missing, invalid, or the public key is absent.
+    """
+    if os.getenv(_ENV_ALLOW_UNSIGNED, "").lower() == "true":
+        return
+
+    image_path = Path(image_path)
+
+    # Resolve sig path
+    if sig_path is None:
+        sig_path = image_path.with_suffix(image_path.suffix + ".sig")
+    sig_path = Path(sig_path)
+
+    if not sig_path.is_file():
+        raise PermissionError(
+            f"signature file not found: {sig_path}. "
+            f"Set {_ENV_ALLOW_UNSIGNED}=true to allow unsigned updates."
+        )
+
+    # Resolve public key
+    pubkey_path = Path(os.getenv(_ENV_PUBKEY, _DEFAULT_PUBKEY_PATH))
+    if not pubkey_path.is_file():
+        raise PermissionError(
+            f"public key not found: {pubkey_path}. "
+            f"Set {_ENV_PUBKEY} or place the key at {_DEFAULT_PUBKEY_PATH}."
+        )
+
+    try:
+        valid = verify_signature(image_path, sig_path, pubkey_path)
+    except RuntimeError as exc:
+        raise PermissionError(str(exc)) from exc
+
+    if not valid:
+        raise PermissionError(
+            f"Ed25519 signature verification FAILED for {image_path}. Update rejected."
+        )

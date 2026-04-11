@@ -44,7 +44,11 @@ _JWT_EXPIRY_SECONDS = 86400  # 24 hours
 
 # Account lockout settings
 _MAX_FAILED_ATTEMPTS = 5
+_MAX_FAILED_LOGINS = _MAX_FAILED_ATTEMPTS  # alias used in tests
 _LOCKOUT_DURATION_SECONDS = 900  # 15 minutes
+
+# Password complexity requirements
+_MIN_PASSWORD_LENGTH = 12
 
 # Paths that never require authentication
 _EXEMPT_PREFIXES = (
@@ -54,6 +58,7 @@ _EXEMPT_PREFIXES = (
     "/redoc",
     "/metrics",
     "/api/v1/auth/login",  # token acquisition must be exempt
+    "/api/v1/auth/logout",  # token revocation — viewer can POST to their own logout
     "/api/v1/status",  # read-only monitoring (dashboard)
     "/api/v1/metrics",  # read-only monitoring (dashboard)
     "/api/v1/providers",  # provider list + switching (dashboard)
@@ -116,6 +121,27 @@ def _role_allows(role: Role, method: str, path: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def validate_password_complexity(password: str) -> None:
+    """Validate password meets complexity requirements.
+
+    Requirements:
+    - At least 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+
+    Raises ValueError with a descriptive message if requirements are not met.
+    """
+    if len(password) < _MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {_MIN_PASSWORD_LENGTH} characters long.")
+    if not any(c.isupper() for c in password):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    if not any(c.islower() for c in password):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("Password must contain at least one digit.")
+
+
 @dataclass
 class User:
     id: int
@@ -123,6 +149,14 @@ class User:
     password_hash: str
     role: Role
     created_at: str
+    failed_logins: int = 0
+    locked_until: float | None = None
+
+    def is_locked(self) -> bool:
+        """Return True if the account is currently locked."""
+        if self.locked_until is None:
+            return False
+        return time.time() < self.locked_until
 
     def as_dict(self) -> dict:
         return {
@@ -166,7 +200,9 @@ class UserStore:
                     username    TEXT    NOT NULL UNIQUE,
                     password_hash TEXT  NOT NULL,
                     role        TEXT    NOT NULL DEFAULT 'viewer',
-                    created_at  TEXT    NOT NULL
+                    created_at  TEXT    NOT NULL,
+                    failed_logins INTEGER NOT NULL DEFAULT 0,
+                    locked_until REAL    NOT NULL DEFAULT 0
                 )
                 """
             )
@@ -180,7 +216,7 @@ class UserStore:
                 )
                 """
             )
-            # Per-user lockout tracking.
+            # Per-user lockout tracking (legacy — kept for migration compat).
             con.execute(
                 """
                 CREATE TABLE IF NOT EXISTS login_attempts (
@@ -191,23 +227,47 @@ class UserStore:
                 )
                 """
             )
+            # Migrate existing users table: add columns if missing
+            try:
+                con.execute("ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass  # column already exists
+            try:
+                con.execute("ALTER TABLE users ADD COLUMN locked_until REAL NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
     @staticmethod
     def _row_to_user(row: sqlite3.Row) -> User:
+        locked_until_raw = row["locked_until"] if "locked_until" in row.keys() else 0
+        locked_until = float(locked_until_raw) if locked_until_raw else None
+        if locked_until is not None and locked_until <= 0:
+            locked_until = None
+        failed_logins = row["failed_logins"] if "failed_logins" in row.keys() else 0
         return User(
             id=row["id"],
             username=row["username"],
             password_hash=row["password_hash"],
             role=Role(row["role"]),
             created_at=row["created_at"],
+            failed_logins=int(failed_logins or 0),
+            locked_until=locked_until,
         )
 
     # --- Public API ---
 
-    def create_user(self, username: str, password: str, role: Role | str = Role.viewer) -> User:
+    def create_user(
+        self,
+        username: str,
+        password: str,
+        role: Role | str = Role.viewer,
+        skip_complexity: bool = False,
+    ) -> User:
         """Create a new user with a bcrypt-hashed password.
 
-        Raises ValueError if the username already exists or the role is invalid.
+        Raises ValueError if the username already exists, the role is invalid,
+        or the password does not meet complexity requirements (unless
+        *skip_complexity* is True — only for internal bootstrap use).
         """
         if isinstance(role, str):
             try:
@@ -216,14 +276,18 @@ class UserStore:
                 valid = [r.value for r in Role]
                 raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
 
+        if not skip_complexity:
+            validate_password_complexity(password)
+
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         created_at = datetime.now(timezone.utc).isoformat()
 
         try:
             with self._conn() as con:
                 cur = con.execute(
-                    "INSERT INTO users (username, password_hash, role, created_at)"
-                    " VALUES (?,?,?,?)",
+                    "INSERT INTO users (username, password_hash, role, created_at,"
+                    " failed_logins, locked_until)"
+                    " VALUES (?,?,?,?,0,0)",
                     (username, pw_hash, role.value, created_at),
                 )
                 user_id = cur.lastrowid
@@ -232,7 +296,13 @@ class UserStore:
 
         logger.info("Created user '%s' with role '%s'", username, role.value)
         return User(
-            id=user_id, username=username, password_hash=pw_hash, role=role, created_at=created_at
+            id=user_id,
+            username=username,
+            password_hash=pw_hash,
+            role=role,
+            created_at=created_at,
+            failed_logins=0,
+            locked_until=None,
         )
 
     def get_user(self, username: str) -> User | None:
@@ -261,6 +331,73 @@ class UserStore:
         with self._conn() as con:
             count = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         return count > 0
+
+    def update_user_role(self, username: str, role: str | Role) -> bool:
+        """Update the role of *username*.
+
+        Returns True on success, False if the user does not exist.
+        Raises ValueError for an invalid role.
+        """
+        if isinstance(role, str):
+            try:
+                role = Role(role)
+            except ValueError:
+                valid = [r.value for r in Role]
+                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
+
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET role = ? WHERE username = ?",
+                (role.value, username),
+            )
+        if cur.rowcount == 0:
+            return False
+        logger.info("Updated role of '%s' to '%s'", username, role.value)
+        return True
+
+    def lock_account(self, username: str, duration_seconds: int = 900) -> bool:
+        """Manually lock *username* for *duration_seconds*.
+
+        Returns True on success, False if the user does not exist.
+        """
+        locked_until = time.time() + duration_seconds
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET locked_until = ? WHERE username = ?",
+                (locked_until, username),
+            )
+            # Also update login_attempts for consistency
+            con.execute(
+                "INSERT OR REPLACE INTO login_attempts"
+                " (username, failed_count, last_failed_at, locked_until)"
+                " VALUES (?,"
+                " (SELECT COALESCE(failed_count, 0) FROM login_attempts WHERE username=?),"
+                " ?, ?)",
+                (username, username, time.time(), locked_until),
+            )
+        if cur.rowcount == 0:
+            return False
+        logger.info("Account '%s' locked until %s", username, locked_until)
+        return True
+
+    def unlock_account(self, username: str) -> bool:
+        """Unlock a previously locked *username*.
+
+        Returns True on success, False if the user does not exist.
+        """
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET locked_until = 0, failed_logins = 0 WHERE username = ?",
+                (username,),
+            )
+            con.execute(
+                "UPDATE login_attempts SET failed_count = 0, locked_until = 0 WHERE username = ?",
+                (username,),
+            )
+        if cur.rowcount == 0:
+            return False
+        logger.info("Account '%s' unlocked", username)
+        return True
 
     # --- Token revocation ---
 
@@ -294,12 +431,23 @@ class UserStore:
         with self._conn() as con:
             con.execute("DELETE FROM revoked_tokens WHERE expires_at < ?", (now,))
 
+    def purge_expired_blacklist_entries(self) -> int:
+        """Remove expired entries from the revocation blacklist.
+
+        Returns the number of entries removed.
+        """
+        now = time.time()
+        with self._conn() as con:
+            cur = con.execute("DELETE FROM revoked_tokens WHERE expires_at < ?", (now,))
+        return cur.rowcount
+
     # --- Account lockout ---
 
     def record_failed_login(self, username: str) -> bool:
         """Record a failed login attempt for *username*.
 
         Returns True if the account is now locked (threshold reached).
+        Updates both login_attempts and users tables.
         """
         now = time.time()
         with self._conn() as con:
@@ -317,6 +465,7 @@ class UserStore:
                     (username, now),
                 )
                 new_count = 1
+                locked_until_new = 0
             else:
                 new_count = row["failed_count"] + 1
                 locked_until = row["locked_until"]
@@ -335,6 +484,12 @@ class UserStore:
                     (new_count, now, locked_until_new, username),
                 )
 
+            # Mirror into users table so get_user() reflects the state
+            con.execute(
+                "UPDATE users SET failed_logins = ?, locked_until = ? WHERE username = ?",
+                (new_count, locked_until_new, username),
+            )
+
         if new_count >= _MAX_FAILED_ATTEMPTS:
             logger.warning(
                 "Account '%s' locked after %d failed login attempts (cooldown=%ds)",
@@ -352,11 +507,24 @@ class UserStore:
                 "UPDATE login_attempts SET failed_count = 0, locked_until = 0 WHERE username = ?",
                 (username,),
             )
+            # Mirror into users table
+            con.execute(
+                "UPDATE users SET failed_logins = 0, locked_until = 0 WHERE username = ?",
+                (username,),
+            )
 
     def is_account_locked(self, username: str) -> bool:
         """Return True if the account is currently locked out."""
         now = time.time()
         with self._conn() as con:
+            # Check users table first (the authoritative source)
+            user_row = con.execute(
+                "SELECT locked_until FROM users WHERE username = ?",
+                (username,),
+            ).fetchone()
+            if user_row is not None and float(user_row["locked_until"] or 0) > now:
+                return True
+            # Also check login_attempts for backward compat
             row = con.execute(
                 "SELECT locked_until FROM login_attempts WHERE username = ?",
                 (username,),
@@ -401,7 +569,9 @@ class UserStore:
 
 
 def _jwt_secret() -> str:
-    secret = os.environ.get(_ENV_JWT_SECRET)
+    from bmt_ai_os.secret_files import read_secret
+
+    secret = read_secret(_ENV_JWT_SECRET)
     if not secret:
         raise RuntimeError(
             f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable."
@@ -498,10 +668,20 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: FastAPI, store: UserStore | None = None) -> None:
         super().__init__(app)
-        self._store = store or _get_default_store()
+        # When a specific store is provided (e.g. in tests), use it directly.
+        # When None, resolve lazily on each request so that the module-level
+        # singleton can be swapped between tests.
+        self._fixed_store: UserStore | None = store
+
+    def _get_store(self) -> UserStore:
+        """Return the store to use for this request."""
+        if self._fixed_store is not None:
+            return self._fixed_store
+        return _get_default_store()
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
+        self._store = self._get_store()
 
         # Always exempt health / docs paths
         if any(path.startswith(p) for p in _EXEMPT_PREFIXES):
@@ -512,7 +692,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Backward-compatible: no users, no API key → open access (local dev)
+        # Grant implicit admin role so that management routes work in dev mode.
         if not self._store.has_users():
+            request.state.user = "anonymous"
+            request.state.role = Role.admin.value
             return await call_next(request)
 
         # Extract Bearer token
@@ -527,6 +710,9 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         except jwt.ExpiredSignatureError:
             return _auth_error("Token has expired.", code="token_expired")
         except jwt.InvalidTokenError as exc:
+            exc_str = str(exc)
+            if "revoked" in exc_str.lower():
+                return _auth_error("Token has been revoked.", code="token_revoked")
             logger.warning("JWT validation failed: %s", exc)
             return _auth_error("Invalid token.", code="invalid_token")
         except jwt.PyJWTError as exc:

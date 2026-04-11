@@ -1997,7 +1997,449 @@
       "created_at": "2026-04-11",
       "updated_at": "2026-04-11",
       "completed_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-76",
+      "title": "Add SSE streaming to dashboard chat",
+      "description": "Chat page waits for full response. Implement Server-Sent Events streaming: parse EventSource from /v1/chat/completions with stream=true, render tokens incrementally, show typing indicator during generation.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "streaming"
+      ],
+      "acceptance_criteria": [
+        "Chat responses stream token-by-token in the UI",
+        "Typing indicator (animated dots) during generation",
+        "Streaming can be aborted mid-response with Stop button",
+        "Fallback to non-streaming if SSE connection fails"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-77",
+      "title": "Add session persistence to dashboard chat",
+      "description": "Chat history is lost on page refresh (React state only). Connect to the session/conversation API (BMTOS-69) to persist messages. Add session list sidebar, session switching, and auto-load history on revisit.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "sessions"
+      ],
+      "acceptance_criteria": [
+        "Messages persist across page refreshes",
+        "Session list sidebar shows previous conversations",
+        "Click session to load its history",
+        "New Session button creates fresh conversation",
+        "Delete session with confirmation"
+      ],
+      "dependencies": [
+        "BMTOS-69"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-78",
+      "title": "Add context usage meter to chat interface",
+      "description": "No visibility into token budget consumption. Add a context meter bar showing percentage of model context window used, with color gradient: green (<70%), amber (70-85%), red (>85%). Display token counts per message.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "ux"
+      ],
+      "acceptance_criteria": [
+        "Context meter bar above message area showing % used",
+        "Color gradient: green \u2192 amber (70%) \u2192 red (85%)",
+        "Hover shows exact token counts (used / total)",
+        "Per-message token badge (input/output tokens)"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-79",
+      "title": "Add JWT auth integration to dashboard",
+      "description": "Dashboard has no authentication. Add login page, JWT token storage in httpOnly cookie or localStorage, protected route middleware, and user display in sidebar header.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "auth",
+        "security"
+      ],
+      "acceptance_criteria": [
+        "Login page at /login with username/password form",
+        "JWT stored securely (httpOnly cookie preferred)",
+        "All pages except /login require authentication",
+        "Redirect to /login on 401 response",
+        "User role displayed in sidebar header",
+        "Logout button that revokes token"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-80",
+      "title": "Add RAG toggle and source display to chat",
+      "description": "RAG is disconnected from chat in the dashboard. Add a toggle button to enable/disable RAG auto-injection per conversation. When enabled, show retrieved source documents with attribution below the assistant response.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "rag"
+      ],
+      "acceptance_criteria": [
+        "RAG toggle button in chat header (on/off per session)",
+        "When on: relevant documents auto-retrieved and injected",
+        "Source attribution cards below assistant response",
+        "Source cards show: document name, relevance score, snippet",
+        "Click source card to expand full context"
+      ],
+      "dependencies": [
+        "BMTOS-71"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-81",
+      "title": "Add message grouping and improved chat styling",
+      "description": "Current chat uses flat message list. Implement OpenClaw-style message grouping: consecutive messages from same role grouped with avatar, timestamps between groups, improved bubble styling with code block rendering.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "ux"
+      ],
+      "acceptance_criteria": [
+        "Consecutive same-role messages grouped under single avatar",
+        "Timestamps shown between message groups (relative: '2 min ago')",
+        "Code blocks rendered with syntax highlighting",
+        "Markdown rendering in assistant messages",
+        "Copy button on code blocks"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-82",
+      "title": "Add slash commands to chat input",
+      "description": "No command shortcuts in chat. Add slash command support with autocomplete menu: /clear (reset), /model (switch model), /rag (toggle RAG), /export (download conversation), /system (set system prompt).",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "ux"
+      ],
+      "acceptance_criteria": [
+        "Typing / shows autocomplete dropdown with available commands",
+        "Arrow keys navigate, Enter selects, Escape dismisses",
+        "Commands: /clear, /model, /rag, /export, /system",
+        "/model shows model picker inline",
+        "/export downloads conversation as Markdown"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-83",
+      "title": "Add file attachment and voice input to chat",
+      "description": "Chat input only supports text. Add drag-drop file attachment (for RAG ingestion or image analysis) and voice input via Web Speech API. Show attachment preview thumbnails in compose area.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "media"
+      ],
+      "acceptance_criteria": [
+        "Drag-drop files onto chat input area",
+        "Paste images from clipboard",
+        "Attachment thumbnail preview before sending",
+        "Microphone button for voice-to-text input",
+        "Voice input uses Web Speech API (browser native)"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-76",
+      "title": "Implement LoRA/QLoRA fine-tuning training module",
+      "description": "Create bmt_ai_os/training/ module with LoRA fine-tuning pipeline using PyTorch + PEFT. Support dataset loading, training loop with SummaryWriter, checkpoint saving, and progress reporting via API.",
+      "type": "story",
+      "priority": "high",
+      "points": 13,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "ai"
+      ],
+      "acceptance_criteria": [
+        "LoRA fine-tune a 1.5B model on Jetson/ARM64",
+        "QLoRA support with <2GB VRAM",
+        "Training writes TensorBoard logs to /var/lib/bmt/runs/",
+        "Progress reported via /api/v1/training/jobs endpoint",
+        "Configurable hyperparameters (lr, epochs, rank, alpha)"
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-77",
+      "title": "Add training CLI commands (train, data-prepare, export)",
+      "description": "Add CLI subcommands: bmt-ai-os train lora, bmt-ai-os data-prepare, bmt-ai-os export-model. Wire to the training module.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "cli"
+      ],
+      "acceptance_criteria": [
+        "bmt-ai-os train lora --model X --data Y launches training",
+        "bmt-ai-os data-prepare converts datasets to training format",
+        "bmt-ai-os export-model converts adapter to GGUF for Ollama"
+      ],
+      "dependencies": [
+        "BMTOS-76"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-78",
+      "title": "Add training job management API endpoints",
+      "description": "Create /api/v1/training/ routes: POST /jobs (start), GET /jobs (list), GET /jobs/{id}/status (progress), DELETE /jobs/{id} (cancel). Background job execution with status tracking.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "api"
+      ],
+      "acceptance_criteria": [
+        "POST /api/v1/training/jobs starts a training job",
+        "GET /api/v1/training/jobs lists all jobs with status",
+        "GET /api/v1/training/jobs/{id}/status returns progress %",
+        "Training runs in background thread/process"
+      ],
+      "dependencies": [
+        "BMTOS-76"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-79",
+      "title": "Wire TensorBoard to training pipeline with SummaryWriter",
+      "description": "Integrate torch.utils.tensorboard.SummaryWriter into the training loop. Log loss, eval_loss, learning_rate, GPU memory, throughput (tok/s) to the training_runs volume.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "tensorboard"
+      ],
+      "acceptance_criteria": [
+        "Training writes TensorBoard event files to /runs/{job_id}/",
+        "Metrics logged: loss, eval_loss, lr, memory, tok/s",
+        "TensorBoard at :6006 shows live training curves",
+        "Logs persist across container restarts (named volume)"
+      ],
+      "dependencies": [
+        "BMTOS-76"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-80",
+      "title": "Add training dashboard page with job status and TensorBoard embed",
+      "description": "Create /training dashboard page showing: active/completed jobs, progress bars, loss curves (inline chart or TensorBoard iframe), start new training form.",
+      "type": "story",
+      "priority": "medium",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "dashboard"
+      ],
+      "acceptance_criteria": [
+        "Dashboard /training page lists training jobs",
+        "Shows progress %, estimated time remaining",
+        "Inline loss curve chart or TensorBoard iframe",
+        "Start new training form with model/data selector"
+      ],
+      "dependencies": [
+        "BMTOS-78"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-81",
+      "title": "Build data preparation and dataset tools",
+      "description": "Create bmt_ai_os/training/data_prep.py with tools to convert text, JSONL, CSV into training format. Support instruction tuning format (alpaca, sharegpt).",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "data"
+      ],
+      "acceptance_criteria": [
+        "Convert JSONL/CSV to instruction-tuning format",
+        "Support alpaca and sharegpt formats",
+        "Validation: check for empty/malformed examples",
+        "CLI: bmt-ai-os data-prepare --input X --format alpaca"
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-82",
+      "title": "Add model export pipeline (adapter merge + GGUF conversion)",
+      "description": "After LoRA training, merge adapter weights back into base model and convert to GGUF format for Ollama. Auto-register the exported model.",
+      "type": "story",
+      "priority": "medium",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "models"
+      ],
+      "acceptance_criteria": [
+        "Merge LoRA adapter into base model weights",
+        "Convert merged model to GGUF via llama.cpp",
+        "Create Ollama Modelfile and register model",
+        "CLI: bmt-ai-os export-model --adapter X --output Y"
+      ],
+      "dependencies": [
+        "BMTOS-76"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-83",
+      "title": "Add training metrics to Prometheus and Grafana",
+      "description": "Expose training metrics (loss, throughput, GPU memory) as Prometheus metrics. Add training panel to Grafana dashboard.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "monitoring"
+      ],
+      "acceptance_criteria": [
+        "Training metrics exposed on /metrics endpoint",
+        "Grafana dashboard has training panel",
+        "Alerting on training failure or stalled jobs"
+      ],
+      "dependencies": [
+        "BMTOS-79"
+      ],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-84",
+      "title": "Create training documentation (guides + API reference)",
+      "description": "Write docs/training/ with: overview, LoRA guide, data preparation guide, model export guide, TensorBoard usage.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "training",
+        "docs"
+      ],
+      "acceptance_criteria": [
+        "docs/training/overview.md exists",
+        "docs/training/lora-guide.md with step-by-step",
+        "docs/training/data-preparation.md",
+        "docs/training/model-export.md"
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-10",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-85",
+      "title": "Add MCP server for Claude Code native integration",
+      "description": "Implement Model Context Protocol server so Claude Code can natively access BMT AI OS resources (files, RAG, models) without going through the OpenAI-compat API.",
+      "type": "story",
+      "priority": "medium",
+      "points": 13,
+      "status": "backlog",
+      "labels": [
+        "integration",
+        "claude-code"
+      ],
+      "acceptance_criteria": [
+        "MCP server exposes file system resources",
+        "MCP server exposes RAG query tool",
+        "MCP server exposes model management tools",
+        "Claude Code can connect via mcp:// protocol"
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-11",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-86",
+      "title": "Add tool_use/function_calling to OpenAI-compatible API",
+      "description": "Extend /v1/chat/completions to support tools/function_calling parameters. Route to providers that support it (Anthropic, OpenAI). Required for advanced Claude Code features.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "api",
+        "integration"
+      ],
+      "acceptance_criteria": [
+        "tools parameter accepted in chat completions request",
+        "Tool calls returned in response when provider supports it",
+        "Anthropic provider maps tools to Claude format",
+        "Graceful fallback for providers without tool support"
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-11",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 76
+  "next_id": 84
 }
