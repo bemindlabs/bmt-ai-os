@@ -369,6 +369,61 @@ def stack_ps() -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# logs
+# ---------------------------------------------------------------------------
+
+
+@main.command()
+@click.option("-s", "--service", default="controller", help="Service name")
+@click.option("-n", "--tail", "tail_n", default=50, type=int, help="Last N lines")
+@click.option("--json", "json_mode", is_flag=True, help="Raw JSON output")
+@click.option("--log-dir", default=None, help="Override log directory")
+def logs(service: str, tail_n: int, json_mode: bool, log_dir: str | None) -> None:
+    """View service logs."""
+    import json as json_mod
+    from pathlib import Path
+
+    search_dirs = [Path(log_dir)] if log_dir else [Path("/var/log/bmt"), Path("/tmp/bmt-logs")]
+    log_file = None
+    for d in search_dirs:
+        candidate = d / f"{service}.log"
+        if candidate.exists():
+            log_file = candidate
+            break
+
+    if not log_file:
+        click.echo(f"Log file not found for service '{service}'", err=True)
+        paths = ", ".join(str(d / f"{service}.log") for d in search_dirs)
+        click.echo(f"Searched: {paths}", err=True)
+        sys.exit(1)
+
+    lines = log_file.read_text().splitlines()
+    lines = lines[-tail_n:] if tail_n < len(lines) else lines
+
+    for line in lines:
+        if not line.strip():
+            continue
+        if json_mode:
+            click.echo(line)
+        else:
+            try:
+                rec = json_mod.loads(line)
+                ts = rec.get("ts", "")
+                level = rec.get("level", "").ljust(8)
+                msg = rec.get("msg", "")
+                tid = rec.get("trace_id", "")
+                tid_str = f"  [trace_id={tid}]" if tid else ""
+                click.echo(f"{ts}  {level}  {msg}{tid_str}")
+            except (json_mod.JSONDecodeError, TypeError):
+                click.echo(line)
+
+
+# ---------------------------------------------------------------------------
+# providers
+# ---------------------------------------------------------------------------
+
+
 @main.command()
 def providers() -> None:
     """List configured providers and the active provider."""
