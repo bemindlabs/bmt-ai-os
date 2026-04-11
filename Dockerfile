@@ -16,11 +16,17 @@ WORKDIR /build
 COPY pyproject.toml .
 RUN pip install --no-cache-dir --prefix=/install \
     aiohttp>=3.9 \
+    bcrypt>=4.0 \
+    click>=8.0 \
+    cryptography>=43.0 \
     docker>=7.0 \
-    pyyaml>=6.0 \
     fastapi>=0.115 \
-    uvicorn>=0.34 \
-    pydantic>=2.0
+    prometheus-client>=0.21 \
+    pydantic>=2.0 \
+    pyjwt>=2.8 \
+    pyyaml>=6.0 \
+    requests>=2.31 \
+    uvicorn>=0.34
 
 # --- Stage 2: Runtime ---
 FROM python:3.12-slim
