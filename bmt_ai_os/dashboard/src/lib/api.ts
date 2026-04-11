@@ -223,3 +223,57 @@ export async function queryRag(
     body: JSON.stringify(req),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Agents / Persona Presets (BMTOS-108)
+// ---------------------------------------------------------------------------
+
+export interface AgentPreset {
+  id: string;
+  name: string;
+  summary: string;
+  model: string;
+  workspace: string;
+}
+
+export interface AgentsResponse {
+  agents: AgentPreset[];
+}
+
+/** Fetch agent personas from the controller persona-presets API.
+ *  Falls back to hardcoded defaults if the endpoint is unavailable. */
+export async function fetchAgents(): Promise<AgentsResponse> {
+  try {
+    return await apiFetch<AgentsResponse>("/api/v1/persona/presets");
+  } catch {
+    // Offline fallback — use the three built-in presets
+    return {
+      agents: [
+        {
+          id: "default",
+          name: "Default",
+          summary:
+            "You are a friendly, knowledgeable AI assistant running on BMT AI OS.",
+          model: "qwen2.5:7b",
+          workspace: "~/.bmt/workspaces/default",
+        },
+        {
+          id: "coding",
+          name: "Coding",
+          summary:
+            "You are a precise, expert software engineering assistant running on BMT AI OS.",
+          model: "qwen2.5-coder:7b",
+          workspace: "~/.bmt/workspaces/coding",
+        },
+        {
+          id: "creative",
+          name: "Creative",
+          summary:
+            "You are an expressive, imaginative creative writing assistant running on BMT AI OS.",
+          model: "qwen2.5:7b",
+          workspace: "~/.bmt/workspaces/creative",
+        },
+      ],
+    };
+  }
+}
