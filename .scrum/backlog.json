@@ -7,8 +7,11 @@
       "type": "story",
       "priority": "critical",
       "points": 8,
-      "status": "backlog",
-      "labels": ["kernel", "infrastructure"],
+      "status": "done",
+      "labels": [
+        "kernel",
+        "infrastructure"
+      ],
       "acceptance_criteria": [
         "Buildroot config produces bootable ARM64 image",
         "Networking stack functional (bridge, veth, iptables for containers)",
@@ -30,8 +33,10 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["runtime"],
+      "status": "done",
+      "labels": [
+        "runtime"
+      ],
       "acceptance_criteria": [
         "Containerd installed and starts on boot via OpenRC service",
         "Docker CLI can interact with containerd (pull, run, stop)",
@@ -39,7 +44,9 @@
         "Containerd survives restart without data loss",
         "Storage driver uses overlayfs on ext4 partition"
       ],
-      "dependencies": ["BMTOS-1"],
+      "dependencies": [
+        "BMTOS-1"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09",
       "refined_at": "2026-04-09",
@@ -52,8 +59,12 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["runtime", "ai-stack", "hardware"],
+      "status": "done",
+      "labels": [
+        "runtime",
+        "ai-stack",
+        "hardware"
+      ],
       "acceptance_criteria": [
         "NPU/GPU devices visible inside containers via device passthrough",
         "Jetson Orin: CUDA GPU accessible, Ollama uses GPU acceleration",
@@ -62,7 +73,9 @@
         "CPU-only fallback when no accelerator present (llama.cpp NEON/SVE)",
         "Performance benchmark per target: tok/s for Qwen2.5-Coder-7B Q4"
       ],
-      "dependencies": ["BMTOS-2a"],
+      "dependencies": [
+        "BMTOS-2a"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09",
       "refined_at": "2026-04-09",
@@ -75,8 +88,10 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["ai-stack"],
+      "status": "done",
+      "labels": [
+        "ai-stack"
+      ],
       "acceptance_criteria": [
         "Ollama serves model inference on port 11434",
         "ChromaDB accepts vector operations on port 8000",
@@ -86,7 +101,9 @@
         "Resource limits set (CPU, memory) appropriate per device tier",
         "bmt_ai_os-build/services/ai-stack.yml updated to ChromaDB (remove LanceDB reference)"
       ],
-      "dependencies": ["BMTOS-2a"],
+      "dependencies": [
+        "BMTOS-2a"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09",
       "refined_at": "2026-04-09"
@@ -98,8 +115,10 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["controller"],
+      "status": "done",
+      "labels": [
+        "controller"
+      ],
       "acceptance_criteria": [
         "Controller starts/stops AI stack containers (Ollama, ChromaDB) on demand",
         "Health check polling with configurable interval (default 30s)",
@@ -108,7 +127,9 @@
         "Scope limited to AI-stack services defined in docker-compose.yml",
         "Graceful shutdown handling (SIGTERM)"
       ],
-      "dependencies": ["BMTOS-3"],
+      "dependencies": [
+        "BMTOS-3"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09",
       "refined_at": "2026-04-09"
@@ -120,8 +141,11 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
-      "labels": ["ai-stack", "rag"],
+      "status": "done",
+      "labels": [
+        "ai-stack",
+        "rag"
+      ],
       "acceptance_criteria": [
         "Supports ingestion of plain text (.txt), Markdown (.md), and source code files",
         "Documents chunked with configurable chunk size (default 512 tokens)",
@@ -129,7 +153,9 @@
         "Chunks stored in ChromaDB with source metadata (filename, position, language)",
         "Ingestion of 100 documents completes within 60 seconds on Jetson Orin"
       ],
-      "dependencies": ["BMTOS-3"],
+      "dependencies": [
+        "BMTOS-3"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09",
       "refined_at": "2026-04-09",
@@ -142,8 +168,12 @@
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
-      "labels": ["ai-stack", "rag", "controller"],
+      "status": "done",
+      "labels": [
+        "ai-stack",
+        "rag",
+        "controller"
+      ],
       "acceptance_criteria": [
         "User query retrieves top-k relevant chunks from ChromaDB (k configurable, default 5)",
         "Retrieved context injected into prompt template",
@@ -151,7 +181,10 @@
         "End-to-end query latency under 3 seconds on Jetson Orin with Qwen2.5-Coder-7B Q4",
         "Response includes source attribution (which documents were used)"
       ],
-      "dependencies": ["BMTOS-4", "BMTOS-5a"],
+      "dependencies": [
+        "BMTOS-4",
+        "BMTOS-5a"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09",
       "refined_at": "2026-04-09",
@@ -165,7 +198,11 @@
       "priority": "high",
       "points": 8,
       "status": "done",
-      "labels": ["controller", "providers", "architecture"],
+      "labels": [
+        "controller",
+        "providers",
+        "architecture"
+      ],
       "acceptance_criteria": [
         "Provider interface defines chat(), embed(), and list_models() methods",
         "Provider registry allows registering and selecting backends by name",
@@ -173,7 +210,9 @@
         "Ollama provider implemented as reference (including Anthropic-compatible API for Claude Code)",
         "Provider can be switched at runtime without restarting the controller"
       ],
-      "dependencies": ["BMTOS-4"],
+      "dependencies": [
+        "BMTOS-4"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -186,7 +225,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["providers", "local", "ai-stack"],
+      "labels": [
+        "providers",
+        "local",
+        "ai-stack"
+      ],
       "acceptance_criteria": [
         "vLLM service added to docker-compose.yml with ARM64-compatible image",
         "Provider implements chat() and list_models() via vLLM OpenAI-compatible API",
@@ -194,7 +237,9 @@
         "Model loading and switching works via provider config",
         "Health check integration with controller"
       ],
-      "dependencies": ["BMTOS-6"],
+      "dependencies": [
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -207,7 +252,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["providers", "local", "ai-stack"],
+      "labels": [
+        "providers",
+        "local",
+        "ai-stack"
+      ],
       "acceptance_criteria": [
         "llama-server service added to docker-compose.yml (or binary install)",
         "Provider implements chat() and embed() via llama.cpp HTTP API",
@@ -215,7 +264,9 @@
         "Memory footprint documented vs Ollama on same model",
         "ARM NEON/SVE acceleration verified, RKNN delegation when available"
       ],
-      "dependencies": ["BMTOS-6"],
+      "dependencies": [
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -228,7 +279,10 @@
       "priority": "medium",
       "points": 3,
       "status": "done",
-      "labels": ["providers", "cloud"],
+      "labels": [
+        "providers",
+        "cloud"
+      ],
       "acceptance_criteria": [
         "Provider implements chat() via OpenAI Chat Completions API",
         "Provider implements embed() via OpenAI Embeddings API",
@@ -236,7 +290,9 @@
         "Graceful error handling when offline or rate-limited",
         "Request/response logging for cost tracking"
       ],
-      "dependencies": ["BMTOS-6"],
+      "dependencies": [
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -249,7 +305,10 @@
       "priority": "medium",
       "points": 3,
       "status": "done",
-      "labels": ["providers", "cloud"],
+      "labels": [
+        "providers",
+        "cloud"
+      ],
       "acceptance_criteria": [
         "Provider implements chat() via Anthropic Messages API",
         "Handles Anthropic-specific features (system prompt, tool use)",
@@ -257,7 +316,9 @@
         "Graceful error handling when offline or rate-limited",
         "Request/response logging for cost tracking"
       ],
-      "dependencies": ["BMTOS-6"],
+      "dependencies": [
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -270,7 +331,10 @@
       "priority": "low",
       "points": 3,
       "status": "done",
-      "labels": ["providers", "cloud"],
+      "labels": [
+        "providers",
+        "cloud"
+      ],
       "acceptance_criteria": [
         "Provider implements chat() via Gemini API",
         "Provider implements embed() via Gemini Embedding API",
@@ -278,7 +342,9 @@
         "Graceful error handling when offline or rate-limited",
         "Request/response logging for cost tracking"
       ],
-      "dependencies": ["BMTOS-6"],
+      "dependencies": [
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -291,7 +357,10 @@
       "priority": "low",
       "points": 3,
       "status": "done",
-      "labels": ["providers", "cloud"],
+      "labels": [
+        "providers",
+        "cloud"
+      ],
       "acceptance_criteria": [
         "Mistral provider implements chat() and embed() via Mistral API",
         "Groq provider implements chat() via Groq API (OpenAI-compatible)",
@@ -299,7 +368,9 @@
         "API keys configured independently per provider",
         "Groq noted as low-latency cloud fallback option"
       ],
-      "dependencies": ["BMTOS-8a"],
+      "dependencies": [
+        "BMTOS-8a"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -312,7 +383,10 @@
       "priority": "high",
       "points": 5,
       "status": "done",
-      "labels": ["controller", "providers"],
+      "labels": [
+        "controller",
+        "providers"
+      ],
       "acceptance_criteria": [
         "Fallback chain defined in config (e.g., ollama → llama.cpp → openai → anthropic)",
         "Automatic failover to next provider on timeout or error",
@@ -320,7 +394,9 @@
         "Circuit breaker: skip unhealthy providers for configurable cooldown period",
         "Logs which provider served each request"
       ],
-      "dependencies": ["BMTOS-6"],
+      "dependencies": [
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-1",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -333,7 +409,10 @@
       "priority": "high",
       "points": 8,
       "status": "done",
-      "labels": ["dev-tools", "coding-cli"],
+      "labels": [
+        "dev-tools",
+        "coding-cli"
+      ],
       "acceptance_criteria": [
         "Claude Code installed and functional (uses Ollama Anthropic-compatible API since v0.14)",
         "Aider installed and functional (pip package)",
@@ -343,7 +422,10 @@
         "All CLIs launch without errors on ARM64",
         "Version pinning for reproducible installs"
       ],
-      "dependencies": ["BMTOS-1", "BMTOS-3"],
+      "dependencies": [
+        "BMTOS-1",
+        "BMTOS-3"
+      ],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -356,7 +438,11 @@
       "priority": "high",
       "points": 5,
       "status": "done",
-      "labels": ["dev-tools", "coding-cli", "providers"],
+      "labels": [
+        "dev-tools",
+        "coding-cli",
+        "providers"
+      ],
       "acceptance_criteria": [
         "Claude Code configured via ANTHROPIC_BASE_URL=http://localhost:11434",
         "Aider defaults to local Ollama model (Qwen2.5-Coder-7B or Qwen3.5-9B)",
@@ -366,7 +452,10 @@
         "Cloud API keys auto-detected from env vars when present",
         "Config regenerated when provider settings change"
       ],
-      "dependencies": ["BMTOS-6", "BMTOS-10"],
+      "dependencies": [
+        "BMTOS-6",
+        "BMTOS-10"
+      ],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -379,7 +468,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["dev-tools", "ide-plugins", "api"],
+      "labels": [
+        "dev-tools",
+        "ide-plugins",
+        "api"
+      ],
       "acceptance_criteria": [
         "OpenAI-compatible API served on configurable port (default 8080)",
         "Cursor can connect using custom API base URL pointing to BMT AI OS",
@@ -388,7 +481,10 @@
         "API supports streaming responses (SSE) for real-time completions",
         "Connection guide documented for each IDE"
       ],
-      "dependencies": ["BMTOS-6", "BMTOS-9"],
+      "dependencies": [
+        "BMTOS-6",
+        "BMTOS-9"
+      ],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -401,7 +497,10 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["dev-tools", "code-agents"],
+      "labels": [
+        "dev-tools",
+        "code-agents"
+      ],
       "acceptance_criteria": [
         "SWE-agent installed and runnable against local repos",
         "Codex CLI installed with --oss flag for local Ollama backend",
@@ -410,7 +509,10 @@
         "Sandboxed execution: agents run in containers with mounted workspaces",
         "Agent output logged for review"
       ],
-      "dependencies": ["BMTOS-6", "BMTOS-10"],
+      "dependencies": [
+        "BMTOS-6",
+        "BMTOS-10"
+      ],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -423,7 +525,11 @@
       "priority": "medium",
       "points": 8,
       "status": "done",
-      "labels": ["dev-tools", "rag", "workspace"],
+      "labels": [
+        "dev-tools",
+        "rag",
+        "workspace"
+      ],
       "acceptance_criteria": [
         "Project directories mountable into tool containers via controller CLI",
         "Codebase auto-indexed into ChromaDB on mount (using BMTOS-5a ingestion)",
@@ -432,7 +538,11 @@
         "Multiple workspaces supported simultaneously",
         "Workspace context isolated per project in ChromaDB collections"
       ],
-      "dependencies": ["BMTOS-5a", "BMTOS-5b", "BMTOS-10"],
+      "dependencies": [
+        "BMTOS-5a",
+        "BMTOS-5b",
+        "BMTOS-10"
+      ],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -445,7 +555,10 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["dev-tools", "models"],
+      "labels": [
+        "dev-tools",
+        "models"
+      ],
       "acceptance_criteria": [
         "Preset 'lite': Qwen3.5-9B Q4 (~6GB RAM) for Pi 5 / RK3588 8GB",
         "Preset 'standard': Qwen2.5-Coder-7B Q4 + Qwen3-Embedding-8B (~8GB) for RK3588 16GB / Jetson",
@@ -454,7 +567,10 @@
         "One-command model pull: bmt_ai_os models install coding-standard",
         "Preset config shared across all coding CLIs"
       ],
-      "dependencies": ["BMTOS-6", "BMTOS-3"],
+      "dependencies": [
+        "BMTOS-6",
+        "BMTOS-3"
+      ],
       "epic_id": "BMTOS-EPIC-2",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -466,8 +582,11 @@
       "type": "story",
       "priority": "critical",
       "points": 8,
-      "status": "backlog",
-      "labels": ["build", "infrastructure"],
+      "status": "done",
+      "labels": [
+        "build",
+        "infrastructure"
+      ],
       "acceptance_criteria": [
         "Build script produces bootable .img file for at least one Tier 1 target",
         "Integrates bmt_ai_os-build/ BitBake layers (hardware-accel.bb, container-engine.bb)",
@@ -476,7 +595,9 @@
         "Build reproducible with pinned package versions",
         "Build artifacts documented (sizes, partitions, bootloader)"
       ],
-      "dependencies": ["BMTOS-1"],
+      "dependencies": [
+        "BMTOS-1"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09"
     },
@@ -487,8 +608,11 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["runtime", "infrastructure"],
+      "status": "done",
+      "labels": [
+        "runtime",
+        "infrastructure"
+      ],
       "acceptance_criteria": [
         "OpenRC service files for containerd, ollama, chromadb, controller",
         "Service dependencies enforced (network before containerd, containerd before AI stack)",
@@ -497,7 +621,10 @@
         "System recovers gracefully from unclean shutdown",
         "15+ consecutive boot cycles without failure"
       ],
-      "dependencies": ["BMTOS-1", "BMTOS-2a"],
+      "dependencies": [
+        "BMTOS-1",
+        "BMTOS-2a"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09"
     },
@@ -508,8 +635,11 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
-      "labels": ["testing", "ci"],
+      "status": "done",
+      "labels": [
+        "testing",
+        "ci"
+      ],
       "acceptance_criteria": [
         "QEMU ARM64 setup scripted and documented",
         "CI pipeline builds image and boots in QEMU on every commit",
@@ -518,7 +648,9 @@
         "Test results logged and accessible",
         "GitHub Actions workflow (or equivalent) committed"
       ],
-      "dependencies": ["BMTOS-16"],
+      "dependencies": [
+        "BMTOS-16"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09"
     },
@@ -529,8 +661,11 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["infrastructure", "storage"],
+      "status": "done",
+      "labels": [
+        "infrastructure",
+        "storage"
+      ],
       "acceptance_criteria": [
         "Root filesystem layout documented (/etc, /var, /opt/bmt_ai_os)",
         "Dedicated data partition for AI models and ChromaDB volumes",
@@ -539,7 +674,9 @@
         "ChromaDB data at /var/lib/chromadb with backup strategy",
         "Disk usage documented per preset (lite ~10GB, standard ~15GB, full ~25GB)"
       ],
-      "dependencies": ["BMTOS-1"],
+      "dependencies": [
+        "BMTOS-1"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09"
     },
@@ -550,8 +687,11 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["networking", "infrastructure"],
+      "status": "done",
+      "labels": [
+        "networking",
+        "infrastructure"
+      ],
       "acceptance_criteria": [
         "Containers resolve each other by service name (ollama, chromadb)",
         "Docker Compose network isolates AI stack from host network",
@@ -559,7 +699,10 @@
         "DNS resolution works inside containers for external lookups",
         "Network survives container restarts without stale entries"
       ],
-      "dependencies": ["BMTOS-2a", "BMTOS-3"],
+      "dependencies": [
+        "BMTOS-2a",
+        "BMTOS-3"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09"
     },
@@ -570,8 +713,11 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
-      "labels": ["security", "infrastructure"],
+      "status": "done",
+      "labels": [
+        "security",
+        "infrastructure"
+      ],
       "acceptance_criteria": [
         "AI stack containers run as non-root user where possible",
         "Secrets stored in /etc/bmt_ai_os/secrets/ with restricted permissions (0600)",
@@ -580,7 +726,9 @@
         "No hardcoded credentials in any image layer",
         "Security policy documented"
       ],
-      "dependencies": ["BMTOS-2a"],
+      "dependencies": [
+        "BMTOS-2a"
+      ],
       "epic_id": "BMTOS-EPIC-3",
       "created_at": "2026-04-09"
     },
@@ -593,7 +741,10 @@
       "priority": "medium",
       "points": 8,
       "status": "backlog",
-      "labels": ["cli", "developer-experience"],
+      "labels": [
+        "cli",
+        "developer-experience"
+      ],
       "acceptance_criteria": [
         "bmt_ai_os status — show system health, active provider, loaded model",
         "bmt_ai_os models list/install/remove — model management via Ollama",
@@ -603,7 +754,10 @@
         "bmt_ai_os workspace add /path — mount and index a project",
         "Help text and --help for all subcommands"
       ],
-      "dependencies": ["BMTOS-4", "BMTOS-5b"],
+      "dependencies": [
+        "BMTOS-4",
+        "BMTOS-5b"
+      ],
       "epic_id": null,
       "created_at": "2026-04-09"
     },
@@ -614,8 +768,11 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
-      "labels": ["api", "developer-experience"],
+      "status": "done",
+      "labels": [
+        "api",
+        "developer-experience"
+      ],
       "acceptance_criteria": [
         "POST /api/v1/chat — chat completion (OpenAI-compatible format)",
         "POST /api/v1/embeddings — generate embeddings",
@@ -625,7 +782,10 @@
         "Streaming responses via SSE for chat completions",
         "API key authentication (optional, configurable)"
       ],
-      "dependencies": ["BMTOS-6", "BMTOS-5b"],
+      "dependencies": [
+        "BMTOS-6",
+        "BMTOS-5b"
+      ],
       "epic_id": null,
       "created_at": "2026-04-09"
     },
@@ -637,7 +797,10 @@
       "priority": "medium",
       "points": 5,
       "status": "backlog",
-      "labels": ["observability", "infrastructure"],
+      "labels": [
+        "observability",
+        "infrastructure"
+      ],
       "acceptance_criteria": [
         "All container logs aggregated to syslog or journal",
         "System metrics collected: CPU, RAM, disk, temperature",
@@ -646,7 +809,9 @@
         "bmt_ai_os metrics — show current system stats",
         "Log retention policy: rotate at 100MB, keep 7 days"
       ],
-      "dependencies": ["BMTOS-4"],
+      "dependencies": [
+        "BMTOS-4"
+      ],
       "epic_id": null,
       "created_at": "2026-04-09"
     },
@@ -658,7 +823,10 @@
       "priority": "low",
       "points": 8,
       "status": "backlog",
-      "labels": ["infrastructure", "updates"],
+      "labels": [
+        "infrastructure",
+        "updates"
+      ],
       "acceptance_criteria": [
         "OS update fetches new rootfs and writes to inactive partition",
         "Bootloader switches to new partition on next boot",
@@ -667,7 +835,10 @@
         "Model data and ChromaDB data preserved across updates",
         "bmt_ai_os update — single command for full system update"
       ],
-      "dependencies": ["BMTOS-16", "BMTOS-19"],
+      "dependencies": [
+        "BMTOS-16",
+        "BMTOS-19"
+      ],
       "epic_id": null,
       "created_at": "2026-04-09"
     },
@@ -679,7 +850,10 @@
       "priority": "high",
       "points": 8,
       "status": "backlog",
-      "labels": ["hardware", "bsp"],
+      "labels": [
+        "hardware",
+        "bsp"
+      ],
       "acceptance_criteria": [
         "Jetson Orin Nano Super boots BMT AI OS image",
         "CUDA GPU accessible inside containers",
@@ -688,7 +862,10 @@
         "TensorRT-LLM available as optional acceleration path",
         "Thermal management: throttle inference on overtemp"
       ],
-      "dependencies": ["BMTOS-16", "BMTOS-2b"],
+      "dependencies": [
+        "BMTOS-16",
+        "BMTOS-2b"
+      ],
       "epic_id": "BMTOS-EPIC-4",
       "created_at": "2026-04-09"
     },
@@ -700,7 +877,10 @@
       "priority": "high",
       "points": 8,
       "status": "backlog",
-      "labels": ["hardware", "bsp"],
+      "labels": [
+        "hardware",
+        "bsp"
+      ],
       "acceptance_criteria": [
         "Orange Pi 5 or ROCK 5B boots BMT AI OS image",
         "RKNN NPU accessible (/dev/rknpu) inside containers",
@@ -709,7 +889,10 @@
         "Board-specific device tree and U-Boot config",
         "8GB and 16GB RAM variants tested"
       ],
-      "dependencies": ["BMTOS-16", "BMTOS-2b"],
+      "dependencies": [
+        "BMTOS-16",
+        "BMTOS-2b"
+      ],
       "epic_id": "BMTOS-EPIC-4",
       "created_at": "2026-04-09"
     },
@@ -721,7 +904,10 @@
       "priority": "medium",
       "points": 5,
       "status": "backlog",
-      "labels": ["hardware", "bsp"],
+      "labels": [
+        "hardware",
+        "bsp"
+      ],
       "acceptance_criteria": [
         "Pi 5 + AI HAT+ 2 boots BMT AI OS image",
         "Hailo-10H device accessible via HailoRT inside containers",
@@ -730,7 +916,10 @@
         "Power consumption documented (target <15W during inference)",
         "8GB Pi 5 variant tested"
       ],
-      "dependencies": ["BMTOS-16", "BMTOS-2b"],
+      "dependencies": [
+        "BMTOS-16",
+        "BMTOS-2b"
+      ],
       "epic_id": "BMTOS-EPIC-4",
       "created_at": "2026-04-09"
     },
@@ -742,7 +931,11 @@
       "priority": "high",
       "points": 8,
       "status": "done",
-      "labels": ["dashboard", "frontend", "setup"],
+      "labels": [
+        "dashboard",
+        "frontend",
+        "setup"
+      ],
       "acceptance_criteria": [
         "Next.js 15+ app created at bmt_ai_os/dashboard/ with App Router",
         "shadcn/ui initialized with 'new-york' style, dark theme default",
@@ -756,7 +949,9 @@
         "Docker build stage: static export or standalone for ARM64 deployment",
         "Production build under 2MB gzipped"
       ],
-      "dependencies": ["BMTOS-4"],
+      "dependencies": [
+        "BMTOS-4"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -769,7 +964,10 @@
       "priority": "high",
       "points": 8,
       "status": "done",
-      "labels": ["dashboard", "frontend"],
+      "labels": [
+        "dashboard",
+        "frontend"
+      ],
       "acceptance_criteria": [
         "Service health Cards: Badge (green/yellow/red) for Ollama, ChromaDB, Controller",
         "System gauges: Progress bars for CPU %, RAM %, disk %, temperature",
@@ -780,7 +978,9 @@
         "Responsive grid layout: mobile (1 col) and desktop (2-3 col)",
         "Uses shadcn/ui: Card, Badge, Progress, Separator, Skeleton (loading states)"
       ],
-      "dependencies": ["BMTOS-29"],
+      "dependencies": [
+        "BMTOS-29"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -793,7 +993,11 @@
       "priority": "high",
       "points": 5,
       "status": "done",
-      "labels": ["dashboard", "models", "frontend"],
+      "labels": [
+        "dashboard",
+        "models",
+        "frontend"
+      ],
       "acceptance_criteria": [
         "Installed models Table: name, size, quantization, last used, disk usage",
         "Available models: Command palette (shadcn Command) to search Ollama library",
@@ -804,7 +1008,10 @@
         "Disk usage summary Card: total storage used vs available",
         "Uses shadcn/ui: Table, Command, Dialog, AlertDialog, Button, Progress, Select"
       ],
-      "dependencies": ["BMTOS-29", "BMTOS-15"],
+      "dependencies": [
+        "BMTOS-29",
+        "BMTOS-15"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -817,7 +1024,11 @@
       "priority": "medium",
       "points": 8,
       "status": "done",
-      "labels": ["dashboard", "rag", "frontend"],
+      "labels": [
+        "dashboard",
+        "rag",
+        "frontend"
+      ],
       "acceptance_criteria": [
         "Document upload: drag-and-drop zone using Input file + custom dropzone",
         "Workspace browser: Tabs per collection, Table of indexed docs with count",
@@ -828,7 +1039,11 @@
         "Collection management: create (Dialog), delete (AlertDialog), re-index (Button)",
         "Uses shadcn/ui: Tabs, Table, Input, Button, Accordion, Collapsible, Toast, Dialog"
       ],
-      "dependencies": ["BMTOS-29", "BMTOS-5a", "BMTOS-5b"],
+      "dependencies": [
+        "BMTOS-29",
+        "BMTOS-5a",
+        "BMTOS-5b"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -841,7 +1056,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["dashboard", "providers", "frontend"],
+      "labels": [
+        "dashboard",
+        "providers",
+        "frontend"
+      ],
       "acceptance_criteria": [
         "Provider list: Cards with Switch toggle (enable/disable) per provider",
         "Fallback chain: sortable list (dnd-kit) for drag-and-drop reordering",
@@ -852,7 +1071,11 @@
         "Changes apply without controller restart (optimistic UI update)",
         "Uses shadcn/ui: Card, Switch, Input, Button, Badge, Toast, Separator"
       ],
-      "dependencies": ["BMTOS-29", "BMTOS-6", "BMTOS-9"],
+      "dependencies": [
+        "BMTOS-29",
+        "BMTOS-6",
+        "BMTOS-9"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -865,7 +1088,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["dashboard", "observability", "frontend"],
+      "labels": [
+        "dashboard",
+        "observability",
+        "frontend"
+      ],
       "acceptance_criteria": [
         "Live-tail logs via WebSocket in virtualized ScrollArea (react-virtual)",
         "Filter ToggleGroup buttons per service (controller, Ollama, ChromaDB)",
@@ -876,7 +1103,10 @@
         "Download logs Button exports visible logs as .txt",
         "Uses shadcn/ui: ScrollArea, ToggleGroup, Input, Button, Badge"
       ],
-      "dependencies": ["BMTOS-29", "BMTOS-24"],
+      "dependencies": [
+        "BMTOS-29",
+        "BMTOS-24"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -889,7 +1119,11 @@
       "priority": "low",
       "points": 5,
       "status": "done",
-      "labels": ["dashboard", "dev-tools", "frontend"],
+      "labels": [
+        "dashboard",
+        "dev-tools",
+        "frontend"
+      ],
       "acceptance_criteria": [
         "Tool Cards: Claude Code, Aider, Continue, Tabby with version and Badge status",
         "Config Badge: green (local provider), yellow (cloud), red (not configured)",
@@ -899,7 +1133,11 @@
         "External links to each tool's documentation",
         "Uses shadcn/ui: Card, Badge, Table, Button, Tooltip"
       ],
-      "dependencies": ["BMTOS-29", "BMTOS-10", "BMTOS-14"],
+      "dependencies": [
+        "BMTOS-29",
+        "BMTOS-10",
+        "BMTOS-14"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -912,7 +1150,11 @@
       "priority": "medium",
       "points": 8,
       "status": "done",
-      "labels": ["dashboard", "tui", "cli"],
+      "labels": [
+        "dashboard",
+        "tui",
+        "cli"
+      ],
       "acceptance_criteria": [
         "TUI launches via 'bmt_ai_os tui' command",
         "System overview tab: service health, CPU/RAM/disk/temp gauges, tok/s",
@@ -925,7 +1167,10 @@
         "Built with Python Textual (matches controller language)",
         "Color theme matches web dashboard dark mode"
       ],
-      "dependencies": ["BMTOS-4", "BMTOS-22"],
+      "dependencies": [
+        "BMTOS-4",
+        "BMTOS-22"
+      ],
       "epic_id": "BMTOS-EPIC-5",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -938,7 +1183,11 @@
       "priority": "high",
       "points": 8,
       "status": "done",
-      "labels": ["training", "ml", "python"],
+      "labels": [
+        "training",
+        "ml",
+        "python"
+      ],
       "acceptance_criteria": [
         "PyTorch installed with ARM64 NEON/SVE optimizations (pip install torch)",
         "Jetson target: PyTorch uses CUDA GPU acceleration",
@@ -948,7 +1197,10 @@
         "torch.cuda.is_available() returns True on Jetson, False on others",
         "Basic training smoke test: fine-tune a 100-param model on dummy data"
       ],
-      "dependencies": ["BMTOS-1", "BMTOS-3"],
+      "dependencies": [
+        "BMTOS-1",
+        "BMTOS-3"
+      ],
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -961,7 +1213,11 @@
       "priority": "high",
       "points": 8,
       "status": "done",
-      "labels": ["training", "fine-tuning", "lora"],
+      "labels": [
+        "training",
+        "fine-tuning",
+        "lora"
+      ],
       "acceptance_criteria": [
         "PEFT library installed with LoRA and QLoRA support",
         "bitsandbytes installed for 4-bit quantization (QLoRA)",
@@ -972,7 +1228,9 @@
         "Training script: bmt_ai_os train --model qwen2.5:1.5b --data /path/to/data",
         "Training resumes from checkpoint on interruption"
       ],
-      "dependencies": ["BMTOS-37"],
+      "dependencies": [
+        "BMTOS-37"
+      ],
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -985,7 +1243,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["training", "data", "cli"],
+      "labels": [
+        "training",
+        "data",
+        "cli"
+      ],
       "acceptance_criteria": [
         "bmt_ai_os data prepare --input /docs --format alpaca — convert docs to training format",
         "Supported input: .txt, .md, .jsonl, .csv, code files",
@@ -995,7 +1257,10 @@
         "bmt_ai_os data preview /path/to/dataset.jsonl — show sample entries",
         "Dataset splitting: auto train/eval split (default 90/10)"
       ],
-      "dependencies": ["BMTOS-22", "BMTOS-5b"],
+      "dependencies": [
+        "BMTOS-22",
+        "BMTOS-5b"
+      ],
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -1008,7 +1273,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["training", "jupyter", "developer-experience"],
+      "labels": [
+        "training",
+        "jupyter",
+        "developer-experience"
+      ],
       "acceptance_criteria": [
         "JupyterLab installed and launchable via bmt_ai_os jupyter",
         "Served on port 8888, accessible from browser",
@@ -1018,7 +1287,9 @@
         "Auto-detected GPU/NPU shown in notebook environment info",
         "Notebooks saved to /var/lib/bmt_ai_os/notebooks/"
       ],
-      "dependencies": ["BMTOS-37"],
+      "dependencies": [
+        "BMTOS-37"
+      ],
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -1031,7 +1302,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["training", "monitoring", "dashboard"],
+      "labels": [
+        "training",
+        "monitoring",
+        "dashboard"
+      ],
       "acceptance_criteria": [
         "TensorBoard installed, launchable via bmt_ai_os tensorboard",
         "Served on port 6006, accessible from browser",
@@ -1041,7 +1316,10 @@
         "Training job status: idle/running/complete/failed with progress %",
         "Estimated time remaining based on current throughput"
       ],
-      "dependencies": ["BMTOS-38", "BMTOS-29"],
+      "dependencies": [
+        "BMTOS-38",
+        "BMTOS-29"
+      ],
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -1054,7 +1332,11 @@
       "priority": "medium",
       "points": 5,
       "status": "done",
-      "labels": ["training", "deployment", "models"],
+      "labels": [
+        "training",
+        "deployment",
+        "models"
+      ],
       "acceptance_criteria": [
         "bmt_ai_os model merge --base qwen2.5:1.5b --adapter /path/to/lora — merge LoRA weights",
         "bmt_ai_os model export --format gguf — convert merged model to GGUF (Q4_K_M default)",
@@ -1063,7 +1345,10 @@
         "Export preserves tokenizer and chat template",
         "Validation: run inference on 10 test prompts, compare base vs fine-tuned"
       ],
-      "dependencies": ["BMTOS-38", "BMTOS-6"],
+      "dependencies": [
+        "BMTOS-38",
+        "BMTOS-6"
+      ],
       "epic_id": "BMTOS-EPIC-6",
       "created_at": "2026-04-09",
       "completed_at": "2026-04-09"
@@ -1076,7 +1361,11 @@
       "priority": "high",
       "points": 8,
       "status": "backlog",
-      "labels": ["hardware", "bsp", "apple-silicon"],
+      "labels": [
+        "hardware",
+        "bsp",
+        "apple-silicon"
+      ],
       "acceptance_criteria": [
         "BMT AI OS boots on Apple Silicon via Asahi Linux (M1/M2/M3/M4)",
         "CPU-only inference via llama.cpp with ARM NEON optimization",
@@ -1087,7 +1376,10 @@
         "All coding CLIs and dashboard operational",
         "Known limitation documented: no Metal/GPU acceleration on Linux"
       ],
-      "dependencies": ["BMTOS-16", "BMTOS-2a"],
+      "dependencies": [
+        "BMTOS-16",
+        "BMTOS-2a"
+      ],
       "epic_id": "BMTOS-EPIC-4",
       "created_at": "2026-04-09"
     }
