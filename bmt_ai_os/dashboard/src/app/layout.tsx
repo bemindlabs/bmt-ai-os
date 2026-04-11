@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { SidebarNav } from "@/components/sidebar-nav";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AuthProvider } from "@/components/auth-provider";
+import { SidebarNav } from "@/components/sidebar-nav";
+import { AppShell } from "@/components/app-shell";
 
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
 
@@ -21,9 +22,9 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} dark h-full antialiased`}
     >
-      <body className="flex h-full bg-background text-foreground">
+      <body className="flex h-full overflow-hidden bg-background text-foreground">
         <AuthProvider>
-          {/* Sidebar */}
+          {/* Navigation sidebar (unchanged width) */}
           <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
             {/* Brand */}
             <div className="flex h-14 items-center gap-2.5 px-4">
@@ -40,8 +41,8 @@ export default function RootLayout({
             <SidebarNav />
           </aside>
 
-          {/* Main area */}
-          <div className="flex min-w-0 flex-1 flex-col">
+          {/* Right of nav: header + 3-panel workspace */}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Top header */}
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-6">
               <span className="text-sm font-medium text-muted-foreground">
@@ -55,8 +56,10 @@ export default function RootLayout({
               </div>
             </header>
 
-            {/* Page content */}
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            {/* 3-panel workspace fills remaining height */}
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <AppShell>{children}</AppShell>
+            </div>
           </div>
         </AuthProvider>
       </body>
