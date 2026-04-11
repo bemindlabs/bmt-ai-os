@@ -2,13 +2,16 @@
 
 Validates that the endpoints return correctly structured responses
 matching the OpenAI API format expected by Cursor, Copilot, and Cody.
+
+Also covers BMTOS-86: tool_use / function-calling support.
 """
 
 from __future__ import annotations
 
 import json
 import unittest.mock
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -461,3 +464,383 @@ class TestRagInjection:
             )
 
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# BMTOS-86: Tool / function-calling tests
+# ---------------------------------------------------------------------------
+
+SAMPLE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get the weather for a city",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string"},
+                "unit": {"type": "string"},
+            },
+            "required": ["city"],
+        },
+    },
+}
+
+
+def _make_tool_provider(*, supports_tools: bool = False, tool_calls_in_raw: list | None = None):
+    """Return a mock LLMProvider with configurable tool support."""
+    provider = MagicMock()
+    provider.name = "mock-provider"
+    provider.supports_tools = supports_tools
+
+    raw: dict[str, Any] = {}
+    if tool_calls_in_raw:
+        raw["tool_calls"] = tool_calls_in_raw
+
+    chat_response = MagicMock()
+    chat_response.content = "some text"
+    chat_response.model = "mock-model"
+    chat_response.input_tokens = 10
+    chat_response.output_tokens = 5
+    chat_response.raw = raw
+    chat_response.tool_calls = tool_calls_in_raw
+
+    provider.chat = AsyncMock(return_value=chat_response)
+    return provider
+
+
+def _make_tool_registry(provider):
+    registry = MagicMock()
+    registry.get_active.return_value = provider
+    return registry
+
+
+class TestChatCompletionRequestModelTools:
+    """Pydantic model accepts tools / tool_choice fields."""
+
+    def test_basic_request_no_tools(self):
+        from bmt_ai_os.controller.openai_compat import ChatCompletionRequest
+
+        req = ChatCompletionRequest(messages=[{"role": "user", "content": "Hello"}])
+        assert req.tools is None
+        assert req.tool_choice is None
+
+    def test_request_with_tools_list(self):
+        from bmt_ai_os.controller.openai_compat import ChatCompletionRequest
+
+        req = ChatCompletionRequest(
+            messages=[{"role": "user", "content": "Weather?"}],
+            tools=[SAMPLE_TOOL],
+        )
+        assert req.tools is not None
+        assert len(req.tools) == 1
+        assert req.tools[0].function.name == "get_weather"
+
+    def test_request_with_tool_choice_string(self):
+        from bmt_ai_os.controller.openai_compat import ChatCompletionRequest
+
+        req = ChatCompletionRequest(
+            messages=[{"role": "user", "content": "Hi"}],
+            tools=[SAMPLE_TOOL],
+            tool_choice="auto",
+        )
+        assert req.tool_choice == "auto"
+
+    def test_request_with_tool_choice_dict(self):
+        from bmt_ai_os.controller.openai_compat import ChatCompletionRequest
+
+        req = ChatCompletionRequest(
+            messages=[{"role": "user", "content": "Hi"}],
+            tools=[SAMPLE_TOOL],
+            tool_choice={"type": "function", "function": {"name": "get_weather"}},
+        )
+        assert isinstance(req.tool_choice, dict)
+
+    def test_multiple_tools_accepted(self):
+        from bmt_ai_os.controller.openai_compat import ChatCompletionRequest
+
+        tool2 = {
+            "type": "function",
+            "function": {
+                "name": "search",
+                "description": "Search the web",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        }
+        req = ChatCompletionRequest(
+            messages=[{"role": "user", "content": "Both"}],
+            tools=[SAMPLE_TOOL, tool2],
+        )
+        assert len(req.tools) == 2
+
+
+class TestProviderSupportsToolsHelper:
+    def test_false_when_attr_missing(self):
+        from bmt_ai_os.controller.openai_compat import _provider_supports_tools
+
+        provider = MagicMock(spec=[])
+        assert _provider_supports_tools(provider) is False
+
+    def test_attribute_true(self):
+        from bmt_ai_os.controller.openai_compat import _provider_supports_tools
+
+        provider = MagicMock()
+        provider.supports_tools = True
+        assert _provider_supports_tools(provider) is True
+
+    def test_attribute_false(self):
+        from bmt_ai_os.controller.openai_compat import _provider_supports_tools
+
+        provider = MagicMock()
+        provider.supports_tools = False
+        assert _provider_supports_tools(provider) is False
+
+    def test_callable_returning_true(self):
+        from bmt_ai_os.controller.openai_compat import _provider_supports_tools
+
+        provider = MagicMock()
+        provider.supports_tools = lambda: True
+        assert _provider_supports_tools(provider) is True
+
+    def test_callable_returning_false(self):
+        from bmt_ai_os.controller.openai_compat import _provider_supports_tools
+
+        provider = MagicMock()
+        provider.supports_tools = lambda: False
+        assert _provider_supports_tools(provider) is False
+
+
+class TestToolsToSystemMessage:
+    def test_contains_function_name(self):
+        from bmt_ai_os.controller.openai_compat import Tool, _tools_to_system_message
+
+        tools = [Tool(**SAMPLE_TOOL)]
+        msg = _tools_to_system_message(tools)
+        assert "get_weather" in msg
+
+    def test_contains_json_format_hint(self):
+        from bmt_ai_os.controller.openai_compat import Tool, _tools_to_system_message
+
+        tools = [Tool(**SAMPLE_TOOL)]
+        msg = _tools_to_system_message(tools)
+        assert "json" in msg.lower()
+
+    def test_contains_description(self):
+        from bmt_ai_os.controller.openai_compat import Tool, _tools_to_system_message
+
+        tools = [Tool(**SAMPLE_TOOL)]
+        msg = _tools_to_system_message(tools)
+        assert "Get the weather for a city" in msg
+
+    def test_multiple_tools_all_listed(self):
+        from bmt_ai_os.controller.openai_compat import Tool, _tools_to_system_message
+
+        tool2 = {
+            "type": "function",
+            "function": {
+                "name": "search_web",
+                "description": "Search the internet",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        }
+        tools = [Tool(**SAMPLE_TOOL), Tool(**tool2)]
+        msg = _tools_to_system_message(tools)
+        assert "get_weather" in msg
+        assert "search_web" in msg
+
+
+class TestParseToolCallFromText:
+    def test_valid_json_block_extracted(self):
+        from bmt_ai_os.controller.openai_compat import _parse_tool_call_from_text
+
+        text = '```json\n{"name": "get_weather", "arguments": {"city": "Paris"}}\n```'
+        result = _parse_tool_call_from_text(text)
+        assert result is not None
+        assert result[0]["type"] == "function"
+        assert result[0]["function"]["name"] == "get_weather"
+        args = json.loads(result[0]["function"]["arguments"])
+        assert args["city"] == "Paris"
+
+    def test_no_json_block_returns_none(self):
+        from bmt_ai_os.controller.openai_compat import _parse_tool_call_from_text
+
+        assert _parse_tool_call_from_text("Plain text with no code block.") is None
+
+    def test_malformed_json_returns_none(self):
+        from bmt_ai_os.controller.openai_compat import _parse_tool_call_from_text
+
+        assert _parse_tool_call_from_text("```json\n{not valid json}\n```") is None
+
+    def test_missing_name_returns_none(self):
+        from bmt_ai_os.controller.openai_compat import _parse_tool_call_from_text
+
+        assert _parse_tool_call_from_text('```json\n{"arguments": {"city": "Paris"}}\n```') is None
+
+    def test_code_block_without_language_tag(self):
+        from bmt_ai_os.controller.openai_compat import _parse_tool_call_from_text
+
+        text = '```\n{"name": "search", "arguments": {"query": "test"}}\n```'
+        result = _parse_tool_call_from_text(text)
+        assert result is not None
+        assert result[0]["function"]["name"] == "search"
+
+    def test_tool_call_ids_are_unique(self):
+        from bmt_ai_os.controller.openai_compat import _parse_tool_call_from_text
+
+        text = '```json\n{"name": "fn", "arguments": {}}\n```'
+        r1 = _parse_tool_call_from_text(text)
+        r2 = _parse_tool_call_from_text(text)
+        assert r1 is not None and r2 is not None
+        assert r1[0]["id"] != r2[0]["id"]
+
+
+class TestBuildChatResponseTools:
+    def test_no_tool_calls_finish_reason_stop(self):
+        from bmt_ai_os.controller.openai_compat import _build_chat_response
+
+        resp = _build_chat_response("hello", "model-x")
+        assert resp["choices"][0]["finish_reason"] == "stop"
+        assert "tool_calls" not in resp["choices"][0]["message"]
+
+    def test_with_tool_calls_finish_reason_tool_calls(self):
+        from bmt_ai_os.controller.openai_compat import _build_chat_response
+
+        tc = [{"id": "call_1", "type": "function", "function": {"name": "fn", "arguments": "{}"}}]
+        resp = _build_chat_response("", "model-x", tool_calls=tc)
+        assert resp["choices"][0]["finish_reason"] == "tool_calls"
+        assert resp["choices"][0]["message"]["tool_calls"] == tc
+
+
+class TestChatCompletionsEndpointWithTools:
+    """Integration-style tests via the full FastAPI app."""
+
+    def _get_client(self):
+        from bmt_ai_os.controller.api import app as main_app
+
+        return TestClient(main_app, raise_server_exceptions=True)
+
+    def test_request_with_tools_accepted_fallback_provider(self, monkeypatch):
+        """tools parameter accepted; fallback system-message path; response is 200."""
+        monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-openai-compat-32!")
+        provider = _make_tool_provider(supports_tools=False)
+        registry = _make_tool_registry(provider)
+
+        with patch(
+            "bmt_ai_os.controller.openai_compat._get_provider_router", return_value=registry
+        ):
+            client = self._get_client()
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "What is the weather in Paris?"}],
+                    "tools": [SAMPLE_TOOL],
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "choices" in data
+        assert data["choices"][0]["message"]["role"] == "assistant"
+
+    def test_response_includes_tool_calls_from_native_provider(self, monkeypatch):
+        """Provider supports tools natively and returns tool_calls in response."""
+        monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-openai-compat-32!")
+        native_tc = [
+            {
+                "id": "call_abc123",
+                "type": "function",
+                "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+            }
+        ]
+        provider = _make_tool_provider(supports_tools=True, tool_calls_in_raw=native_tc)
+        registry = _make_tool_registry(provider)
+
+        with patch(
+            "bmt_ai_os.controller.openai_compat._get_provider_router", return_value=registry
+        ):
+            client = self._get_client()
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "Weather?"}],
+                    "tools": [SAMPLE_TOOL],
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["choices"][0]["finish_reason"] == "tool_calls"
+        tc = data["choices"][0]["message"]["tool_calls"]
+        assert tc is not None
+        assert tc[0]["function"]["name"] == "get_weather"
+
+    def test_fallback_parses_tool_call_from_text_response(self, monkeypatch):
+        """Non-tool provider emitting a JSON block gets parsed as a tool_call."""
+        monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-openai-compat-32!")
+        provider = _make_tool_provider(supports_tools=False)
+        chat_response = MagicMock()
+        chat_response.content = (
+            '```json\n{"name": "get_weather", "arguments": {"city": "Berlin"}}\n```'
+        )
+        chat_response.model = "mock-model"
+        chat_response.input_tokens = 10
+        chat_response.output_tokens = 20
+        chat_response.raw = {}
+        chat_response.tool_calls = None
+        provider.chat = AsyncMock(return_value=chat_response)
+        registry = _make_tool_registry(provider)
+
+        with patch(
+            "bmt_ai_os.controller.openai_compat._get_provider_router", return_value=registry
+        ):
+            client = self._get_client()
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "Weather in Berlin?"}],
+                    "tools": [SAMPLE_TOOL],
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        tc = data["choices"][0]["message"].get("tool_calls")
+        assert tc is not None
+        assert tc[0]["function"]["name"] == "get_weather"
+
+    def test_graceful_when_no_tool_call_in_plain_text(self, monkeypatch):
+        """Provider without tools returning plain text — no tool_calls in response."""
+        monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-openai-compat-32!")
+        provider = _make_tool_provider(supports_tools=False)
+        registry = _make_tool_registry(provider)
+
+        with patch(
+            "bmt_ai_os.controller.openai_compat._get_provider_router", return_value=registry
+        ):
+            client = self._get_client()
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "Tell me a joke"}],
+                    "tools": [SAMPLE_TOOL],
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "tool_calls" not in data["choices"][0]["message"]
+
+    def test_no_tools_param_unaffected(self, monkeypatch):
+        """Requests without tools are entirely unaffected."""
+        monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-openai-compat-32!")
+        provider = _make_tool_provider(supports_tools=False)
+        registry = _make_tool_registry(provider)
+
+        with patch(
+            "bmt_ai_os.controller.openai_compat._get_provider_router", return_value=registry
+        ):
+            client = self._get_client()
+            resp = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "Hello"}]},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["choices"][0]["finish_reason"] == "stop"
+        assert "tool_calls" not in data["choices"][0]["message"]
