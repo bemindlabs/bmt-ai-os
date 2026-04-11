@@ -169,6 +169,7 @@
       "status": "completed",
       "priority": "high",
       "points": 68,
+      "total_points": 68,
       "stories": [
         "BMTOS-44",
         "BMTOS-45",
@@ -188,6 +189,7 @@
       "description": "Address critical and high-priority findings from the production readiness evaluation. Fix auth defaults, error handling, input validation, CI gaps, secrets management, and test coverage.",
       "status": "completed",
       "priority": "critical",
+      "total_points": 68,
       "stories": [
         "BMTOS-54",
         "BMTOS-55",
@@ -212,6 +214,7 @@
       "description": "Transform BMT AI OS from a stateless LLM proxy into a conversational AI assistant with persistent sessions, context engine, memory search, and RAG-integrated chat. Inspired by OpenClaw's memory architecture.",
       "status": "completed",
       "priority": "high",
+      "total_points": 44,
       "stories": [
         "BMTOS-69",
         "BMTOS-70",
@@ -235,6 +238,7 @@
       "description": "Upgrade the Next.js dashboard chat page from a basic request-response interface to a production-grade AI assistant with streaming, session persistence, context awareness, and rich interaction features. Inspired by OpenClaw UI patterns.",
       "status": "completed",
       "priority": "high",
+      "total_points": 39,
       "stories": [
         "BMTOS-76",
         "BMTOS-77",
@@ -295,6 +299,7 @@
       "description": "Add configurable AI persona via SOUL.md workspace files, system prompt assembly, multi-agent personality support, and dashboard persona editor. Inspired by OpenClaw's context file architecture.",
       "status": "completed",
       "priority": "medium",
+      "total_points": 24,
       "stories": [
         "BMTOS-87",
         "BMTOS-88",
@@ -310,6 +315,7 @@
       "description": "Wire all existing dashboard components into the live UI. Connect SSE streaming, session sidebar, slash commands, voice/file input, RAG toggle, and source cards into chat-interface.tsx. Add persona editor and agents page.",
       "status": "completed",
       "priority": "high",
+      "total_points": 25,
       "stories": [
         "BMTOS-101",
         "BMTOS-102",
@@ -328,6 +334,7 @@
       "description": "Transform the dashboard into a full AI workspace with resizable panels, tabbed work areas, terminal, code editor, file manager, and fleet dashboard.",
       "status": "completed",
       "priority": "high",
+      "total_points": 55,
       "stories": [
         "BMTOS-110",
         "BMTOS-111",
@@ -347,6 +354,7 @@
       "description": "Dashboard UI for adding, configuring, and managing LLM providers with fallback chain drag-drop.",
       "status": "completed",
       "priority": "high",
+      "total_points": 22,
       "stories": [
         "BMTOS-120",
         "BMTOS-121",
@@ -362,6 +370,7 @@
       "description": "SSH to fleet devices from the dashboard via WebSocket proxy. Local PTY + remote SSH modes with key management.",
       "status": "completed",
       "priority": "high",
+      "total_points": 22,
       "stories": [
         "BMTOS-126",
         "BMTOS-127",
@@ -374,8 +383,9 @@
       "id": "BMTOS-EPIC-17",
       "title": "Enhanced Provider Management (OpenClaw-inspired)",
       "description": "Guided setup wizards, rich model catalog, provider health dashboard, multi-credential profiles, and auto-discovery. Inspired by OpenClaw's provider architecture.",
-      "status": "planned",
+      "status": "completed",
       "priority": "medium",
+      "total_points": 21,
       "stories": [
         "BMTOS-131",
         "BMTOS-132",

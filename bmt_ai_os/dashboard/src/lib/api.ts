@@ -348,6 +348,10 @@ export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
   return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
 }
 
+export async function deployModel(req: { model: string; device_ids: string[] }): Promise<{ status: string; targeted_devices: string[]; device_count: number }> {
+  return apiFetch("/api/v1/fleet/deploy-model", { method: "POST", body: JSON.stringify(req) });
+}
+
 // ---------------------------------------------------------------------------
 // SSH Key Management (BMTOS-129)
 // ---------------------------------------------------------------------------
@@ -379,20 +383,90 @@ export async function deleteSshKey(name: string): Promise<{ deleted: boolean; na
 // Knowledge / RAG
 // ---------------------------------------------------------------------------
 export interface RagCollection { name: string; count: number; }
-export async function fetchCollections(): Promise<{ collections: RagCollection[] }> { return apiFetch("/api/v1/collections"); }
-export async function ingestDocuments(req: { path: string; collection?: string }): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify(req) }); }
+export async function fetchCollections(): Promise<RagCollection[]> {
+  const res = await apiFetch<RagCollection[] | { collections: RagCollection[] }>("/api/v1/collections");
+  return Array.isArray(res) ? res : res.collections;
+}
+export async function ingestDocuments(req: { path: string; collection?: string; recursive?: boolean }): Promise<{ status: string; path: string; collection: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify(req) }); }
 export async function searchKnowledge(req: { question: string; collection?: string; top_k?: number }): Promise<RagQueryResponse> { return apiFetch("/api/v1/query", { method: "POST", body: JSON.stringify(req) }); }
 export async function deleteCollection(name: string): Promise<{ status: string }> { return apiFetch(`/api/v1/collections/${name}`, { method: "DELETE" }); }
 
 // ---------------------------------------------------------------------------
 // Files
 // ---------------------------------------------------------------------------
+export type Breadcrumb = { name: string; path: string };
 export interface FileEntry { name: string; path: string; is_dir: boolean; size: number; modified: string; }
 export async function listFiles(path: string): Promise<{ entries: FileEntry[]; breadcrumbs: { name: string; path: string }[] }> { return apiFetch(`/api/v1/files/list?path=${encodeURIComponent(path)}`); }
 export async function readFile(path: string): Promise<{ content: string; path: string }> { return apiFetch(`/api/v1/files/read?path=${encodeURIComponent(path)}`); }
 export function downloadFileUrl(path: string): string { return `/api/v1/files/download?path=${encodeURIComponent(path)}`; }
 export async function uploadFile(path: string, file: File): Promise<{ status: string }> { const form = new FormData(); form.append("file", file); const res = await fetch(`/api/v1/files/upload?path=${encodeURIComponent(path)}`, { method: "POST", body: form }); if (!res.ok) throw new Error(`${res.status}`); return res.json(); }
 export async function ingestPath(path: string): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify({ path }) }); }
+
+// ---------------------------------------------------------------------------
+// Training
+// ---------------------------------------------------------------------------
+export interface TrainingJob {
+  id: string;
+  model: string;
+  dataset: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  created_at: string;
+  updated_at: string;
+  config?: Record<string, unknown>;
+  current_loss?: number | null;
+  tokens_per_sec?: number | null;
+  error_message?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  current_epoch?: number | null;
+  epochs?: number | null;
+  current_step?: number | null;
+  total_steps?: number | null;
+  learning_rate?: number | null;
+  dataset_rows?: number | null;
+  dataset_preview?: unknown[][] | null;
+  dataset_headers?: string[] | null;
+}
+
+export interface TrainingJobListResponse {
+  jobs: TrainingJob[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TrainingMetricPoint {
+  step: number;
+  loss: number;
+  learning_rate?: number;
+  epoch?: number;
+  tokens_per_sec?: number;
+}
+
+export interface TrainingMetricsResponse {
+  metrics: TrainingMetricPoint[];
+}
+
+export async function fetchTrainingJobs(page = 1, pageSize = 20): Promise<TrainingJobListResponse> {
+  return apiFetch(`/api/v1/training/jobs?page=${page}&page_size=${pageSize}`);
+}
+
+export async function fetchTrainingJob(id: string): Promise<TrainingJob> {
+  return apiFetch(`/api/v1/training/jobs/${id}`);
+}
+
+export async function createTrainingJob(req: { model: string; dataset: string; config?: Record<string, unknown> }): Promise<TrainingJob> {
+  return apiFetch("/api/v1/training/jobs", { method: "POST", body: JSON.stringify(req) });
+}
+
+export async function cancelTrainingJob(id: string): Promise<{ status: string }> {
+  return apiFetch(`/api/v1/training/jobs/${id}/cancel`, { method: "POST" });
+}
+
+export async function fetchTrainingMetrics(id: string): Promise<TrainingMetricsResponse> {
+  return apiFetch(`/api/v1/training/jobs/${id}/metrics`);
+}
 
 // ---------------------------------------------------------------------------
 // Agents
@@ -406,6 +480,7 @@ export async function fetchAgents(): Promise<{ presets: AgentPreset[] }> { try {
 export async function setFallbackOrder(order: string[]): Promise<{ order: string[] }> {
   return apiFetch("/api/v1/providers/fallback-order", { method: "PUT", body: JSON.stringify({ order }) });
 }
-export async function fetchProviderModels(name: string): Promise<{ data: { id: string; name?: string }[] }> {
-  return apiFetch(`/v1/models`);
+export async function fetchProviderModels(name: string): Promise<{ models: { id: string; name?: string }[] }> {
+  const res = await apiFetch<{ object: string; data: { id: string; name?: string }[] }>(`/v1/models`);
+  return { models: res.data ?? [] };
 }

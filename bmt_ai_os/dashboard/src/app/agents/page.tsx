@@ -6,12 +6,11 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { AgentSwitcher } from "./agent-switcher";
 
 export default async function AgentsPage() {
   const result = await fetchAgents().catch(() => null);
-  const agents = result?.agents ?? [];
+  const agents = result?.presets ?? [];
 
   return (
     <div className="space-y-8">
@@ -35,33 +34,14 @@ export default async function AgentsPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {agents.map((agent) => (
-          <Card key={agent.id}>
+          <Card key={agent.name}>
             <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="capitalize">{agent.name}</CardTitle>
-                {agent.id === "default" && (
-                  <Badge variant="secondary">built-in</Badge>
-                )}
-              </div>
+              <CardTitle className="capitalize">{agent.name}</CardTitle>
               <CardDescription className="line-clamp-2">
-                {agent.summary}
+                {agent.description}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Model</span>
-                  <code className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
-                    {agent.model}
-                  </code>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Workspace</span>
-                  <code className="font-mono text-xs bg-muted px-2 py-0.5 rounded truncate max-w-[160px]">
-                    {agent.workspace}
-                  </code>
-                </div>
-              </div>
+            <CardContent>
               <AgentSwitcher agent={agent} />
             </CardContent>
           </Card>

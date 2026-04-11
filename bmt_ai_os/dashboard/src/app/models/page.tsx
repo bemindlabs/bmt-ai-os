@@ -22,7 +22,7 @@ import { BookOpen } from "lucide-react";
 
 export default async function ModelsPage() {
   const result = await fetchModels().catch(() => null);
-  const models = result?.models ?? result?.data ?? [];
+  const models = result?.models ?? [];
 
   return (
     <div className="space-y-8">

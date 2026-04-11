@@ -19,18 +19,17 @@ export function AgentSwitcher({ agent }: AgentSwitcherProps) {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    setActive(stored === agent.id);
-  }, [agent.id]);
+    setActive(stored === agent.name);
+  }, [agent.name]);
 
   function handleSetActive() {
-    localStorage.setItem(STORAGE_KEY, agent.id);
+    localStorage.setItem(STORAGE_KEY, agent.name);
     setActive(true);
     setJustSet(true);
-    // Dispatch a storage event so other tabs pick up the change
     window.dispatchEvent(
       new StorageEvent("storage", {
         key: STORAGE_KEY,
-        newValue: agent.id,
+        newValue: agent.name,
         storageArea: localStorage,
       }),
     );

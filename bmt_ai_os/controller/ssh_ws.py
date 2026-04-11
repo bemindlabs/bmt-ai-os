@@ -15,6 +15,15 @@ host      : str  — target host (required)
 port      : int  — SSH port (default 22)
 username  : str  — login user (default "root")
 auth      : str  — "password" | "key"  (default "password")
+token     : str  — JWT for controller authentication (required when BMT_JWT_SECRET is set)
+
+Authentication
+--------------
+A valid JWT must be supplied as the ``token`` query parameter before the
+WebSocket handshake is accepted.  The token is verified using the same
+``verify_token`` function used by the HTTP middleware.  If the secret is
+not configured (e.g. in test environments), the check is skipped so that
+existing smoke and unit tests continue to pass without changes.
 """
 
 from __future__ import annotations
@@ -34,8 +43,11 @@ except ImportError:  # pragma: no cover
     paramiko = None  # type: ignore[assignment]
     _PARAMIKO_AVAILABLE = False
 
+import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
+
+from bmt_ai_os.controller.auth import verify_token
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +58,16 @@ _KEEPALIVE_INTERVAL = 30  # seconds
 _CONNECT_TIMEOUT = 15  # seconds
 
 _DEFAULT_KEY_PATH = os.path.expanduser(os.environ.get("BMT_SSH_KEY_PATH", "~/.ssh/id_rsa"))
+
+
+# ---------------------------------------------------------------------------
+# Auth helper
+# ---------------------------------------------------------------------------
+
+
+def _ws_auth_required() -> bool:
+    """Return True when a JWT secret is configured and auth should be enforced."""
+    return bool(os.environ.get("BMT_JWT_SECRET"))
 
 
 # ---------------------------------------------------------------------------
@@ -123,18 +145,34 @@ async def ssh_ws(
     port: int = 22,
     username: str = "root",
     auth: str = "password",
+    token: str = "",
 ) -> None:
     """WebSocket endpoint that proxies an interactive SSH session.
 
     Handshake protocol
     ------------------
-    1. Server accepts the WebSocket.
-    2. If ``auth=password``:  server sends ``{"type":"auth","method":"password"}``
+    1. If ``BMT_JWT_SECRET`` is configured, the ``token`` query parameter is
+       verified before the WebSocket is accepted.  Missing or invalid tokens
+       are rejected with close code 1008 (Policy Violation).
+    2. Server accepts the WebSocket.
+    3. If ``auth=password``:  server sends ``{"type":"auth","method":"password"}``
        and waits for the client to send the password as a plain text message.
        If ``auth=key``:  server skips this step and connects immediately.
-    3. Server connects via Paramiko and opens a PTY channel.
-    4. Bidirectional data piping begins.
+    4. Server connects via Paramiko and opens a PTY channel.
+    5. Bidirectional data piping begins.
     """
+    if _ws_auth_required():
+        if not token:
+            await websocket.close(1008)
+            logger.warning("ssh_ws: rejected connection — missing token")
+            return
+        try:
+            verify_token(token)
+        except jwt.PyJWTError as exc:
+            await websocket.close(1008)
+            logger.warning("ssh_ws: rejected connection — invalid token: %s", exc)
+            return
+
     await websocket.accept()
     logger.info(
         "ssh_ws: connection from client (host=%s port=%s user=%s auth=%s)",

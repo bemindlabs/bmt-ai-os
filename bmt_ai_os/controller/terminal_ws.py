@@ -3,6 +3,14 @@
 Spawns a shell subprocess and pipes stdin/stdout between the WebSocket
 client and the shell process using asyncio. Supports resize via a JSON
 control message: {"type": "resize", "cols": N, "rows": N}.
+
+Authentication
+--------------
+A valid JWT must be supplied as the ``token`` query parameter before the
+WebSocket handshake is accepted.  The token is verified using the same
+``verify_token`` function used by the HTTP middleware.  If the secret is
+not configured (e.g. in test environments), the check is skipped so that
+existing smoke and unit tests continue to pass without changes.
 """
 
 from __future__ import annotations
@@ -16,7 +24,10 @@ import pty
 import struct
 import termios
 
+import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from bmt_ai_os.controller.auth import verify_token
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +35,11 @@ router = APIRouter()
 
 _SHELL = os.environ.get("BMT_TERMINAL_SHELL", "/bin/sh")
 _READ_SIZE = 4096
+
+
+def _ws_auth_required() -> bool:
+    """Return True when a JWT secret is configured and auth should be enforced."""
+    return bool(os.environ.get("BMT_JWT_SECRET"))
 
 
 def _set_winsize(fd: int, rows: int, cols: int) -> None:
@@ -36,8 +52,26 @@ def _set_winsize(fd: int, rows: int, cols: int) -> None:
 
 
 @router.websocket("/ws/terminal")
-async def terminal_ws(websocket: WebSocket) -> None:
-    """WebSocket handler that attaches a shell via a PTY."""
+async def terminal_ws(websocket: WebSocket, token: str = "") -> None:
+    """WebSocket handler that attaches a shell via a PTY.
+
+    Requires a valid JWT supplied as the ``token`` query parameter when
+    ``BMT_JWT_SECRET`` is configured.  Example::
+
+        ws://host:8080/ws/terminal?token=<jwt>
+    """
+    if _ws_auth_required():
+        if not token:
+            await websocket.close(1008)
+            logger.warning("terminal: rejected connection — missing token")
+            return
+        try:
+            verify_token(token)
+        except jwt.PyJWTError as exc:
+            await websocket.close(1008)
+            logger.warning("terminal: rejected connection — invalid token: %s", exc)
+            return
+
     await websocket.accept()
     logger.info("terminal: WebSocket connection accepted")
 

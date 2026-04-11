@@ -39,8 +39,16 @@
       "completion_rate": 1.0,
       "start_date": "2026-04-11",
       "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 6,
+      "planned_points": 21,
+      "completed_points": 21,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
     }
   ],
-  "average_velocity": 58,
-  "total_completed_points": 290
+  "average_velocity": 51,
+  "total_completed_points": 311
 }
