@@ -2581,7 +2581,143 @@
       "epic_id": "BMTOS-EPIC-12",
       "created_at": "2026-04-11",
       "completed_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-101",
+      "title": "Wire SSE streaming into chat-interface.tsx",
+      "description": "Import streamChat from api.ts, add AbortController, parse SSE chunks, render tokens incrementally, add Stop button and typing indicator.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-102",
+      "title": "Wire session sidebar into chat page",
+      "description": "Import SessionSidebar, add to chat layout, connect session load/save/switch/delete to chat state, auto-save on every message.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-103",
+      "title": "Wire slash commands into chat input",
+      "description": "Import SlashCommandMenu and commands, detect / prefix in input, show/hide menu, execute commands (clear, model, rag, export, system).",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-104",
+      "title": "Wire voice input and file drop into chat",
+      "description": "Import VoiceInput and FileDropZone, wrap textarea, handle file attachments and voice transcription, show previews.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-105",
+      "title": "Wire RAG toggle and source cards into chat",
+      "description": "Import SourceCard, add RAG toggle switch to chat header, call queryRag before sendChat when enabled, display sources below assistant messages.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "chat",
+        "rag"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-106",
+      "title": "Create persona editor component for settings",
+      "description": "Build PersonaEditor with editor/presets/preview tabs. Add persona API functions to api.ts. Render in settings page.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "persona"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-107",
+      "title": "Add persona CLI commands (set/get/list)",
+      "description": "Add persona group to cli.py with set/get/list subcommands. Set copies preset SOUL.md to workspace.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "backlog",
+      "labels": [
+        "cli",
+        "persona"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-108",
+      "title": "Add /agents page for multi-agent management",
+      "description": "Create agents dashboard page listing configured agent personas, their workspaces, and default models. Allow switching active agent.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "agents"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-109",
+      "title": "Wire auth headers into all dashboard API calls",
+      "description": "Ensure apiFetch includes Authorization Bearer header from stored JWT. Handle 401 redirect to /login on all pages.",
+      "type": "story",
+      "priority": "high",
+      "points": 2,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "auth"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 101
+  "next_id": 110
 }

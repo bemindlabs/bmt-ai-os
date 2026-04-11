@@ -1,41 +1,65 @@
 {
   "sprint_number": 2,
-  "status": "completed",
+  "goal": "Wire all existing dashboard components into the live UI",
   "start_date": "2026-04-11",
   "end_date": "2026-04-11",
-  "duration_days": 14,
-  "goal": "Complete Security Hardening Phase 2 and AI Assistant Memory foundations \u2014 enforce auth at startup, add rate limiting, secrets management, fleet persistence, and conversation storage",
-  "planned_points": 74,
-  "completed_points": 74,
+  "status": "active",
+  "planned_points": 25,
+  "completed_points": 0,
   "items": [
-    "BMTOS-55",
-    "BMTOS-54",
-    "BMTOS-59",
-    "BMTOS-65",
-    "BMTOS-61",
-    "BMTOS-69",
-    "BMTOS-70",
-    "BMTOS-56",
-    "BMTOS-58",
-    "BMTOS-71",
-    "BMTOS-57",
-    "BMTOS-62",
-    "BMTOS-60"
-  ],
-  "completed_items": [
-    "BMTOS-55",
-    "BMTOS-54",
-    "BMTOS-59",
-    "BMTOS-65",
-    "BMTOS-61",
-    "BMTOS-69",
-    "BMTOS-70",
-    "BMTOS-56",
-    "BMTOS-58",
-    "BMTOS-71",
-    "BMTOS-57",
-    "BMTOS-62",
-    "BMTOS-60"
-  ],
-  "scope_changes": []
+    {
+      "id": "BMTOS-101",
+      "title": "Wire SSE streaming into chat-interface.tsx",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-102",
+      "title": "Wire session sidebar into chat page",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-103",
+      "title": "Wire slash commands into chat input",
+      "points": 2,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-104",
+      "title": "Wire voice input and file drop into chat",
+      "points": 2,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-105",
+      "title": "Wire RAG toggle and source cards into chat",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-106",
+      "title": "Create persona editor component for settings",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-107",
+      "title": "Add persona CLI commands (set/get/list)",
+      "points": 2,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-108",
+      "title": "Add /agents page for multi-agent management",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-109",
+      "title": "Wire auth headers into all dashboard API calls",
+      "points": 2,
+      "status": "in_progress"
+    }
+  ]
 }

@@ -7,16 +7,31 @@
   },
   "sprint": {
     "duration_days": 14,
-    "current_sprint": 1,
+    "current_sprint": 2,
     "start_day": "monday"
   },
   "workflow": {
-    "statuses": ["backlog", "ready", "in_progress", "review", "testing", "done"],
+    "statuses": [
+      "backlog",
+      "ready",
+      "in_progress",
+      "review",
+      "testing",
+      "done"
+    ],
     "default_status": "backlog"
   },
   "estimation": {
     "scale": "fibonacci",
-    "values": [1, 2, 3, 5, 8, 13, 21]
+    "values": [
+      1,
+      2,
+      3,
+      5,
+      8,
+      13,
+      21
+    ]
   },
   "quality_gates": {
     "lint": null,
@@ -25,11 +40,19 @@
     "build": "docker compose -f bmt_ai_os/ai-stack/docker-compose.yml config"
   },
   "tech_stack": {
-    "languages": ["python"],
-    "frameworks": ["docker", "buildroot"],
+    "languages": [
+      "python"
+    ],
+    "frameworks": [
+      "docker",
+      "buildroot"
+    ],
     "architecture": "ARM64",
     "container_runtime": "containerd",
-    "ai_services": ["ollama", "chromadb"]
+    "ai_services": [
+      "ollama",
+      "chromadb"
+    ]
   },
   "integrations": {
     "jira": {
