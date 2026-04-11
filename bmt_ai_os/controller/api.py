@@ -18,6 +18,7 @@ from .plugin_routes import router as plugin_router
 from .prometheus import router as prometheus_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
+from .user_routes import router as user_router
 
 _CONTROLLER_VERSION = "2026.4.11"
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ app = FastAPI(
 # OpenAI-compatible API and middleware for IDE plugin support
 apply_middleware(app)
 app.include_router(auth_router)
+app.include_router(user_router)
 app.include_router(openai_router)
 app.include_router(rag_router, prefix="/api/v1")
 app.include_router(fleet_router, prefix="/api/v1")

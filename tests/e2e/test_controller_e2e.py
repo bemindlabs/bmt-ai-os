@@ -73,11 +73,11 @@ class TestAuthFlow:
             from bmt_ai_os.controller.auth import Role, UserStore
 
             store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-            store.create_user("wrongpw", "correct", Role.viewer)
+            store.create_user("wrongpw", "Correct-Pass-123!", Role.viewer)
 
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "wrongpw", "password": "incorrect"},
+            json={"username": "wrongpw", "password": "Incorrect-Pass-999!"},
         )
         assert resp.status_code == 401
 
@@ -402,12 +402,12 @@ class TestFullUserJourney:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-            store.create_user("sysadmin", "secure-pw-456", "admin")
+            store.create_user("sysadmin", "Secure-Pw-456!", "admin")
 
         # Step 2: Login
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "sysadmin", "password": "secure-pw-456"},
+            json={"username": "sysadmin", "password": "Secure-Pw-456!"},
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]

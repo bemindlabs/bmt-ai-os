@@ -529,7 +529,7 @@ async def list_models():
 
     try:
         provider = registry.get_active()
-    except (RuntimeError, LookupError):
+    except Exception:
         logger.exception(
             "Failed to get active provider for model listing [request_id=%s]", request_id
         )
@@ -537,7 +537,7 @@ async def list_models():
 
     try:
         models = await provider.list_models()
-    except (ConnectionError, TimeoutError, OSError):
+    except Exception:
         logger.exception("Failed to list models from provider [request_id=%s]", request_id)
         return {"object": "list", "data": []}
 

@@ -75,6 +75,11 @@ _EXEMPT_PREFIXES = (
     "/api/models",  # Ollama model list (dashboard)
     "/api/pull",  # Ollama model pull (dashboard)
     "/v1/",  # OpenAI-compatible API (models, chat, completions)
+    "/api/v1/fleet/register",  # edge devices register without user tokens
+    "/api/v1/fleet/heartbeat",  # edge devices send heartbeats without user tokens
+    "/api/v1/fleet/health",  # fleet health check (unauthenticated monitoring)
+    "/api/v1/fleet/summary",  # read-only fleet summary (dashboard monitoring)
+    "/api/v1/fleet/devices",  # read-only device list (dashboard monitoring)
 )
 
 # Paths that require a valid JWT but bypass RBAC write-restrictions.
@@ -526,7 +531,13 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: FastAPI, store: UserStore | None = None) -> None:
         super().__init__(app)
-        self._store = store or _get_default_store()
+        # When an explicit store is provided (tests, custom deployments) we use
+        # it directly.  Otherwise we resolve the current module-level singleton
+        # on every request so that test teardown/reset is picked up correctly.
+        self._explicit_store: UserStore | None = store
+
+    def _get_store(self) -> UserStore:
+        return self._explicit_store if self._explicit_store is not None else _get_default_store()
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
@@ -535,12 +546,14 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(p) for p in _EXEMPT_PREFIXES):
             return await call_next(request)
 
+        store = self._get_store()
+
         # Backward-compatible: no users + API key configured → skip JWT auth
-        if not self._store.has_users() and os.environ.get(_ENV_API_KEY):
+        if not store.has_users() and os.environ.get(_ENV_API_KEY):
             return await call_next(request)
 
         # Backward-compatible: no users, no API key → open access (local dev)
-        if not self._store.has_users():
+        if not store.has_users():
             return await call_next(request)
 
         # Extract Bearer token
@@ -551,7 +564,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         token = auth_header[7:]
 
         try:
-            payload = verify_token(token, store=self._store)
+            payload = verify_token(token, store=store)
         except jwt.ExpiredSignatureError:
             return _auth_error("Token has expired.", code="token_expired")
         except jwt.InvalidTokenError as exc:

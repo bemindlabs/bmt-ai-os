@@ -66,7 +66,19 @@ class LockRequest(BaseModel):
 
 
 def _require_admin(request: Request) -> None:
-    """Raise HTTP 403 if the caller is not an admin."""
+    """Raise HTTP 403 if the caller is not an admin.
+
+    In open mode (no users registered in the store), all access is granted —
+    this mirrors the JWTAuthMiddleware's open-access fallback and preserves
+    backward-compatible behaviour for local / air-gapped deployments.
+    """
+    from .auth import get_store
+
+    # Open mode: no users registered — allow all access (local dev / first-boot)
+    store = get_store()
+    if not store.has_users():
+        return
+
     role = getattr(request.state, "role", None)
     if role != Role.admin.value:
         raise HTTPException(
@@ -169,18 +181,22 @@ async def me(request: Request) -> MeResponse:
     return MeResponse(username=username, role=role)
 
 
-@router.post("/users", summary="Create a new user (admin only)")
+@router.post("/users", summary="Create a new user (admin only)", status_code=201)
 async def create_user(body: CreateUserRequest, request: Request) -> dict:
     """Create a new user account.
 
     Requires admin role. Returns the created user's public info.
+    Returns HTTP 409 when the username already exists.
+    Returns HTTP 400 for invalid role or password complexity violations.
     """
     _require_admin(request)
     store = get_store()
     try:
         user = store.create_user(body.username, body.password, body.role)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail={"message": str(exc)})
+        msg = str(exc)
+        status = 409 if "already exists" in msg else 400
+        raise HTTPException(status_code=status, detail={"message": msg})
     return user.as_dict()
 
 

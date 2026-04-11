@@ -722,7 +722,7 @@ class TestFleetRegistryPersistence:
         reg.register(_sample_info("dev-x"))
         reg.register(_sample_info("dev-y"))
         devices = reg.list_devices()
-        ids = {d.device_id for d in devices}
+        ids = {d["device_id"] for d in devices}
         assert ids == {"dev-x", "dev-y"}
 
 
@@ -941,8 +941,12 @@ class TestDeviceRecord:
 
 class TestFleetRegistry:
     def _registry(self) -> FleetRegistry:
-        """Return a fresh registry for each test."""
-        return FleetRegistry()
+        """Return a fresh registry backed by a unique temp SQLite file."""
+        import tempfile
+
+        tmp = tempfile.mkdtemp(prefix="bmt-fleet-test-")
+        db_path = str(Path(tmp) / "fleet.db")
+        return FleetRegistry(db_path=db_path)
 
     def test_register_new_device(self):
         reg = self._registry()
@@ -1095,11 +1099,15 @@ def _make_test_app(registry: FleetRegistry | None = None) -> TestClient:
 
 class TestFleetRoutes:
     def setup_method(self):
-        """Give each test a fresh, isolated registry."""
+        """Give each test a fresh, isolated registry backed by a unique temp DB."""
+        import tempfile
+
         from bmt_ai_os.fleet import registry as reg_module
 
+        tmp = tempfile.mkdtemp(prefix="bmt-fleet-routes-test-")
+        db_path = str(Path(tmp) / "fleet.db")
         self._orig_registry = reg_module._registry
-        self._test_registry = FleetRegistry()
+        self._test_registry = FleetRegistry(db_path=db_path)
         reg_module._registry = self._test_registry
         self._client = TestClient(_make_test_app(self._test_registry).app)
 

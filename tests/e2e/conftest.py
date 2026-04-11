@@ -19,6 +19,9 @@ def e2e_env(tmp_path: Path) -> dict[str, str]:
         "BMT_PLUGIN_STATE": str(tmp_path / "plugins.json"),
         "BMT_PLUGIN_DIR": str(tmp_path / "plugins"),
         "BMT_LOG_FORMAT": "json",
+        # Raise rate limits high enough for test suites that call login many times
+        "BMT_LOGIN_RATE_LIMIT": "1000:300",
+        "BMT_INFERENCE_RATE_LIMIT": "1000:60",
     }
 
 
@@ -28,13 +31,18 @@ def app(e2e_env: dict[str, str], tmp_path: Path):
     (tmp_path / "plugins").mkdir(exist_ok=True)
 
     import bmt_ai_os.controller.auth as auth_mod
+    import bmt_ai_os.controller.rate_limit as rl_mod
 
-    # Save and restore module-level singleton to avoid polluting other tests
+    # Save and restore module-level singletons to avoid polluting other tests
     orig_store = getattr(auth_mod, "_default_store", None)
+    orig_login_limiter = rl_mod._login_limiter
+    orig_inference_limiter = rl_mod._inference_limiter
 
     with patch.dict(os.environ, e2e_env):
-        # Reset the singleton so it picks up the new env vars
+        # Reset singletons so they pick up the new env vars
         auth_mod._default_store = None
+        rl_mod._login_limiter = None
+        rl_mod._inference_limiter = None
 
         from bmt_ai_os.controller.api import app as _app
 
@@ -42,6 +50,8 @@ def app(e2e_env: dict[str, str], tmp_path: Path):
 
     # Restore original state
     auth_mod._default_store = orig_store
+    rl_mod._login_limiter = orig_login_limiter
+    rl_mod._inference_limiter = orig_inference_limiter
 
 
 @pytest.fixture
@@ -57,11 +67,11 @@ def admin_token(client: TestClient, e2e_env: dict[str, str]) -> str:
         from bmt_ai_os.controller.auth import Role, UserStore
 
         store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-        store.create_user("admin", "admin-password-123", Role.admin)
+        store.create_user("admin", "Admin-Password-123!", Role.admin)
 
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "admin", "password": "admin-password-123"},
+            json={"username": "admin", "password": "Admin-Password-123!"},
         )
         assert resp.status_code == 200, f"Login failed: {resp.text}"
         return resp.json()["access_token"]

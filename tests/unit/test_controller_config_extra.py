@@ -149,7 +149,9 @@ class TestLoadConfigEdgeCases:
         assert "svc1" in names
         assert "svc3" in names
 
-    def test_compose_file_overridable(self, tmp_path):
+    def test_compose_file_overridable(self, tmp_path, monkeypatch):
+        # Clear BMT_COMPOSE_FILE so the env-override does not shadow the YAML value
+        monkeypatch.delenv("BMT_COMPOSE_FILE", raising=False)
         config_data = {"compose_file": "/custom/docker-compose.yml"}
         config_file = tmp_path / "controller.yml"
         config_file.write_text(yaml.dump(config_data))
