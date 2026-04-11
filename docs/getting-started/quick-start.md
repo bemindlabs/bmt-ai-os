@@ -72,6 +72,6 @@ Navigate to `http://<device-ip>:9090` to see:
 
 ## What's Next
 
-- [IDE Plugin Setup](../coding-tools/ide-plugins.md) — connect Cursor, Copilot, or Cody
-- [LoRA Training](../training/lora-guide.md) — fine-tune a model on your data
+- [IDE Integration](../ide-integration/index.md) — connect Cursor, Copilot, or Cody
 - [Provider Configuration](../architecture/provider-layer.md) — add cloud fallback
+- [Configuration Reference](../reference/configuration.md) — all config options
