@@ -1732,7 +1732,148 @@
       ],
       "epic_id": "BMTOS-EPIC-8",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-69",
+      "title": "Add session/conversation persistence with SQLite",
+      "description": "BMT AI OS chat is stateless — no conversation history stored. Add a sessions table (SQLite) with session_key, model, token counts, timestamps. Store all chat messages with session_id foreign key. Each /v1/chat/completions request optionally binds to a session.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": ["chat", "persistence", "sessions"],
+      "acceptance_criteria": [
+        "SQLite sessions table with session_key, model, created_at, updated_at, total_tokens",
+        "SQLite messages table with session_id, role, content, tokens, timestamp",
+        "Optional session_id parameter on /v1/chat/completions for multi-turn binding",
+        "Session auto-created on first message if not specified",
+        "GET /api/v1/sessions — list sessions with metadata",
+        "GET /api/v1/sessions/{id}/messages — retrieve conversation history"
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-70",
+      "title": "Build context engine with token budget and compaction",
+      "description": "No context window management exists. Build a pluggable context engine that assembles messages within the model's token budget, auto-summarizes old turns when budget is exceeded, and maintains conversation coherence across long sessions. Inspired by OpenClaw's context engine pattern: bootstrap → ingest → assemble → compact → afterTurn.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": ["chat", "context", "compaction"],
+      "acceptance_criteria": [
+        "ContextEngine interface: assemble(), compact(), ingest()",
+        "Token counting before sending to LLM (tiktoken or model-specific)",
+        "Auto-compaction: summarize oldest turns when budget exceeded",
+        "Compaction checkpoints persisted in session metadata",
+        "Configurable token budget per model (default: 80% of context window)"
+      ],
+      "dependencies": ["BMTOS-69"],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-71",
+      "title": "Integrate RAG auto-injection into chat completions",
+      "description": "RAG and chat are disconnected endpoints. When a user sends a chat message, automatically query the RAG pipeline for relevant context and inject retrieved chunks into the system prompt before calling the LLM. Configurable per-session: auto, manual, or disabled.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["chat", "rag", "integration"],
+      "acceptance_criteria": [
+        "Chat completions auto-query RAG when rag_mode=auto (default)",
+        "Retrieved chunks injected as system context with source attribution",
+        "RAG mode configurable per request: auto, manual, disabled",
+        "Source citations included in response metadata",
+        "RAG query uses last user message as search query"
+      ],
+      "dependencies": ["BMTOS-69"],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-72",
+      "title": "Add hybrid BM25 + vector memory search",
+      "description": "Current RAG uses ChromaDB vector search only. Add BM25 keyword search (SQLite FTS5) and merge with vector results using weighted scoring and temporal decay. Inspired by OpenClaw's hybrid search: merged_score = vector_weight * vector_score + text_weight * bm25_score, with exponential temporal decay.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["rag", "search", "memory"],
+      "acceptance_criteria": [
+        "SQLite FTS5 index for ingested documents alongside ChromaDB",
+        "Hybrid merge: configurable vector_weight (0.5) + text_weight (0.3)",
+        "Temporal decay: score *= exp(-ln(2)/half_life * age_days), default half_life=14",
+        "Fallback to FTS-only when embeddings unavailable",
+        "Search API: GET /api/v1/memory/search?q=..."
+      ],
+      "dependencies": [],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-73",
+      "title": "Add conversation history API (list, search, export)",
+      "description": "No way to retrieve, search, or export past conversations. Add API endpoints for conversation management: list with pagination, full-text search across messages, export to JSON/Markdown.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["chat", "api", "sessions"],
+      "acceptance_criteria": [
+        "GET /api/v1/sessions — paginated list with filters (date, model, token count)",
+        "GET /api/v1/sessions/{id} — full session metadata",
+        "GET /api/v1/sessions/search?q=... — full-text search across message content",
+        "GET /api/v1/sessions/{id}/export?format=json|markdown — conversation export",
+        "DELETE /api/v1/sessions/{id} — delete conversation and messages"
+      ],
+      "dependencies": ["BMTOS-69"],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-74",
+      "title": "Implement memory dreaming/consolidation system",
+      "description": "Implement a background process that promotes frequently-recalled RAG snippets into durable MEMORY.md files. Uses a 6-component weighted scoring algorithm (frequency, relevance, diversity, recency, consolidation, conceptual) inspired by OpenClaw's dreaming system.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": ["memory", "consolidation"],
+      "acceptance_criteria": [
+        "Short-term recall tracker: records which RAG chunks are returned per query",
+        "Promotion scoring: 6-component weighted score (frequency 0.24, relevance 0.30, diversity 0.15, recency 0.15, consolidation 0.10, conceptual 0.06)",
+        "Configurable promotion thresholds: min_score=0.75, min_recall_count=3",
+        "Cron-scheduled consolidation (default: daily at 2 AM)",
+        "Promoted facts written to MEMORY.md with timestamps"
+      ],
+      "dependencies": ["BMTOS-72"],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-75",
+      "title": "Add multi-channel message delivery",
+      "description": "Currently the controller only serves API responses. Add a channel system that can deliver AI assistant responses to external messaging platforms (webhooks, MQTT, WebSocket push). Initial channels: webhook and MQTT for IoT device fleet.",
+      "type": "story",
+      "priority": "low",
+      "points": 8,
+      "status": "backlog",
+      "labels": ["channels", "messaging", "iot"],
+      "acceptance_criteria": [
+        "Channel plugin interface: deliver(message, channel_config) -> DeliveryResult",
+        "Webhook channel: POST response to configurable URL",
+        "MQTT channel: publish to configurable topic (for IoT fleet)",
+        "Per-session channel binding: responses delivered to configured channels",
+        "Channel configuration via /api/v1/channels endpoints"
+      ],
+      "dependencies": ["BMTOS-69"],
+      "epic_id": "BMTOS-EPIC-9",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 69
+  "next_id": 76
 }

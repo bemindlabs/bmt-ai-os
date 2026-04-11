@@ -193,7 +193,25 @@
         "BMTOS-59", "BMTOS-60", "BMTOS-61", "BMTOS-62", "BMTOS-63",
         "BMTOS-64", "BMTOS-65", "BMTOS-66", "BMTOS-67", "BMTOS-68"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-9",
+      "title": "AI Assistant Memory & Conversations",
+      "description": "Transform BMT AI OS from a stateless LLM proxy into a conversational AI assistant with persistent sessions, context engine, memory search, and RAG-integrated chat. Inspired by OpenClaw's memory architecture.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-69", "BMTOS-70", "BMTOS-71", "BMTOS-72",
+        "BMTOS-73", "BMTOS-74", "BMTOS-75"
+      ],
+      "acceptance_criteria": [
+        "Chat completions persist conversation history in SQLite",
+        "Context engine assembles messages within token budget with auto-compaction",
+        "RAG results auto-injected into chat context when relevant",
+        "Hybrid BM25 + vector memory search with temporal decay",
+        "Conversation history API: list, search, export"
+      ]
     }
   ],
-  "next_id": 9
+  "next_id": 10
 }
