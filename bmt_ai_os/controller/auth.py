@@ -228,6 +228,29 @@ class UserStore:
             logger.info("Deleted user '%s'", username)
         return deleted
 
+    def update_user_role(self, username: str, role: Role | str) -> bool:
+        """Change the role of an existing user.
+
+        Returns True if the user was found and updated, False if not found.
+        Raises ValueError for an invalid role string.
+        """
+        if isinstance(role, str):
+            try:
+                role = Role(role)
+            except ValueError:
+                valid = [r.value for r in Role]
+                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
+
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE users SET role = ? WHERE username = ?",
+                (role.value, username),
+            )
+        updated = cur.rowcount > 0
+        if updated:
+            logger.info("Updated role for '%s' to '%s'", username, role.value)
+        return updated
+
     def has_users(self) -> bool:
         """Return True if any users are registered in the store."""
         with self._conn() as con:
@@ -373,3 +396,131 @@ def _get_default_store() -> UserStore:
 def get_store() -> UserStore:
     """Return the module-level UserStore singleton."""
     return _get_default_store()
+
+
+# ---------------------------------------------------------------------------
+# First-boot bootstrap
+# ---------------------------------------------------------------------------
+
+_ENV_DEFAULT_ADMIN_USER = "BMT_ADMIN_USER"
+_ENV_DEFAULT_ADMIN_PASS = "BMT_ADMIN_PASS"
+
+_DEFAULT_ADMIN_USERNAME = "admin"
+_DEFAULT_ADMIN_PASSWORD = "admin"  # changed on first login in production
+
+
+def ensure_default_admin(store: UserStore | None = None) -> bool:
+    """Create the default admin user if no users exist.
+
+    Called automatically during controller startup to satisfy the
+    "default admin user created on first boot" acceptance criterion.
+
+    Credentials are taken from BMT_ADMIN_USER / BMT_ADMIN_PASS env vars,
+    falling back to "admin" / "admin".  A warning is emitted when the
+    insecure defaults are used.
+
+    Returns True if a new admin was created, False if users already existed.
+    """
+    s = store or _get_default_store()
+    if s.has_users():
+        return False
+
+    username = os.environ.get(_ENV_DEFAULT_ADMIN_USER, _DEFAULT_ADMIN_USERNAME)
+    password = os.environ.get(_ENV_DEFAULT_ADMIN_PASS, _DEFAULT_ADMIN_PASSWORD)
+
+    if password == _DEFAULT_ADMIN_PASSWORD:
+        logger.warning(
+            "Using insecure default admin password. Set %s env var to override before first boot.",
+            _ENV_DEFAULT_ADMIN_PASS,
+        )
+
+    s.create_user(username, password, Role.admin)
+    logger.info("Default admin user '%s' created on first boot.", username)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency injection helpers
+# ---------------------------------------------------------------------------
+
+from fastapi import Depends, HTTPException, status  # noqa: E402
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> dict:
+    """FastAPI dependency: decode the Bearer JWT and return the payload dict.
+
+    Raises HTTP 401 when no/invalid token is provided, unless the store has
+    no users (open-access / dev mode).
+    """
+    store = _get_default_store()
+
+    # Dev/open mode: no users registered
+    if not store.has_users():
+        return {"sub": "anonymous", "role": Role.admin.value}
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "message": "Missing Authorization header.",
+                "type": "authentication_error",
+                "code": "unauthorized",
+            },
+        )
+
+    try:
+        payload = verify_token(credentials.credentials)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "message": "Token has expired.",
+                "type": "authentication_error",
+                "code": "token_expired",
+            },
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "message": "Invalid token.",
+                "type": "authentication_error",
+                "code": "invalid_token",
+            },
+        )
+
+    return payload
+
+
+def require_role(*roles: Role) -> Callable[[dict], dict]:
+    """Return a FastAPI dependency that enforces one of the listed roles.
+
+    Usage::
+
+        @router.delete("/api/v1/users/{username}")
+        async def delete_user(user=Depends(require_role(Role.admin))):
+            ...
+    """
+
+    def _check(payload: dict = Depends(get_current_user)) -> dict:
+        current_role = Role(payload.get("role", Role.viewer.value))
+        if current_role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "message": (
+                        f"Role '{current_role.value}' is not permitted. "
+                        f"Required: {[r.value for r in roles]}"
+                    ),
+                    "type": "authorization_error",
+                    "code": "forbidden",
+                },
+            )
+        return payload
+
+    return _check
