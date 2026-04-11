@@ -75,9 +75,9 @@ export function ProviderModels({ providerName, isHealthy }: ProviderModelsProps)
 
           {!loading && !error && models !== null && models.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {models.map((m) => (
-                <Badge key={m.id} variant="outline" className="font-mono text-xs">
-                  {m.name ?? m.id}
+              {models.map((m, i) => (
+                <Badge key={m.id ?? m.name ?? i} variant="outline" className="font-mono text-xs">
+                  {m.name ?? m.id ?? `model-${i}`}
                 </Badge>
               ))}
             </div>
