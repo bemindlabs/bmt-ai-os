@@ -23,7 +23,7 @@ router = APIRouter(tags=["files"])
 # Root directory — override with BMT_FILES_ROOT env var
 # ---------------------------------------------------------------------------
 
-_DEFAULT_ROOT = "/data/files"
+_DEFAULT_ROOT = "/" if os.environ.get("BMT_ENV") == "dev" else "/data/files"
 _FILES_ROOT = Path(os.environ.get("BMT_FILES_ROOT", _DEFAULT_ROOT))
 
 
