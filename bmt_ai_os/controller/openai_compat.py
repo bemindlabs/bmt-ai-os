@@ -220,7 +220,7 @@ def _make_chat_message(role: str, content: str) -> Any:
         from bmt_ai_os.providers.base import ChatMessage
 
         return ChatMessage(role=role, content=content)
-    except Exception:
+    except ImportError:
         return _ChatMessage(role=role, content=content)
 
 
@@ -233,7 +233,8 @@ def _get_provider_router():
         from bmt_ai_os.providers.registry import get_registry
 
         return get_registry()
-    except Exception:
+    except ImportError:
+        logger.exception("Provider registry import failed")
         return None
 
 
@@ -255,7 +256,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
     if body.stream:
@@ -267,8 +269,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
                 max_tokens=max_tokens,
                 stream=True,
             )
-        except Exception as exc:
-            logger.error("Streaming chat failed: %s", exc)
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+            logger.exception("Streaming chat failed")
             raise HTTPException(status_code=502, detail=str(exc))
 
         request_id = _make_id("chatcmpl")
@@ -293,8 +295,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
             max_tokens=max_tokens,
             stream=False,
         )
-    except Exception as exc:
-        logger.error("Chat completion failed: %s", exc)
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Chat completion failed")
         raise HTTPException(status_code=502, detail=str(exc))
 
     prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
@@ -323,7 +325,8 @@ async def completions(body: CompletionRequest, request: Request):
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
     if body.stream:
@@ -335,7 +338,8 @@ async def completions(body: CompletionRequest, request: Request):
                 max_tokens=body.max_tokens,
                 stream=True,
             )
-        except Exception as exc:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+            logger.exception("Streaming completions failed")
             raise HTTPException(status_code=502, detail=str(exc))
 
         request_id = _make_id("cmpl")
@@ -380,7 +384,8 @@ async def completions(body: CompletionRequest, request: Request):
             max_tokens=body.max_tokens,
             stream=False,
         )
-    except Exception as exc:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Completions (non-streaming) failed")
         raise HTTPException(status_code=502, detail=str(exc))
 
     prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
@@ -408,13 +413,14 @@ async def embeddings(body: EmbeddingRequest):
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
     try:
         result = await provider.embed(texts, model=model)
-    except Exception as exc:
-        logger.error("Embedding failed: %s", exc)
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Embedding failed")
         raise HTTPException(status_code=502, detail=str(exc))
 
     # Normalise result to a list of embedding vectors
@@ -472,12 +478,14 @@ async def list_models():
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider for model listing: %s", exc)
         return {"object": "list", "data": []}
 
     try:
         models = await provider.list_models()
-    except Exception:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.warning("Failed to list models from provider: %s", exc)
         return {"object": "list", "data": []}
 
     data = []

@@ -234,16 +234,18 @@ class BMTAIOSController:
                         class_name,
                         base_url,
                     )
-                except Exception as exc:
+                except (ImportError, AttributeError, TypeError, ValueError) as exc:
                     logger.warning("Failed to register provider '%s': %s", svc.name, exc)
+                except OSError as exc:
+                    logger.warning("Network/OS error registering provider '%s': %s", svc.name, exc)
 
             logger.info(
                 "Provider registry: %s (active: %s)",
                 registry.list(),
                 registry.active_name,
             )
-        except Exception as exc:
-            logger.warning("Provider registration failed: %s", exc)
+        except (ImportError, RuntimeError) as exc:
+            logger.exception("Provider registration failed: %s", exc)
 
     # --- Signal handling & main loop ---
 
