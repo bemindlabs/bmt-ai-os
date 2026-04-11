@@ -33,10 +33,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Sliding-window rate limit rules: path prefix → (max_requests, window_seconds)
-_RATE_LIMIT_RULES: list[tuple[str, int, int]] = [
-    ("/api/v1/auth/login", 5, 60),  # 5 requests per minute per IP
-    ("/v1/chat/completions", 30, 60),  # 30 requests per minute per IP
-]
+# NOTE: /api/v1/auth/login and /v1/chat/completions are rate-limited via
+# FastAPI Depends() in auth_routes.py and openai_compat.py respectively,
+# using the configurable singletons in rate_limit.py.  The middleware below
+# provides a defence-in-depth layer for paths NOT covered by Depends.
+_RATE_LIMIT_RULES: list[tuple[str, int, int]] = []
 
 
 class _RateLimitBucket:

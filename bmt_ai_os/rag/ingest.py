@@ -136,7 +136,7 @@ class DocumentIngester:
         path = Path(path)
 
         try:
-            self._validate_path(path, self._workspace_root)
+            self._validate_path(path, getattr(self, "_workspace_root", None))
         except ValueError as exc:
             logger.error("Rejected path due to traversal check: %s", exc)
             return 0
@@ -185,7 +185,7 @@ class DocumentIngester:
         path = Path(path)
 
         try:
-            self._validate_path(path, self._workspace_root)
+            self._validate_path(path, getattr(self, "_workspace_root", None))
         except ValueError as exc:
             logger.error("Rejected directory due to traversal check: %s", exc)
             return {"_errors": 1}
