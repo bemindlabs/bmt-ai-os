@@ -233,7 +233,7 @@ jobs:
 
       - name: Run security tests
         run: |
-          python -m pytest tests/security/ \
+          python -m pytest tests/smoke/test_security.py \
             -v \
             --tb=short \
             --junitxml=test-results/security-results.xml \

@@ -9,7 +9,10 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
+
+pytestmark = pytest.mark.e2e
 
 # ---------------------------------------------------------------------------
 # 1. Health & Status — unauthenticated (exempt paths)

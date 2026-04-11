@@ -57,4 +57,7 @@ asyncio_mode = "auto"
 markers = [
     "smoke: smoke tests",
     "integration: integration tests",
+    "e2e: end-to-end tests",
+    "security: security hardening tests",
+    "load: load and stress tests",
 ]

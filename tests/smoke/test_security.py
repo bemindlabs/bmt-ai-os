@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-pytestmark = pytest.mark.smoke
+pytestmark = [pytest.mark.smoke, pytest.mark.security]
 
 # ---------------------------------------------------------------------------
 # Paths
