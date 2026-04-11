@@ -32,6 +32,12 @@ Controller metrics:
 - ``bmt_uptime_seconds``              Gauge
 - ``bmt_error_rate``                  Gauge
 
+Training metrics:
+- ``bmt_training_jobs_total``                     Counter   labels: status
+- ``bmt_training_job_duration_seconds``            Histogram
+- ``bmt_training_loss``                           Gauge
+- ``bmt_training_throughput_tokens_per_second``   Gauge
+
 The module owns its own ``CollectorRegistry`` so it never collides with any
 other prometheus_client usage in the same process (e.g. third-party libraries
 that register to the default registry).
@@ -208,8 +214,44 @@ _error_rate = Gauge(
 )
 
 # ---------------------------------------------------------------------------
+# Training metrics
+# ---------------------------------------------------------------------------
+
+_training_jobs_total = Counter(
+    "bmt_training_jobs_total",
+    "Total number of training jobs created, by terminal status.",
+    labelnames=["status"],
+    registry=_registry,
+)
+
+_training_job_duration_seconds = Histogram(
+    "bmt_training_job_duration_seconds",
+    "Duration of completed/failed/cancelled training jobs in seconds.",
+    buckets=(60, 300, 600, 1800, 3600, 7200, 14400, 28800, 86400),
+    registry=_registry,
+)
+
+_training_loss = Gauge(
+    "bmt_training_loss",
+    "Most recent training loss value from a running job.",
+    registry=_registry,
+)
+
+_training_throughput_tokens_per_second = Gauge(
+    "bmt_training_throughput_tokens_per_second",
+    "Most recent token throughput in tokens per second from a running training job.",
+    registry=_registry,
+)
+
+# ---------------------------------------------------------------------------
 # Previous-value tracking for delta-based Counter increments
 # ---------------------------------------------------------------------------
+
+# status -> last exported count (for training_jobs_total counter)
+_prev_training_counts: dict[str, int] = {}
+
+# Track which completed job durations have already been observed
+_prev_training_duration_count: int = 0
 
 # endpoint -> method -> {success, error} -> last exported count
 _prev_endpoint_counts: dict[str, dict[str, dict[str, int]]] = {}
@@ -415,5 +457,49 @@ async def prometheus_metrics() -> Response:
     if sys_stats["disk_percent"] is not None:
         _system_disk_usage_percent.set(sys_stats["disk_percent"])
 
+    # --- training metrics ---
+    _update_training_metrics()
+
     output = generate_latest(_registry)
     return Response(content=output, media_type=CONTENT_TYPE_LATEST)
+
+
+def _update_training_metrics() -> None:
+    """Pull current training job state and update Prometheus metric objects.
+
+    Imports the TrainingJobManager lazily so that this module remains usable
+    even when the training subsystem is not initialised.
+    """
+    global _prev_training_counts, _prev_training_duration_count
+    try:
+        from .training_routes import get_job_manager
+
+        mgr = get_job_manager()
+
+        # --- bmt_training_jobs_total counter (by status) ---
+        counts_by_status = mgr.count_by_status()
+        for status, total_count in counts_by_status.items():
+            prev = _prev_training_counts.get(status, 0)
+            delta = total_count - prev
+            if delta > 0:
+                _training_jobs_total.labels(status=status).inc(delta)
+            _prev_training_counts[status] = total_count
+
+        # --- bmt_training_job_duration_seconds histogram ---
+        durations = mgr.get_completed_durations()
+        new_duration_count = len(durations)
+        if new_duration_count > _prev_training_duration_count:
+            # Observe only the newly completed jobs
+            for dur in durations[_prev_training_duration_count:]:
+                _training_job_duration_seconds.observe(dur)
+            _prev_training_duration_count = new_duration_count
+
+        # --- bmt_training_loss and bmt_training_throughput gauges ---
+        latest = mgr.get_latest_metrics()
+        if latest["current_loss"] is not None:
+            _training_loss.set(latest["current_loss"])
+        if latest["tokens_per_sec"] is not None:
+            _training_throughput_tokens_per_second.set(latest["tokens_per_sec"])
+
+    except Exception as exc:
+        logger.debug("Could not update training metrics: %s", exc)
