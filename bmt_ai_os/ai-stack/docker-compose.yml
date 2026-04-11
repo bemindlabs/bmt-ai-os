@@ -22,11 +22,12 @@ services:
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
-    # BMTOS-50: per-service seccomp + AppArmor profiles
-    security_opt:
-      - no-new-privileges:true
-      - seccomp=bmt_ai_os/runtime/security/seccomp-ollama.json
-      - apparmor=bmt-ollama
+    # BMTOS-50: security hardening (profiles in runtime/security/)
+    # Uncomment on Linux hosts with AppArmor + seccomp support:
+    # security_opt:
+    #   - no-new-privileges:true
+    #   - seccomp=/etc/bmt_ai_os/security/seccomp-ollama.json
+    #   - apparmor=bmt-ollama
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -70,11 +71,12 @@ services:
       - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_AUTH_CREDENTIALS:-}
       - CHROMA_HOST_ADDR=${CHROMADB_HOST:-0.0.0.0}
       - CHROMA_HOST_PORT=8000
-    # BMTOS-50: per-service seccomp + AppArmor profiles
-    security_opt:
-      - no-new-privileges:true
-      - seccomp=bmt_ai_os/runtime/security/seccomp-chromadb.json
-      - apparmor=bmt-chromadb
+    # BMTOS-50: security hardening (profiles in runtime/security/)
+    # Uncomment on Linux hosts with AppArmor + seccomp support:
+    # security_opt:
+    #   - no-new-privileges:true
+    #   - seccomp=/etc/bmt_ai_os/security/seccomp-chromadb.json
+    #   - apparmor=bmt-chromadb
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/heartbeat"]
