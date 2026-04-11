@@ -223,3 +223,67 @@ export async function queryRag(
     body: JSON.stringify(req),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge Base (BMTOS-112)
+// ---------------------------------------------------------------------------
+
+export interface RagCollection {
+  name: string;
+  count: number;
+  [key: string]: unknown;
+}
+
+export interface IngestRequest {
+  path: string;
+  collection?: string;
+  recursive?: boolean;
+}
+
+export interface IngestResponse {
+  status: string;
+  path: string;
+  collection: string;
+  recursive: boolean;
+}
+
+export interface SearchRequest {
+  question: string;
+  collection?: string;
+  top_k?: number;
+}
+
+export interface SearchResponse {
+  answer: string;
+  sources: RagSource[];
+  latency_ms: number;
+  model?: string;
+}
+
+export async function fetchCollections(): Promise<RagCollection[]> {
+  return apiFetch<RagCollection[]>("/api/v1/collections");
+}
+
+export async function ingestDocuments(
+  req: IngestRequest,
+): Promise<IngestResponse> {
+  return apiFetch<IngestResponse>("/api/v1/ingest", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function searchKnowledge(
+  req: SearchRequest,
+): Promise<SearchResponse> {
+  return apiFetch<SearchResponse>("/api/v1/query", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function deleteCollection(name: string): Promise<unknown> {
+  return apiFetch<unknown>(`/api/v1/collections/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
