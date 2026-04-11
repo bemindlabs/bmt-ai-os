@@ -21,6 +21,12 @@ from fastapi.testclient import TestClient
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _jwt_secret(monkeypatch):
+    """Inject a known JWT secret for auth middleware."""
+    monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-controller-api-32!")
+
+
 @pytest.fixture()
 def _clear_controller():
     """Reset the global controller reference before and after each test."""
