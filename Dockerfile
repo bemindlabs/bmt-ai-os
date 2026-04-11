@@ -39,6 +39,7 @@ COPY --from=builder /install /usr/local
 # Minimal runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    && apt-get upgrade -y openssl libssl3t64 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -s /bin/false bmt
 
