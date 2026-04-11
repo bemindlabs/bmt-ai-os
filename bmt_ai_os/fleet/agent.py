@@ -7,6 +7,13 @@ response.
 
 The agent can also be invoked in one-shot mode via ``send_heartbeat()``.
 
+Offline resilience
+------------------
+When the fleet server is unreachable the agent queues the failed heartbeat
+payload in an in-memory buffer (up to ``_OFFLINE_QUEUE_MAX`` entries).  On
+the next successful connection the queued payloads are flushed to the server
+so historical telemetry is not lost.
+
 Configuration is read from environment variables:
 
 ``BMT_FLEET_SERVER``
@@ -27,6 +34,7 @@ import logging
 import os
 import subprocess
 import threading
+from collections import deque
 from typing import Any
 
 import requests
@@ -45,6 +53,7 @@ logger = logging.getLogger(__name__)
 _HEARTBEAT_INTERVAL = 60  # seconds
 _REQUEST_TIMEOUT = 10  # seconds
 _OS_VERSION_FILE = "/etc/bmt-os-version"
+_OFFLINE_QUEUE_MAX = 100  # maximum queued payloads while server is unreachable
 
 
 def _read_os_version() -> str:
@@ -101,6 +110,8 @@ class FleetAgent:
         self._thread: threading.Thread | None = None
         self._last_heartbeat_ok: bool | None = None
         self._last_error: str = ""
+        # Offline resilience: queue heartbeat payloads when server is unreachable.
+        self._offline_queue: deque[dict[str, Any]] = deque(maxlen=_OFFLINE_QUEUE_MAX)
 
     # ------------------------------------------------------------------
     # One-shot helpers (used by CLI and run loop)
@@ -149,6 +160,49 @@ class FleetAgent:
             body = {}
 
         return FleetCommand.from_dict(body)
+
+    # ------------------------------------------------------------------
+    # Offline queue helpers
+    # ------------------------------------------------------------------
+
+    def _enqueue_offline(self, payload: dict[str, Any]) -> None:
+        """Save *payload* to the offline queue (capped at _OFFLINE_QUEUE_MAX)."""
+        self._offline_queue.append(payload)
+        logger.debug("Heartbeat queued offline (queue_size=%d)", len(self._offline_queue))
+
+    def _flush_offline_queue(self) -> None:
+        """Attempt to send all queued offline payloads to the server.
+
+        Each payload is sent in-order.  On any network failure the remaining
+        items are left in the queue to be retried on the next cycle.
+        Payloads that were successfully delivered are removed from the queue.
+        """
+        if not self._offline_queue:
+            return
+
+        url = f"{self.server_url}/api/v1/fleet/heartbeat"
+        flushed = 0
+        while self._offline_queue:
+            payload = self._offline_queue[0]  # peek
+            try:
+                resp = requests.post(url, json=payload, timeout=_REQUEST_TIMEOUT)
+                resp.raise_for_status()
+                self._offline_queue.popleft()
+                flushed += 1
+            except requests.exceptions.RequestException as exc:
+                logger.warning("Offline queue flush interrupted at entry %d: %s", flushed, exc)
+                break
+
+        if flushed:
+            logger.info(
+                "Flushed %d queued heartbeat(s); %d remaining",
+                flushed,
+                len(self._offline_queue),
+            )
+
+    def offline_queue_size(self) -> int:
+        """Return the number of heartbeats currently queued offline."""
+        return len(self._offline_queue)
 
     # ------------------------------------------------------------------
     # Command execution
@@ -265,6 +319,9 @@ class FleetAgent:
         )
         while not self._stop_event.is_set():
             try:
+                # Flush any queued payloads from previous offline periods first.
+                self._flush_offline_queue()
+
                 cmd = self.send_heartbeat()
                 self._last_heartbeat_ok = True
                 self._last_error = ""
@@ -272,7 +329,13 @@ class FleetAgent:
             except requests.exceptions.RequestException as exc:
                 self._last_heartbeat_ok = False
                 self._last_error = str(exc)
-                logger.warning("Fleet heartbeat failed: %s", exc)
+                logger.warning("Fleet heartbeat failed (queuing offline): %s", exc)
+                # Queue the current telemetry so it isn't lost.
+                try:
+                    hb = self._build_heartbeat()
+                    self._enqueue_offline(hb.to_dict())
+                except Exception as inner:
+                    logger.debug("Could not build heartbeat for offline queue: %s", inner)
             except Exception as exc:
                 self._last_heartbeat_ok = False
                 self._last_error = str(exc)
@@ -311,7 +374,8 @@ class FleetAgent:
     def status(self) -> dict[str, Any]:
         """Return a status dict suitable for CLI display.
 
-        Keys: device_id, server_url, running, last_ok, last_error.
+        Keys: device_id, server_url, running, last_ok, last_error,
+        offline_queue_size.
         """
         return {
             "device_id": self.device_id,
@@ -319,4 +383,5 @@ class FleetAgent:
             "running": self._thread is not None and self._thread.is_alive(),
             "last_ok": self._last_heartbeat_ok,
             "last_error": self._last_error,
+            "offline_queue_size": self.offline_queue_size(),
         }
