@@ -67,6 +67,10 @@ markdown_extensions:
   - toc:
       permalink: true
 
+exclude_docs: |
+  README.md
+  ide-integration/README.md
+
 plugins:
   - search:
       lang: en
