@@ -39,7 +39,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install linters
-        run: pip install ruff
+        run: pip install ruff==0.15.10
 
       # -- Docker Compose validation --
       - name: Validate Docker Compose config
