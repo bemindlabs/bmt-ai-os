@@ -23,10 +23,7 @@ export function PullModelForm() {
     setMessage("");
 
     try {
-      const apiBase =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-      const res = await fetch(`${apiBase}/api/pull`, {
+      const res = await fetch("/api/pull", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: modelName.trim() }),

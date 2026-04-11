@@ -297,10 +297,10 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         logger.error("Chat completion failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
 
-    prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
-    completion_tokens = getattr(response, "output_tokens", 0) or getattr(
-        response, "completion_tokens", 0
-    )
+    _in = getattr(response, "input_tokens", None)
+    prompt_tokens = _in if _in is not None else getattr(response, "prompt_tokens", 0)
+    _out = getattr(response, "output_tokens", None)
+    completion_tokens = _out if _out is not None else getattr(response, "completion_tokens", 0)
 
     return _build_chat_response(
         content=response.content,
@@ -383,10 +383,10 @@ async def completions(body: CompletionRequest, request: Request):
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
-    completion_tokens = getattr(response, "output_tokens", 0) or getattr(
-        response, "completion_tokens", 0
-    )
+    _in = getattr(response, "input_tokens", None)
+    prompt_tokens = _in if _in is not None else getattr(response, "prompt_tokens", 0)
+    _out = getattr(response, "output_tokens", None)
+    completion_tokens = _out if _out is not None else getattr(response, "completion_tokens", 0)
 
     return _build_completion_response(
         text=response.content,

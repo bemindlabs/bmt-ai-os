@@ -1,21 +1,31 @@
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080")
+    : "";
 
 export interface ServiceStatus {
   name: string;
-  status: "healthy" | "degraded" | "down" | string;
-  uptime?: number;
+  health: string;
+  state?: string;
+  uptime_seconds?: number | null;
+  restarts?: number;
+  circuit_breaker?: string;
+  last_check_ms?: number | null;
+  last_error?: string | null;
+  [key: string]: unknown;
 }
 
 export interface StatusResponse {
-  uptime: number;
+  uptime_seconds: number | null;
   services: ServiceStatus[];
+  version?: string;
+  status?: string;
 }
 
 export interface MetricsResponse {
-  total_requests: number;
-  avg_latency_ms: number;
-  error_rate: number;
+  total_requests: number | null;
+  avg_latency_ms: number | null;
+  error_rate: number | null;
   [key: string]: unknown;
 }
 

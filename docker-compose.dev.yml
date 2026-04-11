@@ -20,6 +20,8 @@ services:
     environment:
       - BMT_COMPOSE_FILE=/app/ai-stack/docker-compose.yml
       - PYTHONPATH=/app
+      - OLLAMA_HOST=http://ollama:11434
+      - CHROMADB_HOST=http://chromadb:8000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # BMTOS-50: per-service security hardening
@@ -160,7 +162,7 @@ services:
       - controller
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:9090"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090"]
       interval: 30s
       timeout: 5s
       retries: 3

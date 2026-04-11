@@ -22,7 +22,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    steps:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
