@@ -24,8 +24,11 @@ from bmt_ai_os.benchmark.suite import (
     compare_reports,
     detect_board,
     format_comparison,
+    generate_markdown_report,
+    save_markdown_report,
     save_report,
 )
+from bmt_ai_os.benchmark.system import SystemResult
 
 # ---------------------------------------------------------------------------
 # Helpers / factories
@@ -60,6 +63,20 @@ def _make_rag_result(**kwargs) -> RAGResult:
     return RAGResult(**defaults)
 
 
+def _make_system_result(**kwargs) -> SystemResult:
+    defaults = dict(
+        cpu_score=1500.0,
+        memory_read_mb_s=8000.0,
+        disk_write_mb_s=400.0,
+        disk_read_mb_s=900.0,
+        memory_total_mb=16384.0,
+        memory_available_mb=8000.0,
+        platform_info="Linux 6.1.0 aarch64 (aarch64)",
+    )
+    defaults.update(kwargs)
+    return SystemResult(**defaults)
+
+
 def _make_report(**kwargs) -> BenchmarkReport:
     defaults = dict(
         timestamp="2026-04-10T12:00:00",
@@ -74,6 +91,13 @@ def _make_report(**kwargs) -> BenchmarkReport:
         rag_retrieve_ms=45.0,
         rag_generate_ms=2100.0,
         embedding_model="nomic-embed-text",
+        cpu_score=1500.0,
+        memory_read_mb_s=8000.0,
+        disk_write_mb_s=400.0,
+        disk_read_mb_s=900.0,
+        memory_total_mb=16384.0,
+        memory_available_mb=8000.0,
+        platform_info="Linux 6.1.0 aarch64 (aarch64)",
     )
     defaults.update(kwargs)
     return BenchmarkReport(**defaults)
@@ -481,3 +505,352 @@ class TestBenchmarkCLI:
 
         assert result.exit_code != 0
         assert "Error" in result.output
+
+    def test_benchmark_run_suite_inference(self) -> None:
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        with (
+            patch("bmt_ai_os.benchmark.suite._inf.run", return_value=_make_inference_result()),
+            patch("bmt_ai_os.benchmark.suite.save_report", return_value=Path("/tmp/r.json")),
+            patch(
+                "bmt_ai_os.benchmark.suite.save_markdown_report",
+                return_value=Path("/tmp/r.md"),
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "benchmark",
+                    "run",
+                    "--suite",
+                    "inference",
+                    "--model",
+                    "qwen2.5:0.5b",
+                    "--board",
+                    "pi5",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "tok/s" in result.output
+
+    def test_benchmark_run_suite_system(self) -> None:
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        with (
+            patch("bmt_ai_os.benchmark.suite._sys.run", return_value=_make_system_result()),
+            patch("bmt_ai_os.benchmark.suite.save_report", return_value=Path("/tmp/r.json")),
+            patch(
+                "bmt_ai_os.benchmark.suite.save_markdown_report",
+                return_value=Path("/tmp/r.md"),
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                ["benchmark", "run", "--suite", "system", "--board", "apple-silicon"],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "CPU score" in result.output
+
+    def test_benchmark_run_suite_rag(self) -> None:
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        with (
+            patch("bmt_ai_os.benchmark.suite._rag.run", return_value=_make_rag_result()),
+            patch("bmt_ai_os.benchmark.suite.save_report", return_value=Path("/tmp/r.json")),
+            patch(
+                "bmt_ai_os.benchmark.suite.save_markdown_report",
+                return_value=Path("/tmp/r.md"),
+            ),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "benchmark",
+                    "run",
+                    "--suite",
+                    "rag",
+                    "--model",
+                    "qwen2.5:0.5b",
+                    "--board",
+                    "jetson-orin",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "RAG query" in result.output
+
+    def test_benchmark_run_no_markdown(self) -> None:
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        with (
+            patch("bmt_ai_os.benchmark.suite._sys.run", return_value=_make_system_result()),
+            patch("bmt_ai_os.benchmark.suite.save_report", return_value=Path("/tmp/r.json")),
+        ):
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "benchmark",
+                    "run",
+                    "--suite",
+                    "system",
+                    "--no-markdown",
+                    "--board",
+                    "pi5",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Markdown report" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# SystemResult
+# ---------------------------------------------------------------------------
+
+
+class TestSystemResult:
+    def test_to_dict_keys(self) -> None:
+        r = _make_system_result()
+        d = r.to_dict()
+        assert set(d) == {
+            "cpu_score",
+            "memory_read_mb_s",
+            "disk_write_mb_s",
+            "disk_read_mb_s",
+            "memory_total_mb",
+            "memory_available_mb",
+            "platform_info",
+        }
+
+    def test_to_dict_rounding(self) -> None:
+        r = _make_system_result(cpu_score=1234.5678, memory_read_mb_s=8000.123)
+        d = r.to_dict()
+        assert d["cpu_score"] == 1234.57
+        assert d["memory_read_mb_s"] == 8000.1
+
+    def test_platform_info_is_string(self) -> None:
+        r = _make_system_result()
+        assert isinstance(r.to_dict()["platform_info"], str)
+
+
+# ---------------------------------------------------------------------------
+# system.run (mocked I/O)
+# ---------------------------------------------------------------------------
+
+
+class TestSystemRun:
+    def test_run_returns_system_result(self) -> None:
+        from bmt_ai_os.benchmark import system as _sys
+
+        # Run with a tiny I/O block so the test is fast (4 KiB).
+        result = _sys.run(io_block_size=4096)
+        assert isinstance(result, SystemResult)
+        assert result.cpu_score > 0
+        assert result.memory_read_mb_s > 0
+        assert result.disk_write_mb_s > 0
+        assert result.disk_read_mb_s > 0
+        assert isinstance(result.platform_info, str)
+        assert len(result.platform_info) > 0
+
+    def test_memory_info_fallback(self) -> None:
+        """_memory_info should return floats even on systems without /proc/meminfo."""
+        from bmt_ai_os.benchmark.system import _memory_info
+
+        with patch("bmt_ai_os.benchmark.system.Path") as mock_path_cls:
+            mock_inst = MagicMock()
+            mock_inst.exists.return_value = False
+            mock_path_cls.return_value = mock_inst
+
+            total, available = _memory_info()
+
+        # Should not raise; total may be 0.0 or a real value from sysconf.
+        assert isinstance(total, float)
+        assert isinstance(available, float)
+
+    def test_platform_info_non_empty(self) -> None:
+        from bmt_ai_os.benchmark.system import _platform_info
+
+        info = _platform_info()
+        assert isinstance(info, str)
+        assert len(info) > 0
+
+
+# ---------------------------------------------------------------------------
+# suite.run_system_only / run_rag_only / run_all
+# ---------------------------------------------------------------------------
+
+
+class TestSuiteExtended:
+    def test_run_system_only_returns_report(self) -> None:
+        sys_result = _make_system_result()
+        with patch("bmt_ai_os.benchmark.suite._sys.run", return_value=sys_result):
+            report = _suite.run_system_only(board="test-board")
+
+        assert report.board == "test-board"
+        assert report.cpu_score == pytest.approx(sys_result.cpu_score)
+        assert report.memory_total_mb == pytest.approx(sys_result.memory_total_mb)
+        assert report.inference_tok_s == 0.0
+        assert report.rag_query_ms == 0.0
+
+    def test_run_rag_only_returns_report(self) -> None:
+        rag_result = _make_rag_result()
+        with patch("bmt_ai_os.benchmark.suite._rag.run", return_value=rag_result):
+            report = _suite.run_rag_only(
+                model="qwen2.5:0.5b",
+                board="rk3588",
+            )
+
+        assert report.board == "rk3588"
+        assert report.rag_query_ms == pytest.approx(rag_result.total_ms)
+        assert report.inference_tok_s == 0.0
+
+    def test_run_all_combines_all_benchmarks(self) -> None:
+        inf_result = _make_inference_result()
+        rag_result = _make_rag_result()
+        sys_result = _make_system_result()
+
+        with (
+            patch("bmt_ai_os.benchmark.suite._inf.run", return_value=inf_result),
+            patch("bmt_ai_os.benchmark.suite._rag.run", return_value=rag_result),
+            patch("bmt_ai_os.benchmark.suite._sys.run", return_value=sys_result),
+        ):
+            report = _suite.run_all(model="qwen2.5:0.5b", board="jetson-orin")
+
+        assert report.inference_tok_s == pytest.approx(inf_result.throughput_tok_s)
+        assert report.rag_query_ms == pytest.approx(rag_result.total_ms)
+        assert report.cpu_score == pytest.approx(sys_result.cpu_score)
+        assert report.disk_write_mb_s == pytest.approx(sys_result.disk_write_mb_s)
+
+    def test_run_system_only_board_auto_detected(self) -> None:
+        sys_result = _make_system_result()
+        with (
+            patch("bmt_ai_os.benchmark.suite._sys.run", return_value=sys_result),
+            patch("bmt_ai_os.benchmark.suite.detect_board", return_value="auto-board"),
+        ):
+            report = _suite.run_system_only(board=None)
+
+        assert report.board == "auto-board"
+
+
+# ---------------------------------------------------------------------------
+# BenchmarkReport — system fields in to_dict
+# ---------------------------------------------------------------------------
+
+
+class TestBenchmarkReportSystemFields:
+    def test_system_fields_present_in_dict(self) -> None:
+        report = _make_report()
+        d = report.to_dict()
+        assert "cpu_score" in d
+        assert "memory_read_mb_s" in d
+        assert "disk_write_mb_s" in d
+        assert "disk_read_mb_s" in d
+        assert "memory_total_mb" in d
+        assert "memory_available_mb" in d
+        assert "platform_info" in d
+
+    def test_system_fields_in_json(self) -> None:
+        report = _make_report()
+        parsed = json.loads(report.to_json())
+        assert parsed["cpu_score"] == pytest.approx(1500.0)
+        assert parsed["memory_total_mb"] == pytest.approx(16384.0)
+
+
+# ---------------------------------------------------------------------------
+# Markdown report generation
+# ---------------------------------------------------------------------------
+
+
+class TestMarkdownReport:
+    def test_generate_markdown_has_header(self) -> None:
+        report = _make_report()
+        md = generate_markdown_report(report)
+        assert "# BMT AI OS Benchmark Report" in md
+
+    def test_generate_markdown_includes_board_and_model(self) -> None:
+        report = _make_report(board="pi5", model="qwen2.5:7b")
+        md = generate_markdown_report(report)
+        assert "pi5" in md
+        assert "qwen2.5:7b" in md
+
+    def test_generate_markdown_inference_section(self) -> None:
+        report = _make_report()
+        md = generate_markdown_report(report)
+        assert "## Inference" in md
+        assert "tok/s" in md
+        assert "First token" in md
+
+    def test_generate_markdown_rag_section(self) -> None:
+        report = _make_report()
+        md = generate_markdown_report(report)
+        assert "## RAG Pipeline" in md
+        assert "Embed" in md
+        assert "Retrieve" in md
+
+    def test_generate_markdown_system_section(self) -> None:
+        report = _make_report()
+        md = generate_markdown_report(report)
+        assert "## System" in md
+        assert "CPU score" in md
+        assert "Disk write" in md
+
+    def test_generate_markdown_no_inference_section_when_zero(self) -> None:
+        report = _make_report(inference_tok_s=0.0, first_token_ms=0.0)
+        md = generate_markdown_report(report)
+        assert "## Inference" not in md
+
+    def test_generate_markdown_no_rag_section_when_zero(self) -> None:
+        report = _make_report(rag_query_ms=0.0)
+        md = generate_markdown_report(report)
+        assert "## RAG Pipeline" not in md
+
+    def test_generate_markdown_no_system_section_when_zero(self) -> None:
+        report = _make_report(cpu_score=0.0, memory_total_mb=0.0)
+        md = generate_markdown_report(report)
+        assert "## System" not in md
+
+    def test_generate_markdown_with_baseline(self, tmp_path: Path) -> None:
+        baseline = _make_report(inference_tok_s=30.0)
+        baseline_path = tmp_path / "baseline.json"
+        baseline_path.write_text(baseline.to_json())
+
+        new_report = _make_report(inference_tok_s=45.0)
+        md = generate_markdown_report(new_report, baseline_path=baseline_path)
+        assert "## Comparison to Baseline" in md
+
+    def test_generate_markdown_missing_baseline_skipped(self, tmp_path: Path) -> None:
+        report = _make_report()
+        md = generate_markdown_report(report, baseline_path=tmp_path / "nonexistent.json")
+        assert "## Comparison to Baseline" not in md
+
+    def test_save_markdown_report_creates_file(self, tmp_path: Path) -> None:
+        report = _make_report()
+        path = save_markdown_report(report, reports_dir=tmp_path)
+        assert path.exists()
+        assert path.suffix == ".md"
+
+    def test_save_markdown_report_content(self, tmp_path: Path) -> None:
+        report = _make_report(board="rk3588")
+        path = save_markdown_report(report, reports_dir=tmp_path)
+        content = path.read_text()
+        assert "rk3588" in content
+        assert "# BMT AI OS Benchmark Report" in content
+
+    def test_save_markdown_report_filename_contains_model(self, tmp_path: Path) -> None:
+        report = _make_report(model="qwen2.5:7b")
+        path = save_markdown_report(report, reports_dir=tmp_path)
+        assert "qwen2.5-7b" in path.name
