@@ -224,9 +224,9 @@ class TestAuthUsesReadSecret:
         import bmt_ai_os.secret_files as secrets_mod
 
         monkeypatch.setattr(secrets_mod, "_SECRETS_DIR", tmp_path)
-        monkeypatch.setenv("BMT_JWT_SECRET", "env-jwt-secret")
+        monkeypatch.setenv("BMT_JWT_SECRET", "EnvJwtSecret1X-unit-test-32chars!")
 
-        assert auth_mod._jwt_secret() == "env-jwt-secret"
+        assert auth_mod._jwt_secret() == "EnvJwtSecret1X-unit-test-32chars!"
 
     def test_jwt_secret_raises_when_missing(self, tmp_path, monkeypatch):
         import bmt_ai_os.controller.auth as auth_mod

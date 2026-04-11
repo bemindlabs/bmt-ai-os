@@ -376,17 +376,19 @@ class TestLoginRateLimit:
         tmp_db = str(tmp_path / "auth.db")
 
         client, store = _make_login_app(tmp_db, login_limit=3)
-        store.create_user("alice", "pw", "viewer")
+        store.create_user("alice", "SecurePass1!", "viewer")
 
         # 3 attempts should succeed or 401 (wrong password), but never 429
         for _ in range(3):
             resp = client.post(
-                "/api/v1/auth/login", json={"username": "alice", "password": "wrong"}
+                "/api/v1/auth/login", json={"username": "alice", "password": "WrongPass1X!"}
             )
             assert resp.status_code in (401, 200)
 
         # 4th attempt: rate limit exceeded
-        resp = client.post("/api/v1/auth/login", json={"username": "alice", "password": "wrong"})
+        resp = client.post(
+            "/api/v1/auth/login", json={"username": "alice", "password": "WrongPass1X!"}
+        )
         assert resp.status_code == 429
 
     def test_login_success_within_limit_has_headers(self, tmp_path, monkeypatch):
@@ -394,9 +396,11 @@ class TestLoginRateLimit:
         tmp_db = str(tmp_path / "auth.db")
 
         client, store = _make_login_app(tmp_db, login_limit=5)
-        store.create_user("bob", "secret", "admin")
+        store.create_user("bob", "SecurePass1!", "admin")
 
-        resp = client.post("/api/v1/auth/login", json={"username": "bob", "password": "secret"})
+        resp = client.post(
+            "/api/v1/auth/login", json={"username": "bob", "password": "SecurePass1!"}
+        )
         assert resp.status_code == 200
         assert "x-ratelimit-limit" in resp.headers
         assert "x-ratelimit-remaining" in resp.headers
@@ -407,8 +411,10 @@ class TestLoginRateLimit:
         tmp_db = str(tmp_path / "auth.db")
 
         client, _ = _make_login_app(tmp_db, login_limit=1)
-        client.post("/api/v1/auth/login", json={"username": "x", "password": "y"})
-        resp = client.post("/api/v1/auth/login", json={"username": "x", "password": "y"})
+        client.post("/api/v1/auth/login", json={"username": "x", "password": "TestPassword1X"})
+        resp = client.post(
+            "/api/v1/auth/login", json={"username": "x", "password": "TestPassword1X"}
+        )
 
         assert resp.status_code == 429
         assert "retry-after" in resp.headers

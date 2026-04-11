@@ -213,7 +213,7 @@ class TestAPIKeyMiddleware:
         assert resp.status_code != 401
 
     def test_401_error_shape(self, monkeypatch):
-        monkeypatch.setenv("BMT_API_KEY", "secret")
+        monkeypatch.setenv("BMT_API_KEY", "SecretPass123X")
         from bmt_ai_os.controller.middleware import APIKeyMiddleware
 
         app = FastAPI()
@@ -230,7 +230,7 @@ class TestAPIKeyMiddleware:
         assert body["error"]["code"] == "invalid_api_key"
 
     def test_bearer_prefix_required(self, monkeypatch):
-        monkeypatch.setenv("BMT_API_KEY", "secret")
+        monkeypatch.setenv("BMT_API_KEY", "SecretPass123X")
         from bmt_ai_os.controller.middleware import APIKeyMiddleware
 
         app = FastAPI()
@@ -242,7 +242,7 @@ class TestAPIKeyMiddleware:
 
         client = TestClient(app)
         # No "Bearer " prefix
-        resp = client.get("/x", headers={"Authorization": "secret"})
+        resp = client.get("/x", headers={"Authorization": "SecretPass123X"})
         assert resp.status_code == 401
 
     def test_explicit_api_key_param(self, monkeypatch):

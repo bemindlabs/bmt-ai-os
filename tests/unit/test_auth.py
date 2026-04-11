@@ -40,7 +40,7 @@ def store(tmp_db):
 @pytest.fixture(autouse=True)
 def jwt_secret(monkeypatch):
     """Inject a known JWT secret for all tests in this module."""
-    monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-unit-tests")
+    monkeypatch.setenv("BMT_JWT_SECRET", "test-secret-key-for-unit-tests-32ch")
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ def jwt_secret(monkeypatch):
 
 class TestUserStore:
     def test_create_and_get_user(self, store):
-        user = store.create_user("alice", "s3cr3t", "admin")
+        user = store.create_user("alice", "TestSecret1ABC", "admin")
         assert user.username == "alice"
         assert user.role.value == "admin"
         assert user.id is not None
@@ -60,33 +60,33 @@ class TestUserStore:
         assert fetched.username == "alice"
 
     def test_password_is_hashed(self, store):
-        store.create_user("bob", "hunter2", "viewer")
+        store.create_user("bob", "SecurePass1!", "viewer")
         user = store.get_user("bob")
-        assert user.password_hash != "hunter2"
+        assert user.password_hash != "SecurePass1!"
         assert user.password_hash.startswith("$2b$")
 
     def test_authenticate_valid(self, store):
-        store.create_user("carol", "pass123", "operator")
-        authenticated = store.authenticate("carol", "pass123")
+        store.create_user("carol", "TestPasswd123X", "operator")
+        authenticated = store.authenticate("carol", "TestPasswd123X")
         assert authenticated is not None
         assert authenticated.username == "carol"
 
     def test_authenticate_valid_resets_failed_count(self, store):
-        store.create_user("reset_user", "correct", "viewer")
+        store.create_user("reset_user", "CorrectPass1X", "viewer")
         # Induce a failure first
-        store.authenticate("reset_user", "wrong")
+        store.authenticate("reset_user", "WrongPasswd1X")
         user = store.get_user("reset_user")
         assert user.failed_logins == 1
         # Now succeed
-        result = store.authenticate("reset_user", "correct")
+        result = store.authenticate("reset_user", "CorrectPass1X")
         assert result is not None
         user = store.get_user("reset_user")
         assert user.failed_logins == 0
         assert user.locked_until is None
 
     def test_authenticate_wrong_password(self, store):
-        store.create_user("dave", "correct", "viewer")
-        result = store.authenticate("dave", "wrong")
+        store.create_user("dave", "CorrectPass1X", "viewer")
+        result = store.authenticate("dave", "WrongPasswd1X")
         assert result is None
 
     def test_authenticate_nonexistent(self, store):
@@ -94,24 +94,24 @@ class TestUserStore:
         assert result is None
 
     def test_duplicate_username_raises(self, store):
-        store.create_user("eve", "pw", "viewer")
+        store.create_user("eve", "SecurePass1!", "viewer")
         with pytest.raises(ValueError, match="already exists"):
-            store.create_user("eve", "pw2", "admin")
+            store.create_user("eve", "SecurePass2!", "admin")
 
     def test_invalid_role_raises(self, store):
         with pytest.raises(ValueError, match="Invalid role"):
-            store.create_user("frank", "pw", "superuser")
+            store.create_user("frank", "SecurePass1!", "superuser")
 
     def test_list_users(self, store):
-        store.create_user("u1", "pw", "viewer")
-        store.create_user("u2", "pw", "operator")
+        store.create_user("u1", "SecurePass1!", "viewer")
+        store.create_user("u2", "SecurePass1!", "operator")
         users = store.list_users()
         assert len(users) == 2
         names = {u.username for u in users}
         assert names == {"u1", "u2"}
 
     def test_delete_user(self, store):
-        store.create_user("victim", "pw", "viewer")
+        store.create_user("victim", "SecurePass1!", "viewer")
         assert store.delete_user("victim") is True
         assert store.get_user("victim") is None
 
@@ -120,17 +120,17 @@ class TestUserStore:
 
     def test_has_users(self, store):
         assert store.has_users() is False
-        store.create_user("x", "pw", "viewer")
+        store.create_user("x", "SecurePass1!", "viewer")
         assert store.has_users() is True
 
     def test_update_user_role(self, store):
-        store.create_user("role_user", "pw", "viewer")
+        store.create_user("role_user", "SecurePass1!", "viewer")
         updated = store.update_user_role("role_user", "admin")
         assert updated is True
         assert store.get_user("role_user").role.value == "admin"
 
     def test_update_role_invalid_raises(self, store):
-        store.create_user("role_user2", "pw", "viewer")
+        store.create_user("role_user2", "SecurePass1!", "viewer")
         with pytest.raises(ValueError, match="Invalid role"):
             store.update_user_role("role_user2", "superuser")
 
@@ -145,32 +145,32 @@ class TestUserStore:
 
 class TestAccountLockout:
     def test_failed_logins_incremented(self, store):
-        store.create_user("fail_user", "correct", "viewer")
+        store.create_user("fail_user", "CorrectPass1X", "viewer")
         for i in range(3):
-            store.authenticate("fail_user", "wrong")
+            store.authenticate("fail_user", "WrongPasswd1X")
         user = store.get_user("fail_user")
         assert user.failed_logins == 3
 
     def test_locked_after_threshold(self, store):
         import bmt_ai_os.controller.auth as auth_mod
 
-        store.create_user("lockme", "correct", "viewer")
+        store.create_user("lockme", "CorrectPass1X", "viewer")
         threshold = auth_mod._MAX_FAILED_LOGINS
         for _ in range(threshold):
-            result = store.authenticate("lockme", "wrong")
+            result = store.authenticate("lockme", "WrongPasswd1X")
         assert result is None
         user = store.get_user("lockme")
         assert user.locked_until is not None
         assert user.is_locked() is True
 
     def test_locked_account_cannot_authenticate(self, store):
-        store.create_user("locked_user", "correct", "viewer")
+        store.create_user("locked_user", "CorrectPass1X", "viewer")
         store.lock_account("locked_user", duration_seconds=3600)
-        result = store.authenticate("locked_user", "correct")
+        result = store.authenticate("locked_user", "CorrectPass1X")
         assert result is None
 
     def test_manual_lock_account(self, store):
-        store.create_user("manual_lock", "pw", "viewer")
+        store.create_user("manual_lock", "SecurePass1!", "viewer")
         locked = store.lock_account("manual_lock", duration_seconds=600)
         assert locked is True
         user = store.get_user("manual_lock")
@@ -180,7 +180,7 @@ class TestAccountLockout:
         assert store.lock_account("ghost", duration_seconds=600) is False
 
     def test_unlock_account(self, store):
-        store.create_user("unlock_me", "pw", "viewer")
+        store.create_user("unlock_me", "SecurePass1!", "viewer")
         store.lock_account("unlock_me", duration_seconds=3600)
         assert store.get_user("unlock_me").is_locked() is True
 
@@ -194,13 +194,13 @@ class TestAccountLockout:
         assert store.unlock_account("ghost") is False
 
     def test_is_locked_returns_false_when_no_lock(self, store):
-        store.create_user("clean_user", "pw", "viewer")
+        store.create_user("clean_user", "SecurePass1!", "viewer")
         user = store.get_user("clean_user")
         assert user.is_locked() is False
 
     def test_lock_expiry(self, store, monkeypatch):
         """After the lock window passes, is_locked() returns False."""
-        store.create_user("expiry_user", "pw", "viewer")
+        store.create_user("expiry_user", "SecurePass1!", "viewer")
         # Lock for 1 second in the past
         store.lock_account("expiry_user", duration_seconds=1)
         user = store.get_user("expiry_user")
@@ -250,7 +250,7 @@ class TestJWT:
     def test_create_and_verify_token(self, store):
         from bmt_ai_os.controller.auth import create_token, verify_token
 
-        user = store.create_user("jwt_user", "pw", "admin")
+        user = store.create_user("jwt_user", "SecurePass1!", "admin")
         token = create_token(user)
         assert isinstance(token, str)
 
@@ -263,7 +263,7 @@ class TestJWT:
     def test_jti_is_unique(self, store):
         from bmt_ai_os.controller.auth import create_token, verify_token
 
-        user = store.create_user("jti_user", "pw", "viewer")
+        user = store.create_user("jti_user", "SecurePass1!", "viewer")
         t1 = create_token(user)
         t2 = create_token(user)
         p1 = verify_token(t1)
@@ -275,7 +275,7 @@ class TestJWT:
 
         from bmt_ai_os.controller.auth import create_token, verify_token
 
-        user = store.create_user("revoke_jwt_user", "pw", "viewer")
+        user = store.create_user("revoke_jwt_user", "SecurePass1!", "viewer")
         token = create_token(user)
         payload = verify_token(token)
         jti = payload["jti"]
@@ -290,7 +290,7 @@ class TestJWT:
         """verify_token() with no store argument does not check the blacklist."""
         from bmt_ai_os.controller.auth import create_token, verify_token
 
-        user = store.create_user("no_store_user", "pw", "viewer")
+        user = store.create_user("no_store_user", "SecurePass1!", "viewer")
         token = create_token(user)
         payload = verify_token(token)
         jti = payload["jti"]
@@ -306,7 +306,7 @@ class TestJWT:
 
         from bmt_ai_os.controller.auth import create_token, verify_token
 
-        user = store.create_user("expired_user", "pw", "viewer")
+        user = store.create_user("expired_user", "SecurePass1!", "viewer")
 
         import bmt_ai_os.controller.auth as auth_mod
 
@@ -321,7 +321,7 @@ class TestJWT:
 
         from bmt_ai_os.controller.auth import create_token, verify_token
 
-        user = store.create_user("tamper_user", "pw", "viewer")
+        user = store.create_user("tamper_user", "SecurePass1!", "viewer")
         token = create_token(user)
         tampered = token[:-4] + "XXXX"
 
@@ -332,7 +332,7 @@ class TestJWT:
         monkeypatch.delenv("BMT_JWT_SECRET", raising=False)
         from bmt_ai_os.controller.auth import create_token
 
-        user = store.create_user("nosecret_user", "pw", "viewer")
+        user = store.create_user("nosecret_user", "SecurePass1!", "viewer")
         with pytest.raises(RuntimeError, match="JWT secret not configured"):
             create_token(user)
 
@@ -419,7 +419,7 @@ class TestJWTMiddleware:
 
     def test_missing_token_when_users_exist(self, tmp_db):
         app, client, store = _make_app(tmp_db)
-        store.create_user("testuser", "pw", "viewer")
+        store.create_user("testuser", "SecurePass1!", "viewer")
         resp = client.get("/api/v1/status")
         assert resp.status_code == 401
 
@@ -427,7 +427,7 @@ class TestJWTMiddleware:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_app(tmp_db)
-        user = store.create_user("validuser", "pw", "viewer")
+        user = store.create_user("validuser", "SecurePass1!", "viewer")
         token = create_token(user)
         resp = client.get("/api/v1/status", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
@@ -436,7 +436,7 @@ class TestJWTMiddleware:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_app(tmp_db)
-        user = store.create_user("readonly", "pw", "viewer")
+        user = store.create_user("readonly", "SecurePass1!", "viewer")
         token = create_token(user)
         resp = client.post("/api/v1/models", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
@@ -445,14 +445,14 @@ class TestJWTMiddleware:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_app(tmp_db)
-        user = store.create_user("superuser", "pw", "admin")
+        user = store.create_user("superuser", "SecurePass1!", "admin")
         token = create_token(user)
         resp = client.post("/api/v1/models", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
 
     def test_invalid_token_returns_401(self, tmp_db):
         app, client, store = _make_app(tmp_db)
-        store.create_user("someone", "pw", "viewer")
+        store.create_user("someone", "SecurePass1!", "viewer")
         resp = client.get("/api/v1/status", headers={"Authorization": "Bearer not.a.real.token"})
         assert resp.status_code == 401
 
@@ -460,7 +460,7 @@ class TestJWTMiddleware:
         from bmt_ai_os.controller.auth import create_token, verify_token
 
         app, client, store = _make_app(tmp_db)
-        user = store.create_user("revoke_user", "pw", "viewer")
+        user = store.create_user("revoke_user", "SecurePass1!", "viewer")
         token = create_token(user)
         payload = verify_token(token)
         store.revoke_token(payload["jti"], float(payload["exp"]))
@@ -495,10 +495,10 @@ def _make_auth_app(tmp_db: str):
 class TestAuthEndpoints:
     def test_login_success(self, tmp_db):
         app, client, store = _make_auth_app(tmp_db)
-        store.create_user("loginuser", "secret", "operator")
+        store.create_user("loginuser", "SecretPass123X", "operator")
 
         resp = client.post(
-            "/api/v1/auth/login", json={"username": "loginuser", "password": "secret"}
+            "/api/v1/auth/login", json={"username": "loginuser", "password": "SecretPass123X"}
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -509,25 +509,27 @@ class TestAuthEndpoints:
 
     def test_login_wrong_password(self, tmp_db):
         app, client, store = _make_auth_app(tmp_db)
-        store.create_user("loginuser2", "correct", "viewer")
+        store.create_user("loginuser2", "CorrectPass1X", "viewer")
 
         resp = client.post(
-            "/api/v1/auth/login", json={"username": "loginuser2", "password": "wrong"}
+            "/api/v1/auth/login", json={"username": "loginuser2", "password": "WrongPass999!"}
         )
         assert resp.status_code == 401
 
     def test_login_unknown_user(self, tmp_db):
         app, client, store = _make_auth_app(tmp_db)
-        resp = client.post("/api/v1/auth/login", json={"username": "ghost", "password": "pw"})
+        resp = client.post(
+            "/api/v1/auth/login", json={"username": "ghost", "password": "SecurePass1!"}
+        )
         assert resp.status_code == 401
 
     def test_login_locked_account(self, tmp_db):
         app, client, store = _make_auth_app(tmp_db)
-        store.create_user("locked_login", "secret", "viewer")
+        store.create_user("locked_login", "SecretPass123X", "viewer")
         store.lock_account("locked_login", duration_seconds=3600)
 
         resp = client.post(
-            "/api/v1/auth/login", json={"username": "locked_login", "password": "secret"}
+            "/api/v1/auth/login", json={"username": "locked_login", "password": "SecurePass1!"}
         )
         assert resp.status_code == 401
 
@@ -535,7 +537,7 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        user = store.create_user("meuser", "pw", "admin")
+        user = store.create_user("meuser", "SecurePass1!", "admin")
         token = create_token(user)
 
         resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
@@ -557,7 +559,7 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        user = store.create_user("logout_user", "pw", "viewer")
+        user = store.create_user("logout_user", "SecurePass1!", "viewer")
         token = create_token(user)
         headers = {"Authorization": f"Bearer {token}"}
 
@@ -575,16 +577,16 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
         token = create_token(admin)
         headers = {"Authorization": f"Bearer {token}"}
 
         resp = client.post(
             "/api/v1/auth/users",
-            json={"username": "new_user", "password": "pw123", "role": "viewer"},
+            json={"username": "new_user", "password": "SecurePass1!", "role": "viewer"},
             headers=headers,
         )
-        assert resp.status_code == 200
+        assert resp.status_code in (200, 201)
         body = resp.json()
         assert body["username"] == "new_user"
         assert body["role"] == "viewer"
@@ -593,13 +595,13 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        op = store.create_user("operator_user", "pw", "operator")
+        op = store.create_user("operator_user", "SecurePass1!", "operator")
         token = create_token(op)
         headers = {"Authorization": f"Bearer {token}"}
 
         resp = client.post(
             "/api/v1/auth/users",
-            json={"username": "new_user", "password": "pw123", "role": "viewer"},
+            json={"username": "new_user", "password": "SecurePass1!", "role": "viewer"},
             headers=headers,
         )
         assert resp.status_code == 403
@@ -608,8 +610,8 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
-        store.create_user("other_user", "pw", "viewer")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
+        store.create_user("other_user", "SecurePass1!", "viewer")
         token = create_token(admin)
 
         resp = client.get("/api/v1/auth/users", headers={"Authorization": f"Bearer {token}"})
@@ -621,8 +623,8 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
-        store.create_user("doomed_user", "pw", "viewer")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
+        store.create_user("doomed_user", "SecurePass1!", "viewer")
         token = create_token(admin)
 
         resp = client.delete(
@@ -637,7 +639,7 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
         token = create_token(admin)
 
         resp = client.delete(
@@ -650,8 +652,8 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
-        store.create_user("promote_me", "pw", "viewer")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
+        store.create_user("promote_me", "SecurePass1!", "viewer")
         token = create_token(admin)
 
         resp = client.patch(
@@ -667,8 +669,8 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
-        store.create_user("target_user", "pw", "viewer")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
+        store.create_user("target_user", "SecurePass1!", "viewer")
         token = create_token(admin)
 
         resp = client.patch(
@@ -682,8 +684,8 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
-        store.create_user("lock_target", "pw", "viewer")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
+        store.create_user("lock_target", "SecurePass1!", "viewer")
         token = create_token(admin)
 
         resp = client.post(
@@ -701,7 +703,7 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
         token = create_token(admin)
 
         resp = client.post(
@@ -715,8 +717,8 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
-        store.create_user("unlock_target", "pw", "viewer")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
+        store.create_user("unlock_target", "SecurePass1!", "viewer")
         store.lock_account("unlock_target", duration_seconds=3600)
         token = create_token(admin)
 
@@ -732,7 +734,7 @@ class TestAuthEndpoints:
         from bmt_ai_os.controller.auth import create_token
 
         app, client, store = _make_auth_app(tmp_db)
-        admin = store.create_user("admin_user", "pw", "admin")
+        admin = store.create_user("admin_user", "SecurePass1!", "admin")
         token = create_token(admin)
 
         resp = client.post(

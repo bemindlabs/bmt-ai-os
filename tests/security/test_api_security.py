@@ -133,7 +133,7 @@ class TestSQLInjection:
         for payload in self.PAYLOADS:
             resp = sec_client.post(
                 "/api/v1/users",
-                json={"username": payload, "password": "test123", "role": "viewer"},
+                json={"username": payload, "password": "SecurePass1!", "role": "viewer"},
                 headers=admin_headers,
             )
             # Should either create (with the weird username) or reject — never crash
@@ -202,11 +202,11 @@ class TestPrivilegeEscalation:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=sec_env["BMT_AUTH_DB"])
-            store.create_user("lowpriv", "lowpass", "viewer")
+            store.create_user("lowpriv", "LowPrivPass1!", "viewer")
 
         resp = sec_client.post(
             "/api/v1/auth/login",
-            json={"username": "lowpriv", "password": "lowpass"},
+            json={"username": "lowpriv", "password": "LowPrivPass1!"},
         )
         viewer_token = resp.json()["access_token"]
         viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
@@ -237,12 +237,12 @@ class TestPrivilegeEscalation:
         # Create operator via admin
         sec_client.post(
             "/api/v1/users",
-            json={"username": "oper", "password": "operpass", "role": "operator"},
+            json={"username": "oper", "password": "OperPass123!", "role": "operator"},
             headers=admin_headers,
         )
         resp = sec_client.post(
             "/api/v1/auth/login",
-            json={"username": "oper", "password": "operpass"},
+            json={"username": "oper", "password": "OperPass123!"},
         )
         op_headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
@@ -338,7 +338,7 @@ class TestInformationLeakage:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=sec_env["BMT_AUTH_DB"])
-            store.create_user("realuser", "realpass", "viewer")
+            store.create_user("realuser", "RealPass123!", "viewer")
 
         # Non-existent user
         resp1 = sec_client.post(
@@ -494,10 +494,10 @@ class TestPasswordSecurity:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=sec_env["BMT_AUTH_DB"])
-            user = store.create_user("hashtest", "plaintext-password", "viewer")
+            user = store.create_user("hashtest", "PlainText123!", "viewer")
 
             # Password hash should not be the plaintext
-            assert user.password_hash != "plaintext-password"
+            assert user.password_hash != "PlainText123!"
             # Should be bcrypt format
             assert user.password_hash.startswith("$2")
 
@@ -506,11 +506,11 @@ class TestPasswordSecurity:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=sec_env["BMT_AUTH_DB"])
-            store.create_user("tokencheck", "secret-password", "viewer")
+            store.create_user("tokencheck", "SecretPass123!", "viewer")
 
         resp = sec_client.post(
             "/api/v1/auth/login",
-            json={"username": "tokencheck", "password": "secret-password"},
+            json={"username": "tokencheck", "password": "SecretPass123!"},
         )
         if resp.status_code == 200:
             token = resp.json()["access_token"]
@@ -519,4 +519,4 @@ class TestPasswordSecurity:
 
             payload = jwt.decode(token, options={"verify_signature": False})
             assert "password" not in payload
-            assert "secret-password" not in str(payload)
+            assert "SecretPass123!" not in str(payload)

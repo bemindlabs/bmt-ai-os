@@ -55,11 +55,11 @@ class TestAuthFlow:
             from bmt_ai_os.controller.auth import Role, UserStore
 
             store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-            store.create_user("testuser", "testpass", Role.viewer)
+            store.create_user("testuser", "TestPass1234!", Role.viewer)
 
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "testuser", "password": "testpass"},
+            json={"username": "testuser", "password": "TestPass1234!"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -123,7 +123,7 @@ class TestRBAC:
     def test_admin_can_create_user(self, client: TestClient, auth_headers: dict):
         resp = client.post(
             "/api/v1/users",
-            json={"username": "newuser", "password": "newpass123", "role": "viewer"},
+            json={"username": "newuser", "password": "NewPass12345!", "role": "viewer"},
             headers=auth_headers,
         )
         assert resp.status_code == 201
@@ -134,11 +134,11 @@ class TestRBAC:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-            store.create_user("viewer1", "viewerpass", "viewer")
+            store.create_user("viewer1", "ViewerPass1!", "viewer")
 
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "viewer1", "password": "viewerpass"},
+            json={"username": "viewer1", "password": "ViewerPass1!"},
         )
         viewer_token = resp.json()["access_token"]
 
@@ -154,11 +154,11 @@ class TestRBAC:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-            store.create_user("reader", "readerpass", "viewer")
+            store.create_user("reader", "ReaderPass1!", "viewer")
 
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "reader", "password": "readerpass"},
+            json={"username": "reader", "password": "ReaderPass1!"},
         )
         token = resp.json()["access_token"]
 
@@ -181,7 +181,7 @@ class TestUserManagement:
         # Create
         resp = client.post(
             "/api/v1/users",
-            json={"username": "crud_user", "password": "pass123", "role": "operator"},
+            json={"username": "crud_user", "password": "SecurePass1!", "role": "operator"},
             headers=auth_headers,
         )
         assert resp.status_code == 201
@@ -212,12 +212,12 @@ class TestUserManagement:
     def test_create_duplicate_user(self, client: TestClient, auth_headers: dict):
         client.post(
             "/api/v1/users",
-            json={"username": "dupeuser", "password": "pass1", "role": "viewer"},
+            json={"username": "dupeuser", "password": "SecurePass1!", "role": "viewer"},
             headers=auth_headers,
         )
         resp = client.post(
             "/api/v1/users",
-            json={"username": "dupeuser", "password": "pass2", "role": "viewer"},
+            json={"username": "dupeuser", "password": "SecurePass2!", "role": "viewer"},
             headers=auth_headers,
         )
         assert resp.status_code == 409
@@ -421,7 +421,7 @@ class TestFullUserJourney:
         # Step 4: Create operator user
         resp = client.post(
             "/api/v1/users",
-            json={"username": "operator1", "password": "op-pass", "role": "operator"},
+            json={"username": "operator1", "password": "OperPass123!", "role": "operator"},
             headers=headers,
         )
         assert resp.status_code == 201
@@ -471,11 +471,11 @@ class TestFullUserJourney:
             from bmt_ai_os.controller.auth import UserStore
 
             store = UserStore(db_path=e2e_env["BMT_AUTH_DB"])
-            store.create_user("op_test", "op-pass-789", "operator")
+            store.create_user("op_test", "OperPass789!", "operator")
 
         resp = client.post(
             "/api/v1/auth/login",
-            json={"username": "op_test", "password": "op-pass-789"},
+            json={"username": "op_test", "password": "OperPass789!"},
         )
         token = resp.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
@@ -487,7 +487,7 @@ class TestFullUserJourney:
         # Cannot create users
         resp = client.post(
             "/api/v1/users",
-            json={"username": "sneaky", "password": "x", "role": "admin"},
+            json={"username": "sneaky", "password": "SecurePass1!", "role": "admin"},
             headers=headers,
         )
         assert resp.status_code == 403
