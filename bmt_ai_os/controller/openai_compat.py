@@ -19,9 +19,11 @@ import time
 import uuid
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+from .rate_limit import inference_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +244,7 @@ def _get_provider_router():
 # ---------------------------------------------------------------------------
 
 
-@router.post("/v1/chat/completions")
+@router.post("/v1/chat/completions", dependencies=[Depends(inference_rate_limit)])
 async def chat_completions(body: ChatCompletionRequest, request: Request):
     """OpenAI-compatible chat completions with optional SSE streaming."""
     registry = _get_provider_router()
@@ -310,7 +312,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
     )
 
 
-@router.post("/v1/completions")
+@router.post("/v1/completions", dependencies=[Depends(inference_rate_limit)])
 async def completions(body: CompletionRequest, request: Request):
     """OpenAI-compatible legacy completions (used by Copilot for code completion)."""
     registry = _get_provider_router()
