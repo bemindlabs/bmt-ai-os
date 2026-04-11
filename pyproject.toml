@@ -44,3 +44,7 @@ per-file-ignores = {"tests/**" = ["E402"]}
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "smoke: smoke tests",
+    "integration: integration tests",
+]

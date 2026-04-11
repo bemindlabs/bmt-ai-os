@@ -12,6 +12,7 @@ from typing import Any
 import click
 import requests
 
+from bmt_ai_os.benchmark import suite as _suite
 from bmt_ai_os.controller.config import load_config
 
 __version__ = "2026.4.10"
@@ -410,6 +411,183 @@ def providers() -> None:
 
     # Indicate active provider
     click.echo(f"\nActive provider API: http://localhost:{cfg.api_port} (OpenAI-compatible)")
+
+
+# ---------------------------------------------------------------------------
+# health
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# benchmark
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def benchmark() -> None:
+    """Performance benchmarking suite for BMT AI OS."""
+
+
+@benchmark.command("run")
+@click.option(
+    "--model",
+    "-m",
+    default="qwen2.5:0.5b",
+    show_default=True,
+    help="Ollama model tag to benchmark.",
+)
+@click.option(
+    "--embedding-model",
+    default="nomic-embed-text",
+    show_default=True,
+    help="Ollama embedding model for the RAG stage.",
+)
+@click.option(
+    "--ollama-url",
+    default=_OLLAMA_BASE,
+    show_default=True,
+    help="Ollama base URL.",
+)
+@click.option(
+    "--chromadb-url",
+    default=_CHROMADB_BASE,
+    show_default=True,
+    help="ChromaDB base URL.",
+)
+@click.option(
+    "--board",
+    default=None,
+    help="Board identifier (auto-detected when omitted).",
+)
+@click.option(
+    "--reports-dir",
+    default="reports",
+    show_default=True,
+    help="Directory to write the JSON report into.",
+)
+def benchmark_run(
+    model: str,
+    embedding_model: str,
+    ollama_url: str,
+    chromadb_url: str,
+    board: str | None,
+    reports_dir: str,
+) -> None:
+    """Run the full benchmark suite and save results to reports/.
+
+    Runs inference (throughput, first-token latency) and RAG (embed + retrieve
+    + generate) benchmarks, then writes a JSON report.
+    """
+    click.echo(f"Running full benchmark suite (model={model})...")
+    try:
+        report = _suite.run_full(
+            model=model,
+            embedding_model=embedding_model,
+            ollama_url=ollama_url,
+            chromadb_url=chromadb_url,
+            board=board,
+        )
+    except RuntimeError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo("\nResults:")
+    click.echo(f"  Board:           {report.board}")
+    click.echo(f"  Model:           {report.model}")
+    click.echo(f"  Throughput:      {report.inference_tok_s:.1f} tok/s")
+    click.echo(f"  First token:     {report.first_token_ms:.0f} ms")
+    click.echo(f"  RAG query:       {report.rag_query_ms:.0f} ms")
+    click.echo(f"  Memory peak:     {report.memory_peak_mb:.0f} MB")
+
+    saved_path = _suite.save_report(report, reports_dir=reports_dir)
+    click.echo(f"\nReport saved to: {saved_path}")
+
+
+@benchmark.command("inference")
+@click.option(
+    "--model",
+    "-m",
+    default="qwen2.5:0.5b",
+    show_default=True,
+    help="Ollama model tag to benchmark.",
+)
+@click.option(
+    "--ollama-url",
+    default=_OLLAMA_BASE,
+    show_default=True,
+    help="Ollama base URL.",
+)
+@click.option(
+    "--board",
+    default=None,
+    help="Board identifier (auto-detected when omitted).",
+)
+@click.option(
+    "--reports-dir",
+    default="reports",
+    show_default=True,
+    help="Directory to write the JSON report into.",
+)
+@click.option(
+    "--no-save",
+    is_flag=True,
+    default=False,
+    help="Print results only; do not write a report file.",
+)
+def benchmark_inference(
+    model: str,
+    ollama_url: str,
+    board: str | None,
+    reports_dir: str,
+    no_save: bool,
+) -> None:
+    """Benchmark inference throughput and first-token latency only.
+
+    Example: bmt-ai-os benchmark inference --model qwen2.5:0.5b
+    """
+    click.echo(f"Running inference benchmark (model={model})...")
+    try:
+        report = _suite.run_inference_only(
+            model=model,
+            ollama_url=ollama_url,
+            board=board,
+        )
+    except RuntimeError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo("\nResults:")
+    click.echo(f"  Board:       {report.board}")
+    click.echo(f"  Model:       {report.model}")
+    click.echo(f"  Throughput:  {report.inference_tok_s:.1f} tok/s")
+    click.echo(f"  First token: {report.first_token_ms:.0f} ms")
+    click.echo(f"  Total time:  {report.inference_total_ms:.0f} ms")
+    click.echo(f"  Memory peak: {report.memory_peak_mb:.0f} MB")
+
+    if not no_save:
+        saved_path = _suite.save_report(report, reports_dir=reports_dir)
+        click.echo(f"\nReport saved to: {saved_path}")
+
+
+@benchmark.command("compare")
+@click.argument("file1", type=click.Path(exists=True, dir_okay=False))
+@click.argument("file2", type=click.Path(exists=True, dir_okay=False))
+def benchmark_compare(file1: str, file2: str) -> None:
+    """Compare two benchmark report JSON files side by side.
+
+    FILE1 is treated as the baseline (before) and FILE2 as the new result
+    (after).  Numeric deltas and percentage changes are shown for all metrics.
+
+    Example: bmt-ai-os benchmark compare reports/old.json reports/new.json
+    """
+    try:
+        comparison = _suite.compare_reports(file1, file2)
+    except (OSError, ValueError) as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(f"Comparing:\n  before: {file1}\n  after:  {file2}\n")
+    click.echo(_suite.format_comparison(comparison))
 
 
 # ---------------------------------------------------------------------------
