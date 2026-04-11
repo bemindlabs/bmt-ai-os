@@ -1766,157 +1766,45 @@ def update_containers(compose_file: str | None, services: tuple[str, ...]) -> No
 
 
 # ---------------------------------------------------------------------------
-# export-model
+# mcp
 # ---------------------------------------------------------------------------
 
 
-@main.command("export-model")
-@click.option(
-    "--base",
-    required=True,
-    help="Base model ID or local path (e.g. Qwen/Qwen2.5-0.5B or qwen2.5:0.5b).",
-)
-@click.option(
-    "--adapter",
-    required=True,
-    type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    help="Path to the saved LoRA adapter directory.",
-)
-@click.option(
-    "--output",
-    required=True,
-    type=click.Path(),
-    help="Output GGUF file path (e.g. /data/gguf/my-model.gguf).",
-)
-@click.option(
-    "--name",
-    default=None,
-    help="Model name to register with Ollama. Skips Ollama registration if not set.",
-)
-@click.option(
-    "--quantization",
-    default="q4_K_M",
-    show_default=True,
-    help="GGUF quantization type (e.g. q4_K_M, q8_0, f16).",
-)
-@click.option(
-    "--merge-dir",
-    default=None,
-    type=click.Path(),
-    help="Intermediate directory for merged weights. Uses a temp dir when not set.",
-)
-@click.option(
-    "--convert-script",
-    default=None,
-    type=click.Path(exists=True),
-    help="Explicit path to convert_hf_to_gguf.py (llama.cpp). Auto-detected when not set.",
-)
-@click.option(
-    "--system-prompt",
-    default=None,
-    help="System prompt to embed in the Ollama Modelfile.",
-)
-def export_model(
-    base: str,
-    adapter: str,
-    output: str,
-    name: str | None,
-    quantization: str,
-    merge_dir: str | None,
-    convert_script: str | None,
-    system_prompt: str | None,
-) -> None:
-    """Export a fine-tuned LoRA adapter as a GGUF model and optionally register with Ollama.
+@main.group()
+def mcp() -> None:
+    """Model Context Protocol (MCP) server commands."""
 
-    Steps:
-    \b
-    1. Merge LoRA adapter weights into the base model
-    2. Convert merged weights to GGUF (requires llama.cpp)
-    3. Register the GGUF with Ollama (when --name is provided)
+
+@mcp.command("serve")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind host.")
+@click.option("--port", default=8765, show_default=True, help="Bind port.")
+@click.option(
+    "--log-level",
+    default="info",
+    show_default=True,
+    type=click.Choice(["debug", "info", "warning", "error"], case_sensitive=False),
+    help="Uvicorn log level.",
+)
+def mcp_serve(host: str, port: int, log_level: str) -> None:
+    """Start the standalone BMT AI OS MCP server.
+
+    Exposes BMT AI OS resources (models, status, providers) and tools
+    (chat, pull_model, query_rag, list_models) to Claude Code and other
+    MCP-compatible clients.
 
     Example:
 
-    \b
-        bmt-ai-os export-model \\
-            --base Qwen/Qwen2.5-0.5B \\
-            --adapter /data/adapters/my-run \\
-            --output /data/gguf/my-model.gguf \\
-            --name my-custom-qwen \\
-            --quantization q4_K_M
+        bmt-ai-os mcp serve --port 8765
+
+    Then configure Claude Code with:
+
+        {"mcpServers": {"bmt-ai-os": {"url": "http://127.0.0.1:8765/mcp/"}}}
     """
-    import tempfile
+    import uvicorn
 
-    from bmt_ai_os.training.export import (
-        convert_to_gguf,
-        merge_adapter,
-        register_with_ollama,
-    )
+    from bmt_ai_os.mcp.server import create_mcp_app
 
-    # --- Step 1: Merge adapter ---
-    use_temp = merge_dir is None
-    tmp_dir = None
-    try:
-        if use_temp:
-            tmp_dir = tempfile.mkdtemp(prefix="bmt_merged_")
-            effective_merge_dir = tmp_dir
-        else:
-            effective_merge_dir = merge_dir
-
-        click.echo(f"[1/3] Merging LoRA adapter '{adapter}' into base model '{base}' …")
-        try:
-            merged = merge_adapter(base, adapter, effective_merge_dir)
-            click.echo(f"      Merged model saved to: {merged}")
-        except ImportError as exc:
-            click.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
-        except FileNotFoundError as exc:
-            click.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
-        except Exception as exc:
-            click.echo(f"Error during merge: {exc}", err=True)
-            sys.exit(1)
-
-        # --- Step 2: Convert to GGUF ---
-        click.echo(f"[2/3] Converting to GGUF ({quantization}) → {output} …")
-        try:
-            gguf = convert_to_gguf(
-                merged,
-                output,
-                quantization=quantization,
-                convert_script=convert_script,
-            )
-            click.echo(f"      GGUF saved to: {gguf}")
-        except FileNotFoundError as exc:
-            click.echo(f"Error: {exc}", err=True)
-            sys.exit(1)
-        except subprocess.CalledProcessError as exc:
-            click.echo(f"Error: conversion subprocess failed (exit {exc.returncode}).", err=True)
-            sys.exit(exc.returncode)
-        except Exception as exc:
-            click.echo(f"Error during GGUF conversion: {exc}", err=True)
-            sys.exit(1)
-
-        # --- Step 3: Register with Ollama (optional) ---
-        if name:
-            click.echo(f"[3/3] Registering '{name}' with Ollama …")
-            try:
-                register_with_ollama(gguf, name, system_prompt=system_prompt)
-                click.echo(f"      Model '{name}' registered. Run: ollama run {name}")
-            except FileNotFoundError as exc:
-                click.echo(f"Error: {exc}", err=True)
-                sys.exit(1)
-            except subprocess.CalledProcessError as exc:
-                click.echo(f"Error: ollama create failed (exit {exc.returncode}).", err=True)
-                sys.exit(exc.returncode)
-            except Exception as exc:
-                click.echo(f"Error during Ollama registration: {exc}", err=True)
-                sys.exit(1)
-        else:
-            click.echo("[3/3] Skipping Ollama registration (--name not provided).")
-
-        click.echo("Export complete.")
-    finally:
-        if use_temp and tmp_dir:
-            import shutil
-
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+    click.echo(f"Starting BMT AI OS MCP server on {host}:{port}")
+    click.echo("Endpoint: POST /mcp/  (JSON-RPC 2.0)")
+    click.echo("Press Ctrl+C to stop.")
+    uvicorn.run(create_mcp_app(), host=host, port=port, log_level=log_level.lower())

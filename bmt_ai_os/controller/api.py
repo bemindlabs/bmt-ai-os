@@ -55,6 +55,11 @@ from bmt_ai_os.fleet.routes import router as fleet_router  # noqa: E402
 app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(training_router)
 
+# MCP server (Model Context Protocol — Claude Code integration)
+from bmt_ai_os.mcp.server import mcp_router  # noqa: E402
+
+app.include_router(mcp_router, prefix="/mcp")
+
 
 @app.get("/healthz")
 async def healthz() -> dict:
