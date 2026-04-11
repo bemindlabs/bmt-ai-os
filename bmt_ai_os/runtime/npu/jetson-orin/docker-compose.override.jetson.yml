@@ -1,0 +1,110 @@
+# BMT AI OS — Jetson Orin Nano Super (Tegra234 / p3767) Compose override
+#
+# Enables NVIDIA Container Runtime with full GPU device access for all
+# AI inference services. Requires:
+#   - nvidia-container-toolkit >= 1.17
+#   - Docker default-runtime set to "nvidia" (configured by setup.sh)
+#   - L4T 36.x / JetPack 6.x host OS with CUDA 12.6
+#
+# Usage:
+#   docker compose \
+#     -f bmt_ai_os/ai-stack/docker-compose.yml \
+#     -f bmt_ai_os/runtime/npu/jetson-orin/docker-compose.override.jetson.yml \
+#     up -d
+#
+# passthrough.sh copies this file to ai-stack/docker-compose.override.yml
+# automatically when a Jetson Orin is detected at boot.
+#
+# Jetson Orin Nano Super specs:
+#   SoC:        Tegra234 (Cortex-A78AE × 6 + Ampere GPU + 2× DLA)
+#   TOPS:       67 CUDA TOPS
+#   RAM:        8 GB LPDDR5 (unified CPU/GPU memory)
+#   CUDA arch:  sm_87 (Ampere GA10B)
+#   JetPack:    6.1 (L4T 36.4.3, CUDA 12.6, cuDNN 9.x, TensorRT 10.x)
+#
+# BMTOS-26 | Epic: BMTOS-EPIC-4 (Hardware Board Support Packages)
+
+services:
+
+  # -------------------------------------------------------------------------
+  # Ollama — primary inference engine
+  # Uses CUDA via NVIDIA Container Runtime for GPU-accelerated inference.
+  # Qwen2.5-Coder-7B recommended for coding tasks on 8 GB unified memory.
+  # -------------------------------------------------------------------------
+  ollama:
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+      - CUDA_VISIBLE_DEVICES=all
+      - BMT_ACCEL=cuda
+      - BMT_NPU_BACKEND=cuda
+      - BMT_JETSON_SOC=tegra234
+      - BMT_JETSON_TOPS=67
+      # Limit KV-cache to stay within 8 GB unified memory budget
+      # (leave ~1.5 GB headroom for OS + ChromaDB + controller)
+      - OLLAMA_GPU_OVERHEAD=1536MiB
+      - OLLAMA_NUM_GPU=999
+      - OLLAMA_FLASH_ATTENTION=1
+    devices:
+      # Core GPU device nodes (Tegra234 / nvgpu driver)
+      - /dev/nvhost-ctrl:/dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu:/dev/nvhost-ctrl-gpu
+      - /dev/nvhost-gpu:/dev/nvhost-gpu
+      - /dev/nvhost-as-gpu:/dev/nvhost-as-gpu
+      - /dev/nvhost-tsg:/dev/nvhost-tsg
+      - /dev/nvmap:/dev/nvmap
+      # DLA cores (Deep Learning Accelerator — Tegra234 has 2)
+      - /dev/nvhost-ctrl-nvdla0:/dev/nvhost-ctrl-nvdla0
+      - /dev/nvhost-ctrl-nvdla1:/dev/nvhost-ctrl-nvdla1
+      # DMA heap (required for zero-copy GPU memory on Tegra)
+      - /dev/dma_heap/system:/dev/dma_heap/system
+      - /dev/dma_heap/system-uncached:/dev/dma_heap/system-uncached
+    volumes:
+      # Expose CUDA libraries from L4T host into container
+      - /usr/local/cuda:/usr/local/cuda:ro
+      - /usr/lib/aarch64-linux-gnu/libcuda.so.1:/usr/lib/aarch64-linux-gnu/libcuda.so.1:ro
+      - /usr/lib/aarch64-linux-gnu/libnvcuvid.so.1:/usr/lib/aarch64-linux-gnu/libnvcuvid.so.1:ro
+      # Jetson runtime env exported by setup.sh
+      - /run/bmt-ai-os/jetson.env:/run/bmt-ai-os/jetson.env:ro
+    group_add:
+      - video
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Jetson Orin has unified memory; increase shared memory for large models
+    shm_size: "2gb"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      stack:
+        soft: 67108864
+        hard: 67108864
+
+  # -------------------------------------------------------------------------
+  # ChromaDB — vector store (CPU-bound, no GPU required)
+  # -------------------------------------------------------------------------
+  chromadb:
+    environment:
+      - BMT_ACCEL=cuda
+      - BMT_NPU_BACKEND=cuda
+      - BMT_JETSON_SOC=tegra234
+
+  # -------------------------------------------------------------------------
+  # BMT Controller — Python FastAPI orchestrator
+  # Inherits Jetson env so provider routing selects CUDA backend.
+  # -------------------------------------------------------------------------
+  bmt-controller:
+    environment:
+      - BMT_ACCEL=cuda
+      - BMT_NPU_BACKEND=cuda
+      - BMT_JETSON_SOC=tegra234
+      - BMT_JETSON_TOPS=67
+      - CUDA_VISIBLE_DEVICES=all
+    volumes:
+      - /run/bmt-ai-os/jetson.env:/run/bmt-ai-os/jetson.env:ro

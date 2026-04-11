@@ -18,5 +18,9 @@ source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/bmt-controller/Config.in"
 
 comment "Hardware Acceleration (select per BSP)"
 source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/bmt-npu-stub/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/jetson-bsp/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/rk3588-bsp/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/pi5-hailo-bsp/Config.in"
+source "$BR2_EXTERNAL_BMT_AI_OS_PATH/package/apple-silicon-bsp/Config.in"
 
 endmenu

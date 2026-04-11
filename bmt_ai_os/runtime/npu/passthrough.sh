@@ -122,14 +122,36 @@ generate_hailo_override() {
 }
 
 # ---------------------------------------------------------------------------
-# Generate override: Apple Silicon (CPU-only)
+# Generate override: Apple Silicon (CPU-only, NEON/ASIMD optimised)
 # ---------------------------------------------------------------------------
 generate_apple_override() {
     CPU_FEATURES="$(detect_cpu_features)"
     log_info "Apple Silicon detected — CPU-only mode (Asahi Linux, no Metal/GPU)"
     log_info "CPU features: ${CPU_FEATURES}"
 
-    cp "${SCRIPT_DIR}/docker-compose.override.cpu.yml" "${OVERRIDE_OUT}"
+    # Run Apple Silicon setup to detect P-cores and write setup env
+    APPLE_SETUP="${SCRIPT_DIR}/apple-silicon/setup.sh"
+    if [ -x "${APPLE_SETUP}" ]; then
+        log_info "Running Apple Silicon CPU inference setup..."
+        "${APPLE_SETUP}" || log_warn "setup.sh exited non-zero — using defaults"
+    fi
+
+    # Load setup env if available (provides OLLAMA_NUM_THREADS, memory limits)
+    BMT_RUNTIME_DIR="${BMT_RUNTIME_DIR:-/run/bmt-ai-os}"
+    if [ -f "${BMT_RUNTIME_DIR}/apple-silicon-setup.env" ]; then
+        # shellcheck source=/dev/null
+        . "${BMT_RUNTIME_DIR}/apple-silicon-setup.env"
+        log_info "Loaded Apple Silicon setup env (threads=${OLLAMA_NUM_THREADS:-?})"
+    fi
+
+    APPLE_OVERRIDE="${SCRIPT_DIR}/apple-silicon/docker-compose.override.apple-silicon.yml"
+    if [ -f "${APPLE_OVERRIDE}" ]; then
+        cp "${APPLE_OVERRIDE}" "${OVERRIDE_OUT}"
+    else
+        log_warn "Apple Silicon override not found at ${APPLE_OVERRIDE} — using generic CPU override"
+        cp "${SCRIPT_DIR}/docker-compose.override.cpu.yml" "${OVERRIDE_OUT}"
+    fi
+
     export BMT_ACCEL="cpu"
     export BMT_NPU_BACKEND="cpu"
 }
