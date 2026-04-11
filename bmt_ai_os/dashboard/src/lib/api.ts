@@ -192,51 +192,6 @@ export async function streamChat(
 }
 
 // ---------------------------------------------------------------------------
-// Persona API (BMTOS-106)
-// ---------------------------------------------------------------------------
-
-export interface PersonaResponse {
-  content: string;
-  workspace: string;
-}
-
-export interface PresetInfo {
-  name: string;
-  content: string;
-}
-
-export interface PresetsResponse {
-  presets: PresetInfo[];
-}
-
-export interface ApplyPresetResponse {
-  name: string;
-  workspace: string;
-  message: string;
-}
-
-export async function getPersona(): Promise<PersonaResponse> {
-  return apiFetch<PersonaResponse>("/api/v1/persona");
-}
-
-export async function savePersona(content: string): Promise<PersonaResponse> {
-  return apiFetch<PersonaResponse>("/api/v1/persona", {
-    method: "PUT",
-    body: JSON.stringify({ content }),
-  });
-}
-
-export async function listPresets(): Promise<PresetsResponse> {
-  return apiFetch<PresetsResponse>("/api/v1/persona/presets");
-}
-
-export async function applyPreset(name: string): Promise<ApplyPresetResponse> {
-  return apiFetch<ApplyPresetResponse>(`/api/v1/persona/presets/${name}/apply`, {
-    method: "POST",
-  });
-}
-
-// ---------------------------------------------------------------------------
 // RAG Query (BMTOS-80)
 // ---------------------------------------------------------------------------
 
@@ -270,55 +225,65 @@ export async function queryRag(
 }
 
 // ---------------------------------------------------------------------------
-// Agents / Persona Presets (BMTOS-108)
+// Knowledge Base (BMTOS-112)
 // ---------------------------------------------------------------------------
 
-export interface AgentPreset {
-  id: string;
+export interface RagCollection {
   name: string;
-  summary: string;
-  model: string;
-  workspace: string;
+  count: number;
+  [key: string]: unknown;
 }
 
-export interface AgentsResponse {
-  agents: AgentPreset[];
+export interface IngestRequest {
+  path: string;
+  collection?: string;
+  recursive?: boolean;
 }
 
-/** Fetch agent personas from the controller persona-presets API.
- *  Falls back to hardcoded defaults if the endpoint is unavailable. */
-export async function fetchAgents(): Promise<AgentsResponse> {
-  try {
-    return await apiFetch<AgentsResponse>("/api/v1/persona/presets");
-  } catch {
-    // Offline fallback — use the three built-in presets
-    return {
-      agents: [
-        {
-          id: "default",
-          name: "Default",
-          summary:
-            "You are a friendly, knowledgeable AI assistant running on BMT AI OS.",
-          model: "qwen2.5:7b",
-          workspace: "~/.bmt/workspaces/default",
-        },
-        {
-          id: "coding",
-          name: "Coding",
-          summary:
-            "You are a precise, expert software engineering assistant running on BMT AI OS.",
-          model: "qwen2.5-coder:7b",
-          workspace: "~/.bmt/workspaces/coding",
-        },
-        {
-          id: "creative",
-          name: "Creative",
-          summary:
-            "You are an expressive, imaginative creative writing assistant running on BMT AI OS.",
-          model: "qwen2.5:7b",
-          workspace: "~/.bmt/workspaces/creative",
-        },
-      ],
-    };
-  }
+export interface IngestResponse {
+  status: string;
+  path: string;
+  collection: string;
+  recursive: boolean;
+}
+
+export interface SearchRequest {
+  question: string;
+  collection?: string;
+  top_k?: number;
+}
+
+export interface SearchResponse {
+  answer: string;
+  sources: RagSource[];
+  latency_ms: number;
+  model?: string;
+}
+
+export async function fetchCollections(): Promise<RagCollection[]> {
+  return apiFetch<RagCollection[]>("/api/v1/collections");
+}
+
+export async function ingestDocuments(
+  req: IngestRequest,
+): Promise<IngestResponse> {
+  return apiFetch<IngestResponse>("/api/v1/ingest", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function searchKnowledge(
+  req: SearchRequest,
+): Promise<SearchResponse> {
+  return apiFetch<SearchResponse>("/api/v1/query", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function deleteCollection(name: string): Promise<unknown> {
+  return apiFetch<unknown>(`/api/v1/collections/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
 }
