@@ -1,11 +1,20 @@
 # .github/workflows/ci.yml — BMT AI OS CI Pipeline
 # BMTOS-18: QEMU testing and comprehensive CI
+# BMTOS-59: All test categories
+# BMTOS-62: Container vulnerability scanning
+# BMTOS-63: Remove continue-on-error from integration and build jobs
 #
 # Jobs:
 #   1. lint-and-validate  — Compose config, shellcheck, Python lint, JSON/YAML
 #   2. smoke-tests        — Pytest smoke tests (no QEMU, no Docker daemon)
-#   3. integration-test   — Build image, boot QEMU ARM64, run integration tests
-#   4. build-image        — Full Buildroot ARM64 image build (cached)
+#   3. unit-tests         — Full unit test suite (857+ tests)
+#   4. e2e-tests          — End-to-end controller tests (28+ tests)
+#   5. security-tests     — Security/auth hardening tests (31+ tests)
+#   6. load-tests         — Load/stress tests (12+, main branch only)
+#   7. integration-test   — Build image, boot QEMU ARM64, run integration tests
+#   8. build-image        — Full Buildroot ARM64 image build (cached)
+#   9. trivy-scan         — Container image vulnerability scanning
+#  10. benchmark          — System benchmark suite
 
 name: CI
 
@@ -128,16 +137,168 @@ jobs:
           retention-days: 30
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Job 3: Integration Tests (QEMU ARM64)
+  # Job 3: Unit Tests — BMTOS-59
+  # ─────────────────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [lint-and-validate]
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/unit/ \
+            -v \
+            --tb=short \
+            --junitxml=test-results/unit-results.xml \
+            -m unit
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: test-results/
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: E2E Tests — BMTOS-59
+  # ─────────────────────────────────────────────────────────────────────────
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, unit-tests]
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run E2E tests
+        run: |
+          python -m pytest tests/e2e/ \
+            -v \
+            --tb=short \
+            --timeout=120 \
+            --junitxml=test-results/e2e-results.xml \
+            -m e2e
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 5: Security Tests — BMTOS-59
+  # ─────────────────────────────────────────────────────────────────────────
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, unit-tests]
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run security tests
+        run: |
+          python -m pytest tests/security/ \
+            -v \
+            --tb=short \
+            --junitxml=test-results/security-results.xml \
+            -m security
+
+      - name: Upload security test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-results
+          path: test-results/
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 6: Load Tests — BMTOS-59 (main branch pushes only)
+  # ─────────────────────────────────────────────────────────────────────────
+  load-tests:
+    name: Load Tests
+    runs-on: ubuntu-latest
+    needs: [e2e-tests]
+    permissions:
+      contents: read
+      actions: write
+    # Load tests are expensive — only run on main branch pushes
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run load tests
+        run: |
+          python -m pytest tests/load/ \
+            -v \
+            --tb=short \
+            --timeout=600 \
+            --junitxml=test-results/load-results.xml \
+            -m load
+
+      - name: Upload load test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: test-results/
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 7: Integration Tests (QEMU ARM64)
   # ─────────────────────────────────────────────────────────────────────────
   integration-test:
     name: Integration Tests (QEMU ARM64)
     runs-on: ubuntu-latest
-    needs: [smoke-tests]
+    needs: [e2e-tests, security-tests]
     permissions:
       contents: read
       actions: write
-    continue-on-error: true  # WIP: QEMU infra not yet complete
     # Integration tests are expensive — only run on main or when explicitly
     # requested via PR label.
     if: |
@@ -246,7 +407,7 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Job 4: Build Image (full Buildroot build)
+  # Job 8: Build Image (full Buildroot build)
   # ─────────────────────────────────────────────────────────────────────────
   build-image:
     name: Build ARM64 Image
@@ -255,7 +416,6 @@ jobs:
     permissions:
       contents: read
       actions: write
-    continue-on-error: true  # WIP: Buildroot packages not yet complete
     # Only run full builds on main branch pushes to save CI minutes
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     timeout-minutes: 120
@@ -301,7 +461,64 @@ jobs:
           compression-level: 6
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Job 5: Benchmark (system suite only — no live AI services needed in CI)
+  # Job 9: Container Vulnerability Scanning — BMTOS-62
+  # ─────────────────────────────────────────────────────────────────────────
+  trivy-scan:
+    name: Container Vulnerability Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: [lint-and-validate]
+    permissions:
+      contents: read
+      security-events: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image for scanning
+        run: |
+          docker build \
+            --tag bmt-ai-os:ci-${{ github.sha }} \
+            --file Dockerfile \
+            .
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: bmt-ai-os:ci-${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Run Trivy scan (table output for logs)
+        if: always()
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: bmt-ai-os:ci-${{ github.sha }}
+          format: table
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Upload Trivy scan results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: trivy-results.sarif
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 10: Benchmark (system suite only — no live AI services needed in CI)
   # ─────────────────────────────────────────────────────────────────────────
   benchmark:
     name: Benchmark (system suite)
