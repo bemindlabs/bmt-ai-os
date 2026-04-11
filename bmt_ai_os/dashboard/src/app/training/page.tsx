@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -105,13 +105,10 @@ export default async function TrainingPage() {
             Manage on-device fine-tuning jobs (LoRA / QLoRA).
           </p>
         </div>
-        <a
-          href="/training/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
-        >
-          <Plus className="size-4" />
+        <Button render={<a href="/training/new" />}>
+          <Plus className="mr-2 size-4" />
           Start Training
-        </a>
+        </Button>
       </div>
 
       <Card>
@@ -135,13 +132,10 @@ export default async function TrainingPage() {
                   ? "Training API is unreachable. Check controller logs."
                   : "No jobs yet. Start a training run to fine-tune a model on this device."}
               </p>
-              <a
-                href="/training/new"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
-              >
-                <Plus className="size-4" />
+              <Button variant="outline" render={<a href="/training/new" />}>
+                <Plus className="mr-2 size-4" />
                 Start Training
-              </a>
+              </Button>
             </div>
           ) : (
             <Table>
@@ -157,17 +151,9 @@ export default async function TrainingPage() {
               </TableHeader>
               <TableBody>
                 {jobs.map((job) => (
-                  <TableRow
-                    key={job.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
+                  <TableRow key={job.id}>
                     <TableCell className="font-mono text-xs">
-                      <Link
-                        href={`/training/${job.id}`}
-                        className="hover:underline"
-                      >
-                        {job.id}
-                      </Link>
+                      {job.id}
                     </TableCell>
                     <TableCell className="font-medium">{job.model}</TableCell>
                     <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">

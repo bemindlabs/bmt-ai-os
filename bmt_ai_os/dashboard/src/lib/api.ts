@@ -225,53 +225,65 @@ export async function queryRag(
 }
 
 // ---------------------------------------------------------------------------
-// Training (BMTOS-117)
+// Fleet API (BMTOS-118)
 // ---------------------------------------------------------------------------
 
-export interface TrainingJob {
-  id: string;
+export interface FleetDevice {
+  device_id: string;
+  hostname: string;
+  arch: string;
+  board: string;
+  os_version: string;
+  cpu_percent: number;
+  memory_percent: number;
+  disk_percent: number;
+  loaded_models: string[];
+  last_seen: string;
+  registered_at: string;
+  online: boolean;
+  [key: string]: unknown;
+}
+
+export interface FleetDevicesResponse {
+  devices: FleetDevice[];
+  total: number;
+  online: number;
+}
+
+export interface FleetSummary {
+  total_devices: number;
+  online_devices: number;
+  offline_devices: number;
+  total_models: number;
+  unique_models: string[];
+  [key: string]: unknown;
+}
+
+export interface DeployModelRequest {
   model: string;
-  dataset: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
-  progress: number;
-  created_at: string;
-  updated_at: string;
-  current_loss?: number | null;
-  tokens_per_sec?: number | null;
-  error_message?: string | null;
-  started_at?: string | null;
-  completed_at?: string | null;
-  epochs?: number | null;
-  current_epoch?: number | null;
-  total_steps?: number | null;
-  current_step?: number | null;
-  learning_rate?: number | null;
-  dataset_rows?: number | null;
-  dataset_preview?: string[][] | null;
-  dataset_headers?: string[] | null;
+  device_ids?: string[] | null;
 }
 
-export interface TrainingMetricPoint {
-  step: number;
-  loss: number;
-  epoch?: number | null;
-  learning_rate?: number | null;
-  tokens_per_sec?: number | null;
+export interface DeployModelResponse {
+  status: string;
+  model: string;
+  targeted_devices: string[];
+  device_count: number;
 }
 
-export interface TrainingMetricsResponse {
-  job_id: string;
-  metrics: TrainingMetricPoint[];
+export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
+  return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
 }
 
-export async function fetchTrainingJob(id: string): Promise<TrainingJob> {
-  return apiFetch<TrainingJob>(`/api/v1/training/jobs/${id}`);
+export async function fetchFleetSummary(): Promise<FleetSummary> {
+  return apiFetch<FleetSummary>("/api/v1/fleet/summary");
 }
 
-export async function fetchTrainingMetrics(
-  id: string,
-): Promise<TrainingMetricsResponse> {
-  return apiFetch<TrainingMetricsResponse>(
-    `/api/v1/training/jobs/${id}/metrics`,
-  );
+export async function deployModel(
+  req: DeployModelRequest,
+): Promise<DeployModelResponse> {
+  return apiFetch<DeployModelResponse>("/api/v1/fleet/deploy-model", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
