@@ -331,8 +331,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": {
                         "message": (
-                            f"Role '{role.value}' is not permitted to"
-                            f" {request.method} {path}."
+                            f"Role '{role.value}' is not permitted to {request.method} {path}."
                         ),
                         "type": "authorization_error",
                         "code": "forbidden",
