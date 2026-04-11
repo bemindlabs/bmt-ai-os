@@ -72,6 +72,7 @@ _EXEMPT_PREFIXES = (
     "/api/v1/fleet/summary",  # read-only fleet summary
     "/api/v1/fleet/devices",  # read-only device list
     "/api/v1/training",  # training job management (read-only dashboard access)
+    "/api/v1/ssh-keys",  # SSH key management (auth enforced per-endpoint)
 )
 
 

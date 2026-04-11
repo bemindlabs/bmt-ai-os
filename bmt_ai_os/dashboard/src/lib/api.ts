@@ -223,3 +223,60 @@ export async function queryRag(
     body: JSON.stringify(req),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Fleet (BMTOS-128)
+// ---------------------------------------------------------------------------
+
+export interface FleetDevice {
+  device_id: string;
+  hostname: string;
+  arch: string;
+  board: string;
+  os_version: string;
+  online: boolean;
+  cpu_percent: number;
+  memory_percent: number;
+  disk_percent: number;
+  loaded_models: string[];
+  registered_at?: string;
+  last_seen?: string;
+  [key: string]: unknown;
+}
+
+export interface FleetDevicesResponse {
+  devices: FleetDevice[];
+  total: number;
+  online: number;
+}
+
+export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
+  return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
+}
+
+// ---------------------------------------------------------------------------
+// SSH Key Management (BMTOS-129)
+// ---------------------------------------------------------------------------
+
+export interface SshKeySummary {
+  name: string;
+  fingerprint: string;
+  created_at: string;
+}
+
+export async function fetchSshKeys(): Promise<SshKeySummary[]> {
+  return apiFetch<SshKeySummary[]>("/api/v1/ssh-keys");
+}
+
+export async function uploadSshKey(name: string, key: string): Promise<SshKeySummary> {
+  return apiFetch<SshKeySummary>("/api/v1/ssh-keys", {
+    method: "POST",
+    body: JSON.stringify({ name, key }),
+  });
+}
+
+export async function deleteSshKey(name: string): Promise<{ deleted: boolean; name: string }> {
+  return apiFetch<{ deleted: boolean; name: string }>(`/api/v1/ssh-keys/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
