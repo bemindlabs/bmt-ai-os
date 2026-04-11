@@ -106,11 +106,13 @@ async def list_ollama_models() -> dict:
 
 
 @app.post("/api/pull")
-async def pull_model(request: Request) -> dict:
-    """Pull a model via Ollama API. Proxies to the Ollama /api/pull endpoint."""
+async def pull_model(request: Request):
+    """Pull a model via Ollama API. Streams NDJSON progress from Ollama."""
+    import json as _json
     import os
 
     import aiohttp
+    from starlette.responses import StreamingResponse
 
     body = await request.json()
     model_name = body.get("name", "")
@@ -118,19 +120,27 @@ async def pull_model(request: Request) -> dict:
         raise HTTPException(status_code=422, detail="Missing 'name' field")
 
     ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{ollama_host}/api/pull",
-                json={"name": model_name},
-                timeout=aiohttp.ClientTimeout(total=600),
-            ) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    raise HTTPException(status_code=resp.status, detail=text)
-                return {"status": "ok", "model": model_name}
-    except aiohttp.ClientError as exc:
-        raise HTTPException(status_code=502, detail=f"Ollama unreachable: {exc}")
+
+    async def stream_pull():
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{ollama_host}/api/pull",
+                    json={"name": model_name, "stream": True},
+                    timeout=aiohttp.ClientTimeout(total=1800),
+                ) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        yield _json.dumps({"error": text}) + "\n"
+                        return
+                    async for line in resp.content:
+                        decoded = line.decode("utf-8").strip()
+                        if decoded:
+                            yield decoded + "\n"
+        except aiohttp.ClientError as exc:
+            yield _json.dumps({"error": f"Ollama unreachable: {exc}"}) + "\n"
+
+    return StreamingResponse(stream_pull(), media_type="application/x-ndjson")
 
 
 @app.get("/api/v1/metrics")
