@@ -223,3 +223,96 @@ export async function queryRag(
     body: JSON.stringify(req),
   });
 }
+
+// ---------------------------------------------------------------------------
+// File Manager (BMTOS-116)
+// ---------------------------------------------------------------------------
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number | null;
+  modified: number;
+  mime: string | null;
+}
+
+export interface Breadcrumb {
+  name: string;
+  path: string;
+}
+
+export interface ListFilesResponse {
+  entries: FileEntry[];
+  breadcrumbs: Breadcrumb[];
+}
+
+export interface ReadFileResponse {
+  path: string;
+  name: string;
+  content: string;
+  size: number;
+  mime: string;
+}
+
+export interface UploadFileResponse {
+  status: string;
+  path: string;
+  name: string;
+  size: number;
+}
+
+export async function listFiles(path = ""): Promise<ListFilesResponse> {
+  const qs = path ? `?path=${encodeURIComponent(path)}` : "";
+  return apiFetch<ListFilesResponse>(`/api/v1/files/list${qs}`);
+}
+
+export async function readFile(path: string): Promise<ReadFileResponse> {
+  return apiFetch<ReadFileResponse>(
+    `/api/v1/files/read?path=${encodeURIComponent(path)}`,
+  );
+}
+
+export function downloadFileUrl(path: string): string {
+  const token =
+    typeof window !== "undefined"
+      ? (localStorage.getItem("bmt_auth_token") ?? "")
+      : "";
+  return `/api/v1/files/download?path=${encodeURIComponent(path)}&token=${encodeURIComponent(token)}`;
+}
+
+export async function uploadFile(
+  dirPath: string,
+  file: File,
+): Promise<UploadFileResponse> {
+  const token =
+    typeof window !== "undefined"
+      ? (localStorage.getItem("bmt_auth_token") ?? "")
+      : "";
+  const formData = new FormData();
+  formData.append("file", file);
+  const qs = dirPath ? `?path=${encodeURIComponent(dirPath)}` : "";
+  const res = await fetch(`/api/v1/files/upload${qs}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (res.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("bmt_auth_token");
+    localStorage.removeItem("bmt_auth_user");
+    window.location.replace("/login");
+    throw new Error("Session expired");
+  }
+  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+  return res.json() as Promise<UploadFileResponse>;
+}
+
+export async function ingestPath(
+  path: string,
+  collection = "default",
+): Promise<unknown> {
+  return apiFetch<unknown>("/api/v1/ingest", {
+    method: "POST",
+    body: JSON.stringify({ path: `/${path}`, collection, recursive: true }),
+  });
+}

@@ -10,6 +10,7 @@ import {
   Layers,
   Settings,
   ScrollText,
+  FolderOpen,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/providers", label: "Providers", icon: Layers },
   { href: "/training", label: "Training", icon: BrainCog },
+  { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/logs", label: "Logs", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
