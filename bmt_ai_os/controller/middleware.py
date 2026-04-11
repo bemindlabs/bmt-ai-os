@@ -18,6 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from bmt_ai_os.secret_files import read_secret
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +43,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: FastAPI, api_key: str | None = None) -> None:
         super().__init__(app)
-        self._api_key = api_key or os.environ.get(_ENV_API_KEY)
+        self._api_key = api_key or read_secret(_ENV_API_KEY)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         if self._api_key is None:

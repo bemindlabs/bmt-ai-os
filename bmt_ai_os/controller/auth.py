@@ -26,6 +26,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from bmt_ai_os.secret_files import read_secret
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -241,10 +243,12 @@ class UserStore:
 
 
 def _jwt_secret() -> str:
-    secret = os.environ.get(_ENV_JWT_SECRET)
+    secret = read_secret(_ENV_JWT_SECRET)
     if not secret:
         raise RuntimeError(
-            f"JWT secret not configured. Set the {_ENV_JWT_SECRET} environment variable."
+            f"JWT secret not configured. "
+            f"Mount it as /run/secrets/{_ENV_JWT_SECRET} "
+            f"or set the {_ENV_JWT_SECRET} environment variable."
         )
     return secret
 
