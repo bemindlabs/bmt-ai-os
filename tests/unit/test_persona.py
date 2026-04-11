@@ -346,3 +346,402 @@ class TestMultiAgentIsolation:
 
         assert "Aria" in prompt_a and "Rex" not in prompt_a
         assert "Rex" in prompt_b and "Aria" not in prompt_b
+
+
+# ===========================================================================
+# BMTOS-88: Persona auto-injection in OpenAI-compatible API
+# ===========================================================================
+
+
+class TestPersonaEnabled:
+    def test_enabled_by_default(self):
+        env = {k: v for k, v in os.environ.items() if k != "BMT_PERSONA_ENABLED"}
+        with patch.dict(os.environ, env, clear=True):
+            from bmt_ai_os.controller.openai_compat import _persona_enabled
+
+            assert _persona_enabled() is True
+
+    def test_disabled_by_zero(self):
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "0"}):
+            from bmt_ai_os.controller.openai_compat import _persona_enabled
+
+            assert _persona_enabled() is False
+
+    def test_disabled_by_false(self):
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "false"}):
+            from bmt_ai_os.controller.openai_compat import _persona_enabled
+
+            assert _persona_enabled() is False
+
+    def test_enabled_by_one(self):
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "1"}):
+            from bmt_ai_os.controller.openai_compat import _persona_enabled
+
+            assert _persona_enabled() is True
+
+    def test_disabled_by_no(self):
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "no"}):
+            from bmt_ai_os.controller.openai_compat import _persona_enabled
+
+            assert _persona_enabled() is False
+
+
+class TestHasSystemMessage:
+    def _msg(self, role: str):
+        from bmt_ai_os.controller.openai_compat import _ChatMessage
+
+        return _ChatMessage(role=role, content="test")
+
+    def test_true_when_first_is_system(self):
+        from bmt_ai_os.controller.openai_compat import _has_system_message
+
+        assert _has_system_message([self._msg("system"), self._msg("user")]) is True
+
+    def test_false_when_first_is_user(self):
+        from bmt_ai_os.controller.openai_compat import _has_system_message
+
+        assert _has_system_message([self._msg("user")]) is False
+
+    def test_false_for_empty_list(self):
+        from bmt_ai_os.controller.openai_compat import _has_system_message
+
+        assert _has_system_message([]) is False
+
+    def test_works_with_dict(self):
+        from bmt_ai_os.controller.openai_compat import _has_system_message
+
+        assert _has_system_message([{"role": "system", "content": "hi"}]) is True
+
+    def test_false_dict_user(self):
+        from bmt_ai_os.controller.openai_compat import _has_system_message
+
+        assert _has_system_message([{"role": "user", "content": "hi"}]) is False
+
+
+class TestInjectPersona:
+    @pytest.mark.asyncio
+    async def test_injects_when_no_system_present(self):
+        from bmt_ai_os.controller.openai_compat import _ChatMessage, _inject_persona
+
+        user_msg = _ChatMessage(role="user", content="hello")
+        with patch("bmt_ai_os.controller.openai_compat._persona_enabled", return_value=True):
+            with patch(
+                "bmt_ai_os.persona.assembler.PersonaAssembler.assemble",
+                return_value="You are helpful.",
+            ):
+                result = await _inject_persona([user_msg])
+
+        assert len(result) == 2
+        assert result[0].role == "system"
+        assert "helpful" in result[0].content
+        assert result[1] is user_msg
+
+    @pytest.mark.asyncio
+    async def test_skips_when_system_already_present(self):
+        from bmt_ai_os.controller.openai_compat import _ChatMessage, _inject_persona
+
+        sys_msg = _ChatMessage(role="system", content="Custom system.")
+        user_msg = _ChatMessage(role="user", content="hi")
+        result = await _inject_persona([sys_msg, user_msg])
+
+        assert len(result) == 2
+        assert result[0] is sys_msg
+
+    @pytest.mark.asyncio
+    async def test_skips_when_disabled_via_env(self):
+        from bmt_ai_os.controller.openai_compat import _ChatMessage, _inject_persona
+
+        user_msg = _ChatMessage(role="user", content="hi")
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "0"}):
+            result = await _inject_persona([user_msg])
+
+        assert len(result) == 1
+        assert result[0] is user_msg
+
+    @pytest.mark.asyncio
+    async def test_skips_when_assembler_empty(self):
+        from bmt_ai_os.controller.openai_compat import _ChatMessage, _inject_persona
+
+        user_msg = _ChatMessage(role="user", content="hi")
+        with patch("bmt_ai_os.controller.openai_compat._persona_enabled", return_value=True):
+            with patch("bmt_ai_os.persona.assembler.PersonaAssembler.assemble", return_value=""):
+                result = await _inject_persona([user_msg])
+
+        assert result == [user_msg]
+
+    @pytest.mark.asyncio
+    async def test_non_fatal_on_exception(self):
+        from bmt_ai_os.controller.openai_compat import _ChatMessage, _inject_persona
+
+        user_msg = _ChatMessage(role="user", content="hi")
+        with patch("bmt_ai_os.controller.openai_compat._persona_enabled", return_value=True):
+            with patch(
+                "bmt_ai_os.persona.assembler.get_persona_assembler",
+                side_effect=RuntimeError("boom"),
+            ):
+                result = await _inject_persona([user_msg])
+
+        assert result == [user_msg]
+
+
+# ===========================================================================
+# BMTOS-88: RAG prompts persona-aware system prompt
+# ===========================================================================
+
+
+class TestGetRagSystemPrompt:
+    def test_override_takes_precedence(self):
+        from bmt_ai_os.rag.prompts import get_rag_system_prompt
+
+        result = get_rag_system_prompt(override="Explicit override.")
+        assert result == "Explicit override."
+
+    def test_persona_used_when_enabled(self):
+        from bmt_ai_os.rag.prompts import _RAG_PERSONA_SUFFIX, get_rag_system_prompt
+
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "1"}):
+            with patch(
+                "bmt_ai_os.persona.assembler.PersonaAssembler.assemble",
+                return_value="Persona system text",
+            ):
+                result = get_rag_system_prompt()
+
+        assert result.startswith("Persona system text")
+        assert _RAG_PERSONA_SUFFIX in result
+
+    def test_falls_back_to_default_when_disabled(self):
+        from bmt_ai_os.rag.prompts import DEFAULT_SYSTEM_PROMPT, get_rag_system_prompt
+
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "0"}):
+            result = get_rag_system_prompt()
+
+        assert result == DEFAULT_SYSTEM_PROMPT
+
+    def test_falls_back_to_default_on_import_error(self):
+        from bmt_ai_os.rag.prompts import DEFAULT_SYSTEM_PROMPT, get_rag_system_prompt
+
+        with patch.dict(os.environ, {"BMT_PERSONA_ENABLED": "1"}):
+            with patch(
+                "bmt_ai_os.persona.assembler.get_persona_assembler",
+                side_effect=ImportError("missing"),
+            ):
+                result = get_rag_system_prompt()
+
+        assert result == DEFAULT_SYSTEM_PROMPT
+
+    def test_returns_nonempty_string(self):
+        from bmt_ai_os.rag.prompts import get_rag_system_prompt
+
+        result = get_rag_system_prompt()
+        assert isinstance(result, str) and len(result) > 0
+
+
+# ===========================================================================
+# BMTOS-91: Preset SOUL.md library
+# ===========================================================================
+
+
+class TestPresetFiles:
+    _PRESETS = ("coding", "general", "creative")
+
+    def _presets_dir(self) -> Path:
+        return Path(__file__).parent.parent.parent / "bmt_ai_os" / "persona" / "presets"
+
+    def test_all_presets_exist(self):
+        for name in self._PRESETS:
+            assert (self._presets_dir() / f"{name}.md").is_file(), f"{name}.md missing"
+
+    def test_all_presets_nonempty(self):
+        for name in self._PRESETS:
+            content = (self._presets_dir() / f"{name}.md").read_text(encoding="utf-8").strip()
+            assert len(content) > 50, f"{name}.md too short"
+
+    def test_coding_preset_is_technical(self):
+        content = (self._presets_dir() / "coding.md").read_text(encoding="utf-8").lower()
+        assert "code" in content or "software" in content or "engineering" in content
+
+    def test_creative_preset_is_expressive(self):
+        content = (self._presets_dir() / "creative.md").read_text(encoding="utf-8").lower()
+        assert "creative" in content or "writing" in content or "story" in content
+
+    def test_general_preset_is_helpful(self):
+        content = (self._presets_dir() / "general.md").read_text(encoding="utf-8").lower()
+        assert "helpful" in content or "assistant" in content or "friendly" in content
+
+    def test_presets_are_distinct(self):
+        texts = [
+            (self._presets_dir() / f"{n}.md").read_text(encoding="utf-8") for n in self._PRESETS
+        ]
+        assert texts[0] != texts[1]
+        assert texts[1] != texts[2]
+        assert texts[0] != texts[2]
+
+
+class TestPersonaAssemblerWithPresets:
+    def test_coding_assembler_returns_preset_content(self):
+        from bmt_ai_os.persona.assembler import _PRESETS_DIR, PersonaAssembler
+
+        assembler = PersonaAssembler("coding")
+        result = assembler.assemble()
+        expected = (_PRESETS_DIR / "coding.md").read_text(encoding="utf-8").strip()
+        assert result == expected
+
+    def test_general_assembler_returns_preset_content(self):
+        from bmt_ai_os.persona.assembler import _PRESETS_DIR, PersonaAssembler
+
+        assembler = PersonaAssembler("general")
+        result = assembler.assemble()
+        expected = (_PRESETS_DIR / "general.md").read_text(encoding="utf-8").strip()
+        assert result == expected
+
+    def test_creative_assembler_returns_preset_content(self):
+        from bmt_ai_os.persona.assembler import _PRESETS_DIR, PersonaAssembler
+
+        assembler = PersonaAssembler("creative")
+        result = assembler.assemble()
+        expected = (_PRESETS_DIR / "creative.md").read_text(encoding="utf-8").strip()
+        assert result == expected
+
+    def test_unknown_falls_back_to_general(self):
+        from bmt_ai_os.persona.assembler import _PRESETS_DIR, PersonaAssembler
+
+        assembler = PersonaAssembler("does_not_exist_xyz")
+        result = assembler.assemble()
+        expected = (_PRESETS_DIR / "general.md").read_text(encoding="utf-8").strip()
+        assert result == expected
+
+
+# ===========================================================================
+# BMTOS-91: CLI persona commands
+# ===========================================================================
+
+
+class TestPersonaCliSet:
+    def test_copies_soul_md_to_workspace(self, tmp_path):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["persona", "set", "coding", "--workspace", str(tmp_path), "--force"],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "SOUL.md").is_file()
+        assert len((tmp_path / "SOUL.md").read_text(encoding="utf-8").strip()) > 0
+
+    def test_invalid_preset_errors(self):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["persona", "set", "invalid_preset_xyz"])
+        assert result.exit_code != 0
+
+    def test_general_preset_copied(self, tmp_path):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["persona", "set", "general", "--workspace", str(tmp_path), "--force"],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "SOUL.md").is_file()
+
+    def test_creative_preset_copied(self, tmp_path):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["persona", "set", "creative", "--workspace", str(tmp_path), "--force"],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "SOUL.md").is_file()
+
+    def test_output_mentions_preset_name(self, tmp_path):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["persona", "set", "coding", "--workspace", str(tmp_path), "--force"],
+        )
+        assert "coding" in result.output
+
+    def test_soul_md_content_matches_preset_file(self, tmp_path):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        runner.invoke(
+            main,
+            ["persona", "set", "creative", "--workspace", str(tmp_path), "--force"],
+        )
+        presets_dir = Path(__file__).parent.parent.parent / "bmt_ai_os" / "persona" / "presets"
+        expected = (presets_dir / "creative.md").read_text(encoding="utf-8")
+        actual = (tmp_path / "SOUL.md").read_text(encoding="utf-8")
+        assert actual == expected
+
+
+class TestPersonaCliList:
+    def test_exits_zero(self):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["persona", "list"])
+        assert result.exit_code == 0
+
+    def test_shows_all_three_presets(self):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["persona", "list"])
+        assert "coding" in result.output
+        assert "general" in result.output
+        assert "creative" in result.output
+
+
+class TestPersonaCliShow:
+    def test_shows_coding_content(self):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["persona", "show", "coding"])
+        assert result.exit_code == 0
+        assert len(result.output.strip()) > 50
+
+    def test_shows_general_content(self):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["persona", "show", "general"])
+        assert result.exit_code == 0
+        assert len(result.output.strip()) > 50
+
+    def test_invalid_preset_errors(self):
+        from click.testing import CliRunner
+
+        from bmt_ai_os.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["persona", "show", "bad_xyz"])
+        assert result.exit_code != 0
