@@ -223,3 +223,115 @@ export async function queryRag(
     body: JSON.stringify(req),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Provider CRUD (BMTOS-120)
+// ---------------------------------------------------------------------------
+
+export type ProviderType =
+  | "ollama"
+  | "openai"
+  | "anthropic"
+  | "gemini"
+  | "groq"
+  | "mistral"
+  | "vllm"
+  | "llamacpp";
+
+export interface ProviderConfig {
+  name: string;
+  provider_type: ProviderType;
+  base_url: string;
+  api_key: string; // masked on reads
+  default_model: string;
+  enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProviderConfigsResponse {
+  providers: ProviderConfig[];
+}
+
+export interface ProviderConfigIn {
+  name: string;
+  provider_type: ProviderType;
+  base_url?: string;
+  api_key?: string;
+  default_model?: string;
+  enabled?: boolean;
+}
+
+export interface ProviderConfigUpdate {
+  base_url?: string;
+  api_key?: string;
+  default_model?: string;
+  enabled?: boolean;
+}
+
+export interface ProviderTestResult {
+  name: string;
+  healthy: boolean;
+  latency_ms: number;
+  error: string | null;
+}
+
+export const PROVIDER_DEFAULT_URLS: Record<ProviderType, string> = {
+  ollama: "http://localhost:11434",
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com",
+  gemini: "https://generativelanguage.googleapis.com",
+  groq: "https://api.groq.com/openai/v1",
+  mistral: "https://api.mistral.ai/v1",
+  vllm: "http://localhost:8000/v1",
+  llamacpp: "http://localhost:8080",
+};
+
+export async function fetchProviderConfigs(): Promise<ProviderConfigsResponse> {
+  return apiFetch<ProviderConfigsResponse>("/api/v1/providers/config");
+}
+
+export async function createProviderConfig(
+  data: ProviderConfigIn,
+): Promise<ProviderConfig> {
+  return apiFetch<ProviderConfig>("/api/v1/providers/config", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateProviderConfig(
+  name: string,
+  data: ProviderConfigUpdate,
+): Promise<ProviderConfig> {
+  return apiFetch<ProviderConfig>(`/api/v1/providers/config/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteProviderConfig(name: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/v1/providers/config/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader() },
+    cache: "no-store",
+  });
+  if (res.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("bmt_auth_token");
+    localStorage.removeItem("bmt_auth_user");
+    window.location.replace("/login");
+    throw new Error("Session expired");
+  }
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`API error ${res.status}: ${res.statusText}`);
+  }
+}
+
+export async function testProviderConnection(
+  name: string,
+): Promise<ProviderTestResult> {
+  return apiFetch<ProviderTestResult>(
+    `/api/v1/providers/config/${encodeURIComponent(name)}/test`,
+    { method: "POST" },
+  );
+}

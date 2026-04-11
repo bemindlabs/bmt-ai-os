@@ -281,6 +281,14 @@ class BMTAIOSController:
         # Register LLM providers from running services
         self._register_providers()
 
+        # Restore any providers previously saved via the CRUD API
+        try:
+            from .provider_config_routes import restore_persisted_providers
+
+            restore_persisted_providers()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not restore persisted provider configs: %s", exc)
+
         # Start background health checks
         self.start_health_checks()
 
