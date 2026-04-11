@@ -326,7 +326,7 @@
       "id": "BMTOS-EPIC-14",
       "title": "AI Workspace",
       "description": "Transform the dashboard into a full AI workspace with resizable panels, tabbed work areas, terminal, code editor, file manager, and fleet dashboard.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-110",
@@ -339,6 +339,21 @@
         "BMTOS-117",
         "BMTOS-118",
         "BMTOS-119"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-15",
+      "title": "Dynamic Provider Configuration",
+      "description": "Dashboard UI for adding, configuring, and managing LLM providers with fallback chain drag-drop.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-120",
+        "BMTOS-121",
+        "BMTOS-122",
+        "BMTOS-123",
+        "BMTOS-124",
+        "BMTOS-125"
       ]
     }
   ],

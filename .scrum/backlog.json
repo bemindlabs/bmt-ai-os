@@ -2725,7 +2725,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2740,7 +2740,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2755,7 +2755,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2770,7 +2770,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2785,7 +2785,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2800,7 +2800,7 @@
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2815,7 +2815,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2830,7 +2830,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2845,7 +2845,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
@@ -2860,14 +2860,104 @@
       "type": "story",
       "priority": "low",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "workspace"
       ],
       "epic_id": "BMTOS-EPIC-14",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-120",
+      "title": "Provider CRUD API (register/update/delete)",
+      "description": "Add POST/PUT/DELETE /api/v1/providers endpoints. Persist config to providers.yml. Dynamic provider registration without restart.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-121",
+      "title": "Add Provider form in dashboard",
+      "description": "Modal form: provider type dropdown, base URL, API key (masked), default model, Test Connection. Calls POST /api/v1/providers.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-122",
+      "title": "Per-provider edit/delete/toggle UI",
+      "description": "Each provider card gets Edit (inline form), Enable/Disable toggle, Delete (with confirm). Updates via PUT/DELETE API.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-123",
+      "title": "Test Connection button",
+      "description": "Button in Add/Edit form that calls provider health_check and shows result. Green check or red X with error message.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-124",
+      "title": "Fallback chain drag-drop configurator",
+      "description": "Visual fallback chain editor. Drag-drop to reorder provider priority. Shows: provider1 \u2192 provider2 \u2192 provider3. Saves order to config.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-125",
+      "title": "Provider model list per provider",
+      "description": "Expandable section in provider card showing models available from that provider. Calls list_models on the provider.",
+      "type": "story",
+      "priority": "low",
+      "points": 2,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 120
+  "next_id": 126
 }
