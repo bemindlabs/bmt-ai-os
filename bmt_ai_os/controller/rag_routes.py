@@ -86,9 +86,9 @@ async def query_stream(req: QueryRequest) -> StreamingResponse:
                     yield f"data: {json.dumps({'token': item})}\n\n"
                 elif isinstance(item, RAGResponse):
                     yield f"data: {json.dumps({'done': True, **item.to_dict()})}\n\n"
-        except Exception as exc:
+        except Exception:
             logger.exception("RAG stream failed")
-            yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+            yield f"data: {json.dumps({'error': 'Internal server error'})}\n\n"
 
     return StreamingResponse(
         _event_generator(),

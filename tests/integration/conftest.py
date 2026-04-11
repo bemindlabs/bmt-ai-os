@@ -296,7 +296,11 @@ def ssh_connection(qemu_session: QEMUSession) -> Generator[paramiko.SSHClient, N
     ssh_password = os.environ.get("QEMU_SSH_PASSWORD", "")
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # AutoAddPolicy is intentional here: we connect to an ephemeral local QEMU
+    # VM whose host key changes every run. There is no persistent known_hosts to
+    # verify against, and the connection is loopback-only (127.0.0.1).
+    # nosec B507 — test-only, local QEMU, not a production connection.
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # nosec B507
 
     max_retries = 5
     for attempt in range(1, max_retries + 1):

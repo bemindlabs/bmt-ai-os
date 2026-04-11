@@ -490,7 +490,7 @@ class TestFleetCLI:
 
         assert result.exit_code == 0, result.output
         assert "dev-001" in result.output
-        assert "http://fleet.local" in result.output
+        assert "http://fleet.local" in result.output  # nosec B105 — test assertion on CLI output, not a credential check
         mock_save.assert_called_once()
 
     def test_fleet_status_no_server(self, tmp_path):
@@ -519,7 +519,7 @@ class TestFleetCLI:
 
         assert result.exit_code == 0, result.output
         assert "dev-001" in result.output
-        assert "http://fleet.local" in result.output
+        assert "http://fleet.local" in result.output  # nosec B105 — test assertion on CLI output, not a credential check
         assert "UNREACHABLE" in result.output
 
     def test_fleet_heartbeat_no_server(self):
