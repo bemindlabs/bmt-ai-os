@@ -7,6 +7,24 @@
 #   docker compose --profile full up -d           # Apple Silicon / Jetson 32GB
 #
 # Device tiers are controlled via BMT_DEVICE_TIER in .env
+#
+# Secrets:
+#   BMT_JWT_SECRET  — JWT signing key for the controller auth layer
+#   BMT_API_KEY     — Optional legacy API key (backward-compat)
+#
+#   Create secrets before first run:
+#     printf 'your-jwt-secret' | docker secret create BMT_JWT_SECRET -
+#     printf 'your-api-key'    | docker secret create BMT_API_KEY -
+#
+#   On non-Swarm single-node deployments you may instead supply plain files:
+#     echo 'your-jwt-secret' > /run/secrets/BMT_JWT_SECRET
+#     chmod 600 /run/secrets/BMT_JWT_SECRET
+
+secrets:
+  BMT_JWT_SECRET:
+    external: true
+  BMT_API_KEY:
+    external: true
 
 services:
   ollama:
@@ -116,6 +134,47 @@ services:
         reservations:
           cpus: "0.5"
           memory: "256m"
+
+  controller:
+    image: bmt-ai-os:latest
+    container_name: bmt-controller
+    platform: linux/arm64
+    ports:
+      - "${CONTROLLER_PORT:-8080}:8080"
+    environment:
+      - BMT_COMPOSE_FILE=/app/bmt_ai_os/ai-stack/docker-compose.yml
+      - OLLAMA_HOST=http://bmt-ollama:11434
+      - CHROMADB_HOST=http://bmt-chromadb:8000
+    secrets:
+      - BMT_JWT_SECRET
+      - BMT_API_KEY
+    depends_on:
+      ollama:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+      start_interval: 5s
+    networks:
+      - bmt-ai-net
+    labels:
+      com.bemind.service: "controller"
+      com.bemind.component: "ai-stack"
+      com.bemind.tier: "${BMT_DEVICE_TIER:-standard}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${CONTROLLER_CPU_LIMIT:-1.0}"
+          memory: "${CONTROLLER_MEM_LIMIT:-512m}"
+        reservations:
+          cpus: "0.25"
+          memory: "128m"
 
 volumes:
   ollama_models:
