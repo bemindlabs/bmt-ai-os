@@ -55,7 +55,6 @@ app.include_router(conversation_router)
 app.include_router(provider_router)
 app.include_router(provider_config_router)
 app.include_router(prometheus_router)
-app.include_router(provider_config_router)
 
 # Fleet management routes
 from bmt_ai_os.fleet.routes import router as fleet_router  # noqa: E402
