@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -373,3 +374,64 @@ def _get_default_store() -> UserStore:
 def get_store() -> UserStore:
     """Return the module-level UserStore singleton."""
     return _get_default_store()
+
+
+# ---------------------------------------------------------------------------
+# Startup security validation
+# ---------------------------------------------------------------------------
+
+_ENV_ADMIN_PASS = "BMT_ADMIN_PASS"
+_MIN_JWT_SECRET_LEN = 32
+_DEFAULT_ADMIN_PASS = "admin"
+
+
+def validate_startup_security(store: UserStore | None = None) -> None:
+    """Validate critical security configuration at startup.
+
+    Checks:
+    - BMT_JWT_SECRET is set and at least 32 characters long. Exits with
+      error code 1 if not, because running without a strong secret is a
+      security vulnerability.
+    - BMT_ADMIN_PASS is not the default "admin" value when users exist.
+      Emits a warning (does not exit) because this may be intentional in
+      development.
+
+    Call this function early in the startup sequence, before binding the
+    HTTP server.
+    """
+    # --- JWT secret check ---
+    jwt_secret = os.environ.get(_ENV_JWT_SECRET, "")
+    if not jwt_secret:
+        logger.critical(
+            "FATAL: %s environment variable is not set. "
+            "A strong JWT secret is required to sign authentication tokens. "
+            "Set it to a random string of at least %d characters and restart.",
+            _ENV_JWT_SECRET,
+            _MIN_JWT_SECRET_LEN,
+        )
+        sys.exit(1)
+
+    if len(jwt_secret) < _MIN_JWT_SECRET_LEN:
+        logger.critical(
+            "FATAL: %s is too short (%d chars). "
+            "Minimum length is %d characters. "
+            "Use a cryptographically random value (e.g. `openssl rand -hex 32`).",
+            _ENV_JWT_SECRET,
+            len(jwt_secret),
+            _MIN_JWT_SECRET_LEN,
+        )
+        sys.exit(1)
+
+    logger.info("JWT secret: OK (length=%d)", len(jwt_secret))
+
+    # --- Admin password check (warn only) ---
+    active_store = store or _get_default_store()
+    if active_store.has_users():
+        admin_pass = os.environ.get(_ENV_ADMIN_PASS, "")
+        if admin_pass == _DEFAULT_ADMIN_PASS:
+            logger.warning(
+                "SECURITY WARNING: %s is set to the default value '%s'. "
+                "Change it to a strong password before exposing this service.",
+                _ENV_ADMIN_PASS,
+                _DEFAULT_ADMIN_PASS,
+            )

@@ -268,6 +268,11 @@ class BMTAIOSController:
         logger.info("Compose file: %s", self.config.compose_file)
         logger.info("API server: %s:%d", self.config.api_host, self.config.api_port)
 
+        # Validate security configuration before binding the server.
+        from .auth import validate_startup_security
+
+        validate_startup_security()
+
         # Start the AI stack
         self.start_stack()
 
