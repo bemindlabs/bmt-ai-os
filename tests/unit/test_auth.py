@@ -139,6 +139,58 @@ class TestUserStore:
 
 
 # ---------------------------------------------------------------------------
+# Password complexity — BMTOS-64
+# ---------------------------------------------------------------------------
+
+
+class TestPasswordComplexity:
+    def test_valid_password_accepted(self, store):
+        user = store.create_user("pw_ok", "ValidPass12!", "viewer")
+        assert user.username == "pw_ok"
+
+    def test_too_short_raises(self, store):
+        with pytest.raises(ValueError, match="12 characters"):
+            store.create_user("pw_short", "Short1A", "viewer")
+
+    def test_no_uppercase_raises(self, store):
+        with pytest.raises(ValueError, match="uppercase"):
+            store.create_user("pw_noup", "nouppercase1234", "viewer")
+
+    def test_no_digit_raises(self, store):
+        with pytest.raises(ValueError, match="digit"):
+            store.create_user("pw_nodig", "NoDigitsHereXY", "viewer")
+
+    def test_skip_complexity_allowed_for_internal(self, store):
+        # skip_complexity=True is used for dev-mode bootstrap only
+        user = store.create_user("pw_skip", "weak", "viewer", skip_complexity=True)
+        assert user.username == "pw_skip"
+
+    def test_validate_password_complexity_function_directly(self):
+        from bmt_ai_os.controller.auth import validate_password_complexity
+
+        # Valid password should not raise
+        validate_password_complexity("ValidPass12!")
+
+    def test_validate_password_complexity_short(self):
+        from bmt_ai_os.controller.auth import validate_password_complexity
+
+        with pytest.raises(ValueError, match="12 characters"):
+            validate_password_complexity("Short1A")
+
+    def test_validate_password_complexity_no_uppercase(self):
+        from bmt_ai_os.controller.auth import validate_password_complexity
+
+        with pytest.raises(ValueError, match="uppercase"):
+            validate_password_complexity("nouppercase123")
+
+    def test_validate_password_complexity_no_digit(self):
+        from bmt_ai_os.controller.auth import validate_password_complexity
+
+        with pytest.raises(ValueError, match="digit"):
+            validate_password_complexity("NoDigitssHereXY")
+
+
+# ---------------------------------------------------------------------------
 # Account lockout
 # ---------------------------------------------------------------------------
 
