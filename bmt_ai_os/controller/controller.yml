@@ -40,3 +40,20 @@ services:
     container_name: bmt-chromadb
     health_url: http://localhost:8000/api/v1/heartbeat
     port: 8000
+
+# Multi-channel message delivery
+# Uncomment and configure the channels you want to enable.
+messaging:
+  channels: []
+  # Example webhook channel:
+  # - type: webhook
+  #   name: alerts
+  #   url: https://hooks.example.com/notify
+  #   headers:
+  #     Authorization: "Bearer <token>"
+  #   timeout: 10
+  #
+  # Example file channel:
+  # - type: file
+  #   name: audit
+  #   path: /var/log/bmt-messages.log
