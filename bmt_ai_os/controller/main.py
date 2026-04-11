@@ -8,6 +8,7 @@ circuit breakers, and an HTTP API for status and control.
 import argparse
 import importlib
 import logging
+import os
 import signal
 import ssl
 import subprocess
@@ -225,7 +226,9 @@ class BMTAIOSController:
                 try:
                     module = importlib.import_module(module_path)
                     provider_cls = getattr(module, class_name)
-                    base_url = f"http://localhost:{svc.port}"
+                    # Use env var (e.g. OLLAMA_HOST) if set, otherwise localhost
+                    env_key = f"{svc.name.upper()}_HOST"
+                    base_url = os.environ.get(env_key, f"http://localhost:{svc.port}")
                     provider = provider_cls(base_url=base_url)
                     registry.register(svc.name, provider)
                     logger.info(
