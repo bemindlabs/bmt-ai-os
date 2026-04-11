@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -155,9 +156,17 @@ export default async function TrainingPage() {
               </TableHeader>
               <TableBody>
                 {jobs.map((job) => (
-                  <TableRow key={job.id}>
+                  <TableRow
+                    key={job.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
                     <TableCell className="font-mono text-xs">
-                      {job.id}
+                      <Link
+                        href={`/training/${job.id}`}
+                        className="hover:underline"
+                      >
+                        {job.id}
+                      </Link>
                     </TableCell>
                     <TableCell className="font-medium">{job.model}</TableCell>
                     <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">
