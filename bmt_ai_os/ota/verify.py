@@ -21,6 +21,7 @@ crashing at import time.
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -28,6 +29,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 _CHUNK_SIZE = 1 << 16  # 64 KiB read chunks — efficient for large images
+
+# Default location of the OTA signing public key on production images.
+_DEFAULT_PUBKEY_PATH = "/etc/bmt_ai_os/ota-signing-key.pub"
 
 
 # ---------------------------------------------------------------------------
@@ -167,3 +171,64 @@ def verify_signature(
         return False
     except Exception:
         return False
+
+
+# ---------------------------------------------------------------------------
+# High-level download verification
+# ---------------------------------------------------------------------------
+
+
+def verify_download(
+    image_path: str | Path,
+    *,
+    sig_path: str | Path | None = None,
+    pubkey_path: str | Path | None = None,
+) -> bool:
+    """Verify an OTA image download using Ed25519 signature authentication.
+
+    This is the primary entry point used by the OTA engine after a download
+    completes.  It combines a SHA-256 integrity check (fast) with an Ed25519
+    authenticity check (cryptographic) so that neither a corrupted download
+    nor a tampered image can slip through.
+
+    Parameters
+    ----------
+    image_path:
+        Path to the downloaded OTA image file.
+    sig_path:
+        Path to the detached ``.sig`` file.  Defaults to
+        ``<image_path>.sig`` when not provided.
+    pubkey_path:
+        Path to the Ed25519 public key used for verification.  Defaults to
+        ``/etc/bmt_ai_os/ota-signing-key.pub`` (overridable via the
+        ``BMT_OTA_PUBKEY_PATH`` environment variable).
+
+    Returns
+    -------
+    bool
+        ``True`` when the signature is valid, ``False`` on any failure
+        (missing file, bad signature, key parse error).
+
+    Raises
+    ------
+    RuntimeError
+        When the ``cryptography`` package is not installed.
+
+    Notes
+    -----
+    The ``BMT_OTA_PUBKEY_PATH`` environment variable overrides the built-in
+    default key location, which is useful in CI and development environments.
+    """
+    image_path = Path(image_path)
+
+    # Resolve signature path: default to <image>.sig
+    if sig_path is None:
+        sig_path = image_path.with_suffix(image_path.suffix + ".sig")
+    sig_path = Path(sig_path)
+
+    # Resolve public key path: env var > explicit arg > built-in default
+    if pubkey_path is None:
+        pubkey_path = Path(os.getenv("BMT_OTA_PUBKEY_PATH", _DEFAULT_PUBKEY_PATH))
+    pubkey_path = Path(pubkey_path)
+
+    return verify_signature(image_path, sig_path, pubkey_path)

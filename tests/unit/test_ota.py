@@ -296,6 +296,123 @@ class TestVerifySignature:
 
 
 # ===========================================================================
+# verify_download (BMTOS-68)
+# ===========================================================================
+
+
+class TestVerifyDownload:
+    """Tests for the high-level verify_download() convenience wrapper."""
+
+    def _make_keypair(self):
+        try:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        except ImportError:
+            return None, None, None
+
+        priv = Ed25519PrivateKey.generate()
+        pub = priv.public_key()
+        pub_bytes = pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        return priv, pub_bytes, None
+
+    def test_valid_signature_returns_true(self, tmp_path):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        priv, pub_bytes, _ = self._make_keypair()
+        image_data = b"production OTA image bytes"
+        digest = hashlib.sha256(image_data).digest()
+        sig_bytes = priv.sign(digest)
+
+        img_path = _write_file(tmp_path / "update.img", image_data)
+        sig_path = _write_file(tmp_path / "update.img.sig", sig_bytes)
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, sig_path=sig_path, pubkey_path=pub_path)
+        assert result is True
+
+    def test_default_sig_path_is_image_plus_sig(self, tmp_path):
+        """When sig_path is None, defaults to <image>.sig."""
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        priv, pub_bytes, _ = self._make_keypair()
+        image_data = b"another image"
+        digest = hashlib.sha256(image_data).digest()
+        sig_bytes = priv.sign(digest)
+
+        img_path = _write_file(tmp_path / "bmt.img", image_data)
+        # sig file at default path: bmt.img.sig
+        _write_file(tmp_path / "bmt.img.sig", sig_bytes)
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, pubkey_path=pub_path)
+        assert result is True
+
+    def test_env_var_overrides_pubkey_path(self, tmp_path, monkeypatch):
+        """BMT_OTA_PUBKEY_PATH env var is honoured when pubkey_path is None."""
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        priv, pub_bytes, _ = self._make_keypair()
+        image_data = b"env var image"
+        digest = hashlib.sha256(image_data).digest()
+        sig_bytes = priv.sign(digest)
+
+        pub_path = _write_file(tmp_path / "env-key.pub", pub_bytes)
+        monkeypatch.setenv("BMT_OTA_PUBKEY_PATH", str(pub_path))
+
+        img_path = _write_file(tmp_path / "bmt.img", image_data)
+        sig_path = _write_file(tmp_path / "bmt.img.sig", sig_bytes)
+
+        result = verify_download(img_path, sig_path=sig_path)
+        assert result is True
+
+    def test_missing_sig_file_returns_false(self, tmp_path):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        _, pub_bytes, _ = self._make_keypair()
+        img_path = _write_file(tmp_path / "update.img", b"data")
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, sig_path=tmp_path / "missing.sig", pubkey_path=pub_path)
+        assert result is False
+
+    def test_bad_signature_returns_false(self, tmp_path):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        _, pub_bytes, _ = self._make_keypair()
+        img_path = _write_file(tmp_path / "update.img", b"data")
+        sig_path = _write_file(tmp_path / "update.img.sig", b"\x00" * 64)
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, sig_path=sig_path, pubkey_path=pub_path)
+        assert result is False
+
+
+# ===========================================================================
 # engine.py
 # ===========================================================================
 
