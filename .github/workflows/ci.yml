@@ -56,10 +56,10 @@ jobs:
 
       # -- Python linting --
       - name: Lint Python (ruff check)
-        run: ruff check bmt_ai_os/controller/ tests/
+        run: ruff check bmt_ai_os/ tests/
 
       - name: Check Python formatting (ruff format)
-        run: ruff format --check bmt_ai_os/controller/ tests/
+        run: ruff format --check bmt_ai_os/ tests/
 
       # -- JSON validation --
       - name: Validate JSON files
