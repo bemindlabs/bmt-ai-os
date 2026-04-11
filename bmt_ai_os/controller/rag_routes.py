@@ -57,6 +57,9 @@ class QueryResponseModel(BaseModel):
 @router.post("/query", response_model=QueryResponseModel)
 async def query(req: QueryRequest) -> dict:
     """Run a RAG query and return the augmented answer."""
+    import uuid as _uuid
+
+    request_id = str(_uuid.uuid4())
     try:
         result: RAGResponse = _engine.query(
             question=req.question,
@@ -65,9 +68,15 @@ async def query(req: QueryRequest) -> dict:
             code_mode=req.code_mode,
         )
         return result.to_dict()
-    except Exception as exc:
-        logger.exception("RAG query failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except (ValueError, KeyError) as exc:
+        logger.exception("Invalid RAG query parameters [request_id=%s]", request_id)
+        raise HTTPException(status_code=400, detail="Invalid query parameters") from exc
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.exception("RAG query failed due to storage error [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Vector store unavailable") from exc
+    except RuntimeError as exc:
+        logger.exception("RAG query failed [request_id=%s]", request_id)
+        raise HTTPException(status_code=500, detail="RAG query failed") from exc
 
 
 @router.post("/query/stream")
@@ -100,11 +109,17 @@ async def query_stream(req: QueryRequest) -> StreamingResponse:
 @router.get("/collections")
 async def list_collections() -> list[dict]:
     """List all ChromaDB collections."""
+    import uuid as _uuid
+
+    request_id = str(_uuid.uuid4())
     try:
         return _storage.list_collections()
-    except Exception as exc:
-        logger.exception("Failed to list collections")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.exception("Storage error while listing collections [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Vector store unavailable") from exc
+    except RuntimeError as exc:
+        logger.exception("Failed to list collections [request_id=%s]", request_id)
+        raise HTTPException(status_code=500, detail="Failed to list collections") from exc
 
 
 @router.post("/ingest")
