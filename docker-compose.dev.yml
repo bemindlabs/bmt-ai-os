@@ -5,17 +5,66 @@
 #   docker compose -f docker-compose.dev.yml up -d
 #   docker compose -f docker-compose.dev.yml logs -f
 #   docker compose -f docker-compose.dev.yml down
+#
+# GPU (optional):
+#   docker compose -f docker-compose.dev.yml --profile gpu up -d
 
 services:
+  # === Controller (BMT AI OS) ===
+  controller:
+    image: bemindlab/bmt-ai-os:latest
+    build: .
+    container_name: bmt-controller
+    ports:
+      - "${BMT_API_PORT:-8080}:8080"
+    environment:
+      - BMT_COMPOSE_FILE=/app/ai-stack/docker-compose.yml
+      - PYTHONPATH=/app
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      ollama:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - bmt-ai-net
+
   # === LLM Inference ===
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.6.2
     container_name: bmt-ollama
     ports:
-      - "11434:11434"
+      - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - bmt-ai-net
+
+  # === LLM Inference (NVIDIA GPU) ===
+  ollama-gpu:
+    extends:
+      service: ollama
+    container_name: bmt-ollama-gpu
+    profiles: ["gpu"]
     deploy:
       resources:
         reservations:
@@ -23,49 +72,104 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    # Remove 'deploy.resources.reservations.devices' if no NVIDIA GPU
 
   # === Vector Database ===
   chromadb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.6.3
     container_name: bmt-chromadb
     ports:
-      - "8000:8000"
+      - "${CHROMADB_PORT:-8000}:8000"
     volumes:
       - chromadb_data:/chroma/chroma
     environment:
-      - ANONYMIZED_TELEMETRY=false
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - bmt-ai-net
+
+  # === Dashboard (Next.js) ===
+  dashboard:
+    image: node:22-alpine
+    container_name: bmt-dashboard
+    working_dir: /app
+    ports:
+      - "${DASHBOARD_PORT:-9090}:9090"
+    volumes:
+      - ./bmt_ai_os/dashboard:/app
+      - dashboard_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://controller:8080
+    depends_on:
+      - controller
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9090"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - bmt-ai-net
 
   # === Jupyter Lab (Training) ===
   jupyter:
     image: jupyter/pytorch-notebook:latest
     container_name: bmt-jupyter
+    profiles: ["training"]
     ports:
-      - "8888:8888"
+      - "${JUPYTER_PORT:-8888}:8888"
     volumes:
       - jupyter_notebooks:/home/jovyan/work
       - training_runs:/home/jovyan/runs
     environment:
-      - JUPYTER_TOKEN=bmtaios
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:-}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8888/api"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - bmt-ai-net
 
   # === TensorBoard (Training Monitoring) ===
   tensorboard:
     image: tensorflow/tensorflow:latest
     container_name: bmt-tensorboard
+    profiles: ["training"]
     ports:
-      - "6006:6006"
+      - "${TENSORBOARD_PORT:-6006}:6006"
     volumes:
       - training_runs:/runs
     command: tensorboard --logdir=/runs --host=0.0.0.0 --port=6006
     restart: unless-stopped
+    networks:
+      - bmt-ai-net
+
+networks:
+  bmt-ai-net:
+    name: bmt-ai-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
 
 volumes:
   ollama_models:
     name: bmt-ollama-models
   chromadb_data:
     name: bmt-chromadb-data
+  dashboard_node_modules:
+    name: bmt-dashboard-node-modules
   jupyter_notebooks:
     name: bmt-jupyter-notebooks
   training_runs:
