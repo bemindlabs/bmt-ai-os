@@ -329,22 +329,33 @@ class BMTAIOSController:
 
 
 def _setup_logging(config: ControllerConfig) -> None:
-    """Configure structured logging to stdout and log file."""
-    fmt = "%(asctime)s %(levelname)-8s [%(name)s] %(message)s"
-    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+    """Configure structured JSON logging with rotation for all subsystems.
 
-    log_path = Path(config.log_file)
-    try:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(logging.FileHandler(config.log_file))
-    except OSError:
-        # Cannot write to log file (e.g. /var/log not writable), stdout only
-        pass
+    Uses :func:`bmt_ai_os.logging.configure_log_streams` to create separate
+    rotating log files for controller, providers, health, and rag streams.
+    Falls back to stdout when the log directory is not writable.
 
-    logging.basicConfig(
-        level=getattr(logging, config.log_level.upper(), logging.INFO),
-        format=fmt,
-        handlers=handlers,
+    Format is controlled by the ``BMT_LOG_FORMAT`` env variable:
+    - ``json`` (default) — machine-parseable JSON for log aggregators
+    - ``text`` — human-readable format for interactive use
+    """
+    from bmt_ai_os.logging import configure_log_streams
+
+    log_dir = Path(config.log_file).parent
+
+    configure_log_streams(
+        log_dir=log_dir,
+        level=config.log_level,
+    )
+
+    # Also configure the root bmt-controller logger so existing logger.info()
+    # calls in this module route through the structured handler.
+    from bmt_ai_os.logging import setup_logging
+
+    setup_logging(
+        "bmt-controller",
+        log_dir=log_dir,
+        level=config.log_level,
     )
 
 

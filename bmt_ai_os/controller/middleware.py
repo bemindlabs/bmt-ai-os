@@ -3,6 +3,7 @@
 Provides:
 - Optional API key authentication
 - CORS configuration for IDE connections
+- Request ID injection for log correlation
 - Request logging with timing
 """
 
@@ -11,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import uuid
 from typing import Callable
 
 from fastapi import FastAPI, Request, Response
@@ -73,24 +75,61 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 
 # ---------------------------------------------------------------------------
+# Request ID Injection
+# ---------------------------------------------------------------------------
+
+_HEADER_REQUEST_ID = "X-Request-ID"
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Generate or propagate a request ID for log correlation.
+
+    Reads ``X-Request-ID`` from the incoming request headers.  If absent,
+    a new UUID4 is generated.  The ID is:
+
+    1. Stored in thread-local storage via :func:`bmt_ai_os.logging.set_request_id`
+       so that all log records emitted during the request carry it as
+       ``trace_id``.
+    2. Echoed back in the ``X-Request-ID`` response header.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        from bmt_ai_os.logging import clear_request_id, set_request_id
+
+        request_id = request.headers.get(_HEADER_REQUEST_ID) or str(uuid.uuid4())
+        set_request_id(request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            clear_request_id()
+
+        response.headers[_HEADER_REQUEST_ID] = request_id
+        return response
+
+
+# ---------------------------------------------------------------------------
 # Request Logging
 # ---------------------------------------------------------------------------
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log every request with method, path, status, and elapsed time."""
+    """Log every request with method, path, status, elapsed time, and request ID."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        from bmt_ai_os.logging import get_request_id
+
         start = time.monotonic()
         response = await call_next(request)
         elapsed_ms = (time.monotonic() - start) * 1000
 
+        request_id = get_request_id()
         logger.info(
-            "%s %s %d %.1fms",
+            "%s %s %d %.1fms%s",
             request.method,
             request.url.path,
             response.status_code,
             elapsed_ms,
+            f" [trace_id={request_id}]" if request_id else "",
         )
         return response
 
@@ -149,11 +188,13 @@ def apply_middleware(app: FastAPI, *, api_key: str | None = None) -> None:
     1. CORS (outermost — must run before auth to handle preflight)
     2. JWT auth + RBAC (when users exist in the store)
     3. API key authentication (legacy fallback when no users are registered)
-    4. Request logging (innermost — logs after response)
+    4. Request ID injection — assigns/propagates X-Request-ID for log correlation
+    5. Request logging (innermost — logs after response)
     """
     from .auth import JWTAuthMiddleware  # local import avoids circular deps at module load
 
     add_cors(app)
     app.add_middleware(JWTAuthMiddleware)
     app.add_middleware(APIKeyMiddleware, api_key=api_key)
+    app.add_middleware(RequestIDMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
