@@ -1,341 +1,430 @@
-"""Central fleet registry — server-side device tracking.
+"""Fleet registry with SQLite persistence for BMT AI OS.
 
-Maintains an in-memory store of all registered devices and their most-recent
-heartbeat snapshots.  The registry is a singleton (``get_registry()``) shared
-across all FastAPI request handlers.
+Maintains an in-memory cache for hot-path reads (heartbeats) while persisting
+all mutations (register, heartbeat, enqueue_command) to a SQLite database so
+state survives controller restarts.
 
-Design notes
-------------
-- Pure in-memory; no external database required for single-node deployments.
-- All public methods are thread-safe via a single ``threading.Lock``.
-- Pending commands are queued per-device and dequeued one at a time when the
-  device sends its next heartbeat, enabling reliable fleet-wide operations
-  even when devices are temporarily offline.
+Configuration
+-------------
+``BMT_FLEET_DB``
+    Path to the SQLite database file.
+    Default: ``/tmp/bmt-fleet.db``
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import sqlite3
 import threading
-from collections import deque
+import uuid
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Generator
 
 from .models import DeviceHeartbeat, FleetCommand
 
 logger = logging.getLogger(__name__)
 
-# How many seconds of silence before a device is considered "offline".
-_STALE_THRESHOLD_SECONDS = 300  # 5 minutes
+_DEFAULT_DB_PATH = "/tmp/bmt-fleet.db"
+_ENV_DB_PATH = "BMT_FLEET_DB"
 
 
+# ---------------------------------------------------------------------------
+# In-memory device record
+# ---------------------------------------------------------------------------
+
+
+@dataclass
 class DeviceRecord:
-    """Runtime record kept for one registered device.
+    """Full state of a registered device kept in the in-memory cache."""
 
-    Parameters
-    ----------
-    device_id:
-        Stable unique identifier for the device.
-    hostname:
-        Human-readable hostname, extracted from the registration payload.
-    arch:
-        CPU architecture string (e.g. ``aarch64``).
-    board:
-        Board identifier (e.g. ``rk3588``, ``apple-silicon``).
-    hardware:
-        Full hardware dict as reported in the registration/heartbeat payload.
-    registered_at:
-        UTC timestamp of initial registration (ISO 8601 string).
-    """
-
-    def __init__(
-        self,
-        device_id: str,
-        hostname: str = "",
-        arch: str = "",
-        board: str = "",
-        hardware: dict[str, Any] | None = None,
-        registered_at: str = "",
-    ) -> None:
-        self.device_id = device_id
-        self.hostname = hostname
-        self.arch = arch
-        self.board = board
-        self.hardware: dict[str, Any] = hardware or {}
-        self.registered_at = registered_at or datetime.now(timezone.utc).isoformat()
-
-        # Mutable state — updated on every heartbeat.
-        self.last_heartbeat: DeviceHeartbeat | None = None
-        self.last_seen: str = ""
-        self.loaded_models: list[str] = []
-        self.service_health: dict[str, str] = {}
-        self.cpu_percent: float = 0.0
-        self.memory_percent: float = 0.0
-        self.disk_percent: float = 0.0
-        self.os_version: str = ""
-
-        # Pending command queue for this device (FIFO).
-        self._command_queue: deque[FleetCommand] = deque()
-
-    # ------------------------------------------------------------------
-    # Heartbeat update
-    # ------------------------------------------------------------------
-
-    def apply_heartbeat(self, hb: DeviceHeartbeat) -> None:
-        """Update mutable state from a fresh heartbeat."""
-        self.last_heartbeat = hb
-        self.last_seen = hb.timestamp
-        self.os_version = hb.os_version
-        self.loaded_models = list(hb.loaded_models)
-        self.service_health = dict(hb.service_health)
-        self.cpu_percent = hb.cpu_percent
-        self.memory_percent = hb.memory_percent
-        self.disk_percent = hb.disk_percent
-        # Merge hardware if the heartbeat carries richer info.
-        if hb.hardware:
-            self.hardware.update(hb.hardware)
-            self.hostname = hb.hardware.get("hostname", self.hostname) or self.hostname
-            self.arch = hb.hardware.get("arch", self.arch) or self.arch
-            self.board = hb.hardware.get("board", self.board) or self.board
-
-    # ------------------------------------------------------------------
-    # Command queue
-    # ------------------------------------------------------------------
-
-    def enqueue_command(self, cmd: FleetCommand) -> None:
-        """Add *cmd* to the pending queue for this device."""
-        self._command_queue.append(cmd)
-        logger.debug("Enqueued command %r for device %s", cmd.action, self.device_id)
-
-    def dequeue_command(self) -> FleetCommand:
-        """Pop and return the next pending command, or a no-op if the queue is empty."""
-        if self._command_queue:
-            return self._command_queue.popleft()
-        return FleetCommand(action=None)
-
-    def pending_command_count(self) -> int:
-        """Return the number of commands waiting to be dispatched."""
-        return len(self._command_queue)
-
-    # ------------------------------------------------------------------
-    # Serialisation helpers
-    # ------------------------------------------------------------------
-
-    def is_online(self) -> bool:
-        """Return True when the device has sent a heartbeat recently."""
-        if not self.last_seen:
-            return False
-        try:
-            last = datetime.fromisoformat(self.last_seen)
-            now = datetime.now(timezone.utc)
-            # Make last timezone-aware if it isn't already (defensive).
-            if last.tzinfo is None:
-                last = last.replace(tzinfo=timezone.utc)
-            return (now - last).total_seconds() < _STALE_THRESHOLD_SECONDS
-        except (ValueError, TypeError):
-            return False
+    device_id: str
+    hostname: str
+    os_version: str
+    arch: str
+    board: str
+    cpu_model: str
+    cpu_cores: int
+    memory_total_mb: int
+    disk_total_gb: float
+    registered_at: str
+    last_seen: str
+    last_heartbeat: dict[str, Any] = field(default_factory=dict)
+    pending_commands: list[FleetCommand] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serialisable summary dict."""
         return {
             "device_id": self.device_id,
             "hostname": self.hostname,
+            "os_version": self.os_version,
             "arch": self.arch,
             "board": self.board,
-            "os_version": self.os_version,
-            "hardware": self.hardware,
+            "cpu_model": self.cpu_model,
+            "cpu_cores": self.cpu_cores,
+            "memory_total_mb": self.memory_total_mb,
+            "disk_total_gb": self.disk_total_gb,
             "registered_at": self.registered_at,
             "last_seen": self.last_seen,
-            "online": self.is_online(),
-            "loaded_models": self.loaded_models,
-            "service_health": self.service_health,
-            "cpu_percent": self.cpu_percent,
-            "memory_percent": self.memory_percent,
-            "disk_percent": self.disk_percent,
-            "pending_commands": self.pending_command_count(),
+            "last_heartbeat": self.last_heartbeat,
+            "pending_commands": [
+                {
+                    "action": c.action,
+                    "params": c.params,
+                    "command_id": c.command_id,
+                    "status": c.status,
+                }
+                for c in self.pending_commands
+            ],
         }
 
 
+# ---------------------------------------------------------------------------
+# FleetRegistry
+# ---------------------------------------------------------------------------
+
+
 class FleetRegistry:
-    """Thread-safe central registry of managed devices.
+    """Thread-safe fleet registry with SQLite persistence.
 
-    Usage::
+    All writes go to SQLite immediately.  Reads use the in-memory cache so
+    heartbeat processing is fast even under high device counts.
 
-        registry = get_registry()
-        registry.register_device(device_id="abc", hostname="bmt-1", ...)
-        registry.apply_heartbeat(heartbeat_obj)
-        devices = registry.list_devices()
+    Parameters
+    ----------
+    db_path:
+        Path to the SQLite file.  Defaults to the value of ``BMT_FLEET_DB``
+        env var, falling back to ``/tmp/bmt-fleet.db``.
     """
 
-    def __init__(self) -> None:
-        self._devices: dict[str, DeviceRecord] = {}
+    def __init__(self, db_path: str | None = None) -> None:
+        self._db_path = db_path or os.environ.get(_ENV_DB_PATH, _DEFAULT_DB_PATH)
         self._lock = threading.Lock()
+        self._devices: dict[str, DeviceRecord] = {}
+        self._init_db()
+        self._load_from_db()
 
     # ------------------------------------------------------------------
-    # Device lifecycle
+    # SQLite helpers
     # ------------------------------------------------------------------
 
-    def register_device(
-        self,
-        device_id: str,
-        hostname: str = "",
-        arch: str = "",
-        board: str = "",
-        hardware: dict[str, Any] | None = None,
-    ) -> DeviceRecord:
-        """Register a new device, or refresh the record if it already exists.
+    @contextmanager
+    def _conn(self) -> Generator[sqlite3.Connection, None, None]:
+        con = sqlite3.connect(self._db_path)
+        con.row_factory = sqlite3.Row
+        con.execute("PRAGMA journal_mode=WAL")
+        try:
+            yield con
+            con.commit()
+        finally:
+            con.close()
 
-        Returns the (possibly updated) :class:`DeviceRecord`.
-        """
-        with self._lock:
-            if device_id in self._devices:
-                rec = self._devices[device_id]
-                # Refresh mutable fields without clearing the command queue.
-                if hostname:
-                    rec.hostname = hostname
-                if arch:
-                    rec.arch = arch
-                if board:
-                    rec.board = board
-                if hardware:
-                    rec.hardware.update(hardware)
-                logger.info("Re-registered device %s (hostname=%s)", device_id, hostname)
-            else:
-                rec = DeviceRecord(
-                    device_id=device_id,
-                    hostname=hostname,
-                    arch=arch,
-                    board=board,
-                    hardware=hardware,
+    def _init_db(self) -> None:
+        """Create tables if they do not yet exist."""
+        with self._conn() as con:
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS devices (
+                    device_id        TEXT PRIMARY KEY,
+                    hostname         TEXT NOT NULL DEFAULT '',
+                    os_version       TEXT NOT NULL DEFAULT '',
+                    arch             TEXT NOT NULL DEFAULT '',
+                    board            TEXT NOT NULL DEFAULT '',
+                    cpu_model        TEXT NOT NULL DEFAULT '',
+                    cpu_cores        INTEGER NOT NULL DEFAULT 0,
+                    memory_total_mb  INTEGER NOT NULL DEFAULT 0,
+                    disk_total_gb    REAL    NOT NULL DEFAULT 0.0,
+                    registered_at    TEXT NOT NULL,
+                    last_seen        TEXT NOT NULL,
+                    last_heartbeat   TEXT NOT NULL DEFAULT '{}'
                 )
-                self._devices[device_id] = rec
-                logger.info(
-                    "New device registered: %s (hostname=%s, arch=%s, board=%s)",
+                """
+            )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pending_commands (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_id   TEXT    NOT NULL,
+                    command_id  TEXT    NOT NULL UNIQUE,
+                    action      TEXT    NOT NULL,
+                    params      TEXT    NOT NULL DEFAULT '{}',
+                    status      TEXT    NOT NULL DEFAULT 'pending',
+                    created_at  TEXT    NOT NULL,
+                    FOREIGN KEY (device_id) REFERENCES devices(device_id)
+                )
+                """
+            )
+
+    # ------------------------------------------------------------------
+    # Load from DB into cache on startup
+    # ------------------------------------------------------------------
+
+    def _load_from_db(self) -> None:
+        """Populate the in-memory cache from SQLite.  Called once at init."""
+        with self._conn() as con:
+            device_rows = con.execute("SELECT * FROM devices").fetchall()
+            cmd_rows = con.execute(
+                "SELECT * FROM pending_commands WHERE status = 'pending' ORDER BY id"
+            ).fetchall()
+
+        # Index pending commands by device_id
+        cmds_by_device: dict[str, list[FleetCommand]] = {}
+        for row in cmd_rows:
+            device_id = row["device_id"]
+            cmds_by_device.setdefault(device_id, []).append(
+                FleetCommand(
+                    action=row["action"],
+                    params=json.loads(row["params"]),
+                    command_id=row["command_id"],
+                    status=row["status"],
+                )
+            )
+
+        for row in device_rows:
+            try:
+                last_heartbeat = json.loads(row["last_heartbeat"])
+            except (json.JSONDecodeError, TypeError):
+                last_heartbeat = {}
+
+            record = DeviceRecord(
+                device_id=row["device_id"],
+                hostname=row["hostname"],
+                os_version=row["os_version"],
+                arch=row["arch"],
+                board=row["board"],
+                cpu_model=row["cpu_model"],
+                cpu_cores=row["cpu_cores"],
+                memory_total_mb=row["memory_total_mb"],
+                disk_total_gb=row["disk_total_gb"],
+                registered_at=row["registered_at"],
+                last_seen=row["last_seen"],
+                last_heartbeat=last_heartbeat,
+                pending_commands=cmds_by_device.get(row["device_id"], []),
+            )
+            self._devices[record.device_id] = record
+
+        logger.info(
+            "Fleet registry loaded %d device(s) from %s",
+            len(self._devices),
+            self._db_path,
+        )
+
+    # ------------------------------------------------------------------
+    # DB write helpers (called while holding self._lock)
+    # ------------------------------------------------------------------
+
+    def _upsert_device_db(self, record: DeviceRecord) -> None:
+        with self._conn() as con:
+            con.execute(
+                """
+                INSERT INTO devices
+                    (device_id, hostname, os_version, arch, board, cpu_model,
+                     cpu_cores, memory_total_mb, disk_total_gb, registered_at,
+                     last_seen, last_heartbeat)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(device_id) DO UPDATE SET
+                    hostname        = excluded.hostname,
+                    os_version      = excluded.os_version,
+                    arch            = excluded.arch,
+                    board           = excluded.board,
+                    cpu_model       = excluded.cpu_model,
+                    cpu_cores       = excluded.cpu_cores,
+                    memory_total_mb = excluded.memory_total_mb,
+                    disk_total_gb   = excluded.disk_total_gb,
+                    last_seen       = excluded.last_seen,
+                    last_heartbeat  = excluded.last_heartbeat
+                """,
+                (
+                    record.device_id,
+                    record.hostname,
+                    record.os_version,
+                    record.arch,
+                    record.board,
+                    record.cpu_model,
+                    record.cpu_cores,
+                    record.memory_total_mb,
+                    record.disk_total_gb,
+                    record.registered_at,
+                    record.last_seen,
+                    json.dumps(record.last_heartbeat),
+                ),
+            )
+
+    def _insert_command_db(self, device_id: str, cmd: FleetCommand) -> None:
+        with self._conn() as con:
+            con.execute(
+                """
+                INSERT INTO pending_commands
+                    (device_id, command_id, action, params, status, created_at)
+                VALUES (?,?,?,?,?,?)
+                """,
+                (
                     device_id,
-                    hostname,
-                    arch,
-                    board,
-                )
-            return rec
+                    cmd.command_id,
+                    cmd.action or "",
+                    json.dumps(cmd.params),
+                    cmd.status,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
 
-    def remove_device(self, device_id: str) -> bool:
-        """Remove a device from the registry.  Returns True if it existed."""
-        with self._lock:
-            if device_id in self._devices:
-                del self._devices[device_id]
-                logger.info("Removed device %s from fleet registry", device_id)
-                return True
-            return False
-
-    # ------------------------------------------------------------------
-    # Heartbeat processing
-    # ------------------------------------------------------------------
-
-    def apply_heartbeat(self, hb: DeviceHeartbeat) -> FleetCommand:
-        """Record the heartbeat and return the next pending command (or no-op).
-
-        Auto-registers the device on its first heartbeat so the agent doesn't
-        need to call ``/register`` before it can send heartbeats.
-        """
-        with self._lock:
-            if hb.device_id not in self._devices:
-                logger.info("Auto-registering device %s (first heartbeat)", hb.device_id)
-                self._devices[hb.device_id] = DeviceRecord(
-                    device_id=hb.device_id,
-                    hardware=hb.hardware,
-                )
-            rec = self._devices[hb.device_id]
-            rec.apply_heartbeat(hb)
-            return rec.dequeue_command()
+    def _mark_command_delivered_db(self, command_id: str) -> None:
+        with self._conn() as con:
+            con.execute(
+                "UPDATE pending_commands SET status = 'delivered' WHERE command_id = ?",
+                (command_id,),
+            )
 
     # ------------------------------------------------------------------
-    # Command dispatch
+    # Public API
     # ------------------------------------------------------------------
 
-    def enqueue_command(self, device_id: str, cmd: FleetCommand) -> bool:
-        """Queue *cmd* for delivery to *device_id*.
-
-        Returns False if the device is not registered.
-        """
-        with self._lock:
-            if device_id not in self._devices:
-                return False
-            self._devices[device_id].enqueue_command(cmd)
-            return True
-
-    def broadcast_command(self, cmd: FleetCommand) -> list[str]:
-        """Queue *cmd* for every registered device.
-
-        Returns the list of device IDs that received the command.
-        """
-        with self._lock:
-            targets = list(self._devices.keys())
-            for rec in self._devices.values():
-                rec.enqueue_command(cmd)
-        logger.info("Broadcast command %r to %d devices", cmd.action, len(targets))
-        return targets
-
-    def deploy_model(self, model: str, device_ids: list[str] | None = None) -> list[str]:
-        """Queue a ``pull-model`` command on the specified devices (or all).
+    def register(self, info: dict[str, Any]) -> DeviceRecord:
+        """Register or re-register a device.
 
         Parameters
         ----------
-        model:
-            Ollama model name, e.g. ``qwen2.5-coder:7b``.
-        device_ids:
-            Target device IDs.  ``None`` means fleet-wide broadcast.
+        info:
+            Dict with at minimum ``device_id``.  All other fields default to
+            empty strings / zero if missing.
 
-        Returns the list of device IDs targeted.
+        Returns the resulting :class:`DeviceRecord`.
         """
-        cmd = FleetCommand(action="pull-model", params={"model": model})
-        with self._lock:
-            targets = device_ids if device_ids is not None else list(self._devices.keys())
-            reached: list[str] = []
-            for dev_id in targets:
-                if dev_id in self._devices:
-                    self._devices[dev_id].enqueue_command(cmd)
-                    reached.append(dev_id)
-        logger.info("Queued model deploy %r on %d devices", model, len(reached))
-        return reached
+        device_id = info["device_id"]
+        now = datetime.now(timezone.utc).isoformat()
 
-    # ------------------------------------------------------------------
-    # Queries
-    # ------------------------------------------------------------------
+        with self._lock:
+            existing = self._devices.get(device_id)
+            registered_at = existing.registered_at if existing else now
+
+            record = DeviceRecord(
+                device_id=device_id,
+                hostname=info.get("hostname", ""),
+                os_version=info.get("os_version", ""),
+                arch=info.get("arch", ""),
+                board=info.get("board", ""),
+                cpu_model=info.get("cpu_model", ""),
+                cpu_cores=int(info.get("cpu_cores", 0)),
+                memory_total_mb=int(info.get("memory_total_mb", 0)),
+                disk_total_gb=float(info.get("disk_total_gb", 0.0)),
+                registered_at=registered_at,
+                last_seen=now,
+                last_heartbeat=existing.last_heartbeat if existing else {},
+                pending_commands=existing.pending_commands if existing else [],
+            )
+            self._devices[device_id] = record
+            self._upsert_device_db(record)
+
+        logger.info("Fleet: registered device %s (%s)", device_id, record.hostname)
+        return record
+
+    def heartbeat(self, hb: DeviceHeartbeat) -> FleetCommand:
+        """Record a heartbeat and return the next pending command (or noop).
+
+        The first pending command is popped from the queue and returned.
+        Its status is updated to ``'delivered'`` in SQLite.
+        """
+        now = datetime.now(timezone.utc).isoformat()
+
+        with self._lock:
+            record = self._devices.get(hb.device_id)
+            if record is None:
+                # Auto-register on first heartbeat with minimal info
+                record = DeviceRecord(
+                    device_id=hb.device_id,
+                    hostname="",
+                    os_version=hb.os_version,
+                    arch="",
+                    board="",
+                    cpu_model="",
+                    cpu_cores=0,
+                    memory_total_mb=0,
+                    disk_total_gb=0.0,
+                    registered_at=now,
+                    last_seen=now,
+                    last_heartbeat={},
+                    pending_commands=[],
+                )
+
+            record.last_seen = now
+            record.os_version = hb.os_version
+            record.last_heartbeat = hb.to_dict()
+            self._devices[hb.device_id] = record
+            self._upsert_device_db(record)
+
+            # Pop next pending command
+            if record.pending_commands:
+                cmd = record.pending_commands.pop(0)
+                self._mark_command_delivered_db(cmd.command_id)
+            else:
+                cmd = FleetCommand(action=None)
+
+        return cmd
+
+    def enqueue_command(
+        self,
+        device_id: str,
+        action: str,
+        params: dict[str, Any] | None = None,
+        command_id: str | None = None,
+    ) -> FleetCommand:
+        """Add a command to the pending queue for *device_id*.
+
+        Parameters
+        ----------
+        device_id:
+            Target device identifier.
+        action:
+            One of ``update``, ``pull-model``, ``restart-service``.
+        params:
+            Action-specific parameters (optional).
+        command_id:
+            Explicit command ID.  Auto-generated UUID4 if omitted.
+
+        Returns the created :class:`FleetCommand`.
+
+        Raises
+        ------
+        KeyError
+            If *device_id* is not registered.
+        """
+        with self._lock:
+            if device_id not in self._devices:
+                raise KeyError(f"Device not registered: {device_id!r}")
+
+            cmd = FleetCommand(
+                action=action,
+                params=params or {},
+                command_id=command_id or str(uuid.uuid4()),
+                status="pending",
+            )
+            self._devices[device_id].pending_commands.append(cmd)
+            self._insert_command_db(device_id, cmd)
+
+        logger.info(
+            "Fleet: enqueued command %r for device %s (command_id=%s)",
+            action,
+            device_id,
+            cmd.command_id,
+        )
+        return cmd
 
     def get_device(self, device_id: str) -> DeviceRecord | None:
-        """Return the record for *device_id*, or None if not found."""
+        """Return the cached :class:`DeviceRecord` or ``None``."""
         with self._lock:
             return self._devices.get(device_id)
 
-    def list_devices(self) -> list[dict[str, Any]]:
-        """Return a list of all device summary dicts."""
+    def list_devices(self) -> list[DeviceRecord]:
+        """Return all registered devices as a list."""
         with self._lock:
-            return [rec.to_dict() for rec in self._devices.values()]
+            return list(self._devices.values())
 
     def device_count(self) -> int:
-        """Return the total number of registered devices."""
+        """Return the number of registered devices."""
         with self._lock:
             return len(self._devices)
-
-    def online_count(self) -> int:
-        """Return the number of devices that sent a heartbeat recently."""
-        with self._lock:
-            return sum(1 for rec in self._devices.values() if rec.is_online())
-
-    def summary(self) -> dict[str, Any]:
-        """Return an aggregated fleet summary for the dashboard."""
-        with self._lock:
-            total = len(self._devices)
-            online = sum(1 for r in self._devices.values() if r.is_online())
-            all_models: set[str] = set()
-            for r in self._devices.values():
-                all_models.update(r.loaded_models)
-            return {
-                "total_devices": total,
-                "online_devices": online,
-                "offline_devices": total - online,
-                "unique_models": sorted(all_models),
-            }
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +436,7 @@ _registry_lock = threading.Lock()
 
 
 def get_registry() -> FleetRegistry:
-    """Return the process-wide :class:`FleetRegistry` singleton."""
+    """Return the process-level :class:`FleetRegistry` singleton."""
     global _registry
     if _registry is None:
         with _registry_lock:
