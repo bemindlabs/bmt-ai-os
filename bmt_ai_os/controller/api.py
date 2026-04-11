@@ -7,6 +7,7 @@ import time
 from fastapi import FastAPI
 
 from .auth_routes import router as auth_router
+from .conversation_routes import router as conversation_router
 from .metrics import get_collector
 from .middleware import apply_middleware
 from .openai_compat import router as openai_router
@@ -41,6 +42,7 @@ apply_middleware(app)
 app.include_router(auth_router)
 app.include_router(openai_router)
 app.include_router(rag_router, prefix="/api/v1")
+app.include_router(conversation_router)
 app.include_router(provider_router)
 app.include_router(prometheus_router)
 
