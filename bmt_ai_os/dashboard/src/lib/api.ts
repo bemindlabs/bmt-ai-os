@@ -117,7 +117,7 @@ export async function fetchMetrics(): Promise<MetricsResponse> {
 }
 
 export async function fetchModels(): Promise<ModelsResponse> {
-  return apiFetch<ModelsResponse>("/api/models");
+  return apiFetch<ModelsResponse>("/v1/models");
 }
 
 export async function fetchProviders(): Promise<ProvidersResponse> {

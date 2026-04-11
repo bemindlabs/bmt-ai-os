@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 
 from .auth_routes import router as auth_router
 from .conversation_routes import router as conversation_router
@@ -66,6 +66,34 @@ app.include_router(mcp_router, prefix="/mcp")
 @app.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok"}
+
+
+@app.post("/api/pull")
+async def pull_model(request: Request) -> dict:
+    """Pull a model via Ollama API. Proxies to the Ollama /api/pull endpoint."""
+    import os
+
+    import aiohttp
+
+    body = await request.json()
+    model_name = body.get("name", "")
+    if not model_name:
+        raise HTTPException(status_code=422, detail="Missing 'name' field")
+
+    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{ollama_host}/api/pull",
+                json={"name": model_name},
+                timeout=aiohttp.ClientTimeout(total=600),
+            ) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    raise HTTPException(status_code=resp.status, detail=text)
+                return {"status": "ok", "model": model_name}
+    except aiohttp.ClientError as exc:
+        raise HTTPException(status_code=502, detail=f"Ollama unreachable: {exc}")
 
 
 @app.get("/api/v1/metrics")
