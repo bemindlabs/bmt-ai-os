@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProviderSwitcher } from "./provider-switcher";
+import { SetupWizardTrigger } from "./setup-wizard-trigger";
 
 export default async function ProvidersPage() {
   const result = await fetchProviders().catch(() => null);
@@ -16,11 +17,14 @@ export default async function ProvidersPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Providers</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage and switch between LLM inference providers.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">Providers</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage and switch between LLM inference providers.
+          </p>
+        </div>
+        <SetupWizardTrigger />
       </div>
 
       {providers.length === 0 && (

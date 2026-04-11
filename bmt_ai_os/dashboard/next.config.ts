@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const API_ORIGIN =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   async rewrites() {
     return [
       {
