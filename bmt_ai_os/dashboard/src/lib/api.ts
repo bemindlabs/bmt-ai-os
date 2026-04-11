@@ -75,16 +75,31 @@ export interface ChatResponse {
   }[];
 }
 
+function getAuthHeader(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("bmt_auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeader(),
       ...(init?.headers ?? {}),
     },
     // Do not cache — data should be fresh
     cache: "no-store",
   });
+
+  if (res.status === 401 && typeof window !== "undefined") {
+    // Clear stale credentials and redirect to login
+    localStorage.removeItem("bmt_auth_token");
+    localStorage.removeItem("bmt_auth_user");
+    window.location.replace("/login");
+    throw new Error("Session expired");
+  }
 
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`);
@@ -153,4 +168,58 @@ export function formatUptime(seconds: number): string {
   if (h > 0) parts.push(`${h}h`);
   parts.push(`${m}m`);
   return parts.join(" ");
+}
+
+// ---------------------------------------------------------------------------
+// SSE Streaming Chat (BMTOS-76)
+// ---------------------------------------------------------------------------
+
+export async function streamChat(
+  req: ChatRequest,
+  signal?: AbortSignal,
+): Promise<ReadableStreamDefaultReader<string>> {
+  const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ ...req, stream: true }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  if (!res.body) throw new Error("Response body is null");
+
+  return res.body.pipeThrough(new TextDecoderStream()).getReader();
+}
+
+// ---------------------------------------------------------------------------
+// RAG Query (BMTOS-80)
+// ---------------------------------------------------------------------------
+
+export interface RagSource {
+  filename: string;
+  chunk: string;
+  score: number;
+  position?: number;
+}
+
+export interface RagQueryRequest {
+  question: string;
+  collection?: string;
+  top_k?: number;
+}
+
+export interface RagQueryResponse {
+  answer: string;
+  sources: RagSource[];
+  latency_ms: number;
+}
+
+export async function queryRag(
+  req: RagQueryRequest,
+): Promise<RagQueryResponse> {
+  return apiFetch<RagQueryResponse>("/api/v1/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
 }
