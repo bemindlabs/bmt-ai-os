@@ -1,8 +1,11 @@
-"""Self-signed TLS certificate generation for BMT AI OS.
+"""Self-signed TLS certificate generation and renewal for BMT AI OS.
 
 Certificates are stored in /data/secrets/tls/ on the target device.
 Development fallback is /tmp/bmt-tls/ when the production path is not
 writable (e.g. developer laptops or CI).
+
+Certificate renewal is triggered automatically when the remaining validity
+drops below ``BMT_TLS_RENEW_DAYS`` (default: 30 days).
 """
 
 import datetime
@@ -20,6 +23,9 @@ _DEV_CERT_DIR = Path("/tmp/bmt-tls")
 
 _CERT_FILE = "server.crt"
 _KEY_FILE = "server.key"
+
+# Number of days before expiry that triggers automatic renewal.
+_DEFAULT_RENEW_DAYS = 30
 
 
 def _default_cert_dir() -> Path:
@@ -159,8 +165,65 @@ def generate_self_signed(
     )
 
 
-def ensure_certs(cert_dir: str | Path | None = None) -> tuple[str, str]:
-    """Return (cert_path, key_path), generating them if they do not exist.
+def cert_days_remaining(cert_path: str | Path) -> int | None:
+    """Return the number of days until the certificate at *cert_path* expires.
+
+    Returns ``None`` if the certificate cannot be read or parsed.  A negative
+    value means the certificate has already expired.
+    """
+    try:
+        from cryptography import x509
+    except ImportError:
+        return None
+
+    try:
+        with open(cert_path, "rb") as fh:
+            cert = x509.load_pem_x509_certificate(fh.read())
+        now = datetime.datetime.now(datetime.timezone.utc)
+        delta = cert.not_valid_after_utc - now
+        return delta.days
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not read certificate at %s: %s", cert_path, exc)
+        return None
+
+
+def needs_renewal(cert_path: str | Path, renew_before_days: int | None = None) -> bool:
+    """Return ``True`` if the certificate should be renewed.
+
+    The certificate is considered renewal-eligible when:
+    - The file does not exist, or
+    - The remaining validity is less than *renew_before_days* (default:
+      ``BMT_TLS_RENEW_DAYS`` env var, then :data:`_DEFAULT_RENEW_DAYS`).
+
+    Args:
+        cert_path:        Path to the PEM certificate to inspect.
+        renew_before_days: Override the renewal threshold in days.
+
+    Returns:
+        ``True`` if the certificate should be regenerated.
+    """
+    if not Path(cert_path).exists():
+        return True
+
+    if renew_before_days is None:
+        try:
+            renew_before_days = int(os.environ.get("BMT_TLS_RENEW_DAYS", _DEFAULT_RENEW_DAYS))
+        except (TypeError, ValueError):
+            renew_before_days = _DEFAULT_RENEW_DAYS
+
+    days_left = cert_days_remaining(cert_path)
+    if days_left is None:
+        return True
+    return days_left < renew_before_days
+
+
+def ensure_certs(
+    cert_dir: str | Path | None = None,
+    *,
+    renew: bool = True,
+    renew_before_days: int | None = None,
+) -> tuple[str, str]:
+    """Return (cert_path, key_path), generating or renewing them as needed.
 
     If *cert_dir* is ``None`` the default directory is resolved: production
     devices use ``/data/secrets/tls/``; developer environments fall back to
@@ -168,6 +231,15 @@ def ensure_certs(cert_dir: str | Path | None = None) -> tuple[str, str]:
 
     The hostname is taken from ``BMT_TLS_HOSTNAME`` env var, defaulting to
     the system hostname, then ``"localhost"`` if that is unavailable.
+
+    Args:
+        cert_dir:          Directory to store certificates (auto-detected when
+                           ``None``).
+        renew:             When ``True``, regenerate certificates that are
+                           close to expiry (see *renew_before_days*).
+        renew_before_days: Days-before-expiry threshold that triggers renewal.
+                           Defaults to the ``BMT_TLS_RENEW_DAYS`` env var or
+                           :data:`_DEFAULT_RENEW_DAYS` (30 days).
 
     Returns:
         A ``(cert_path, key_path)`` tuple of absolute path strings.
@@ -181,11 +253,21 @@ def ensure_certs(cert_dir: str | Path | None = None) -> tuple[str, str]:
     key_path = base / _KEY_FILE
 
     if cert_path.exists() and key_path.exists():
-        logger.debug("TLS certificates already present at %s", base)
-        return str(cert_path), str(key_path)
+        if not renew or not needs_renewal(cert_path, renew_before_days=renew_before_days):
+            logger.debug("TLS certificates already present at %s", base)
+            return str(cert_path), str(key_path)
+
+        days_left = cert_days_remaining(cert_path)
+        logger.info(
+            "Renewing TLS certificates in %s (days_remaining=%s)",
+            base,
+            days_left,
+        )
+    else:
+        hostname = os.environ.get("BMT_TLS_HOSTNAME") or _system_hostname()
+        logger.info("Generating TLS certificates in %s (hostname=%s)", base, hostname)
 
     hostname = os.environ.get("BMT_TLS_HOSTNAME") or _system_hostname()
-    logger.info("Generating TLS certificates in %s (hostname=%s)", base, hostname)
     generate_self_signed(cert_path, key_path, hostname=hostname)
 
     return str(cert_path), str(key_path)

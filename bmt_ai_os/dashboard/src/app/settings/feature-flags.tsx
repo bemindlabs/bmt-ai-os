@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+
+const STORAGE_KEY = "bmt-feature-flags";
 
 const FLAGS = [
   {
@@ -31,10 +33,38 @@ const FLAGS = [
   },
 ];
 
+function loadFlags(): Record<string, boolean> {
+  if (typeof window === "undefined") {
+    return Object.fromEntries(FLAGS.map((f) => [f.id, f.defaultOn]));
+  }
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return Object.fromEntries(
+        FLAGS.map((f) => [f.id, parsed[f.id] ?? f.defaultOn]),
+      );
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+  return Object.fromEntries(FLAGS.map((f) => [f.id, f.defaultOn]));
+}
+
 export function FeatureFlags() {
-  const [flags, setFlags] = useState<Record<string, boolean>>(
-    Object.fromEntries(FLAGS.map((f) => [f.id, f.defaultOn]))
-  );
+  const [flags, setFlags] = useState<Record<string, boolean>>(() => loadFlags());
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setFlags(loadFlags());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(flags));
+    }
+  }, [flags, hydrated]);
 
   function toggle(id: string) {
     setFlags((prev) => ({ ...prev, [id]: !prev[id] }));

@@ -19,7 +19,15 @@ sys.modules.setdefault("bmt_logging", _mod)
 _spec.loader.exec_module(_mod)
 
 JSONFormatter = _mod.JSONFormatter
+TextFormatter = _mod.TextFormatter
+RequestIDFilter = _mod.RequestIDFilter
 setup_logging = _mod.setup_logging
+configure_log_streams = _mod.configure_log_streams
+get_formatter = _mod.get_formatter
+set_request_id = _mod.set_request_id
+get_request_id = _mod.get_request_id
+clear_request_id = _mod.clear_request_id
+LOG_STREAMS = _mod.LOG_STREAMS
 
 
 # ---------------------------------------------------------------------------
@@ -435,3 +443,361 @@ class TestCLILogs:
         )
         assert result.exit_code == 0
         assert "plain text line" in result.output
+
+
+# ---------------------------------------------------------------------------
+# TextFormatter
+# ---------------------------------------------------------------------------
+
+
+class TestTextFormatter:
+    def test_output_is_not_json(self):
+        fmt = TextFormatter(service="svc")
+        line = fmt.format(_make_record())
+        # Human format is not valid JSON
+        try:
+            json.loads(line)
+            is_json = True
+        except (json.JSONDecodeError, ValueError):
+            is_json = False
+        assert not is_json
+
+    def test_contains_level(self):
+        fmt = TextFormatter(service="svc")
+        line = fmt.format(_make_record(level=logging.WARNING))
+        assert "WARNING" in line
+
+    def test_contains_service(self):
+        fmt = TextFormatter(service="myservice")
+        line = fmt.format(_make_record())
+        assert "myservice" in line
+
+    def test_contains_message(self):
+        fmt = TextFormatter(service="svc")
+        line = fmt.format(_make_record(msg="hello world"))
+        assert "hello world" in line
+
+    def test_contains_logger_name(self):
+        fmt = TextFormatter(service="svc")
+        line = fmt.format(_make_record(logger_name="bmt.controller"))
+        assert "bmt.controller" in line
+
+    def test_contains_utc_timestamp(self):
+        fmt = TextFormatter(service="svc")
+        line = fmt.format(_make_record())
+        assert "Z" in line
+
+    def test_trace_id_included_when_set(self):
+        fmt = TextFormatter(service="svc")
+        doc = fmt.format(_make_record(trace_id="req-abc"))
+        assert "req-abc" in doc
+
+    def test_trace_id_absent_when_not_set(self):
+        fmt = TextFormatter(service="svc")
+        record = _make_record()
+        line = fmt.format(record)
+        assert "trace_id" not in line
+
+    def test_exc_info_appended(self):
+        fmt = TextFormatter(service="svc")
+        try:
+            raise RuntimeError("kaboom")
+        except RuntimeError:
+            exc_info = sys.exc_info()
+        record = _make_record(exc_info=exc_info)
+        line = fmt.format(record)
+        assert "RuntimeError" in line
+        assert "kaboom" in line
+
+
+# ---------------------------------------------------------------------------
+# get_formatter / BMT_LOG_FORMAT env toggle
+# ---------------------------------------------------------------------------
+
+
+class TestGetFormatter:
+    def test_default_returns_json_formatter(self, monkeypatch):
+        monkeypatch.delenv("BMT_LOG_FORMAT", raising=False)
+        formatter = get_formatter("svc")
+        assert isinstance(formatter, JSONFormatter)
+
+    def test_env_json_returns_json_formatter(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "json")
+        formatter = get_formatter("svc")
+        assert isinstance(formatter, JSONFormatter)
+
+    def test_env_text_returns_text_formatter(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "text")
+        formatter = get_formatter("svc")
+        assert isinstance(formatter, TextFormatter)
+
+    def test_explicit_fmt_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "json")
+        formatter = get_formatter("svc", fmt="text")
+        assert isinstance(formatter, TextFormatter)
+
+    def test_explicit_json_overrides_text_env(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "text")
+        formatter = get_formatter("svc", fmt="json")
+        assert isinstance(formatter, JSONFormatter)
+
+    def test_case_insensitive_env(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "TEXT")
+        formatter = get_formatter("svc")
+        assert isinstance(formatter, TextFormatter)
+
+    def test_unknown_format_falls_back_to_json(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "xml")
+        formatter = get_formatter("svc")
+        assert isinstance(formatter, JSONFormatter)
+
+    def test_text_format_emits_human_readable(self, monkeypatch):
+        monkeypatch.setenv("BMT_LOG_FORMAT", "text")
+        formatter = get_formatter("svc")
+        record = _make_record(msg="startup complete")
+        line = formatter.format(record)
+        assert "startup complete" in line
+
+
+# ---------------------------------------------------------------------------
+# RequestIDFilter
+# ---------------------------------------------------------------------------
+
+
+class TestRequestIDFilter:
+    def setup_method(self):
+        clear_request_id()
+
+    def teardown_method(self):
+        clear_request_id()
+
+    def test_injects_empty_string_when_no_request_id(self):
+        flt = RequestIDFilter()
+        record = _make_record()
+        # Ensure trace_id is absent
+        if hasattr(record, "trace_id"):
+            del record.trace_id
+        flt.filter(record)
+        assert record.trace_id == ""
+
+    def test_injects_current_request_id(self):
+        set_request_id("test-req-42")
+        flt = RequestIDFilter()
+        record = _make_record()
+        if hasattr(record, "trace_id"):
+            del record.trace_id
+        flt.filter(record)
+        assert record.trace_id == "test-req-42"
+
+    def test_does_not_overwrite_existing_trace_id(self):
+        set_request_id("from-thread")
+        flt = RequestIDFilter()
+        record = _make_record(trace_id="already-set")
+        flt.filter(record)
+        assert record.trace_id == "already-set"
+
+    def test_always_returns_true(self):
+        flt = RequestIDFilter()
+        record = _make_record()
+        assert flt.filter(record) is True
+
+
+# ---------------------------------------------------------------------------
+# set/get/clear_request_id
+# ---------------------------------------------------------------------------
+
+
+class TestRequestIDThreadLocal:
+    def setup_method(self):
+        clear_request_id()
+
+    def teardown_method(self):
+        clear_request_id()
+
+    def test_set_and_get(self):
+        set_request_id("abc-123")
+        assert get_request_id() == "abc-123"
+
+    def test_clear_resets_to_empty(self):
+        set_request_id("abc-123")
+        clear_request_id()
+        assert get_request_id() == ""
+
+    def test_default_is_empty_string(self):
+        assert get_request_id() == ""
+
+    def test_thread_isolation(self):
+        """Each thread has its own request ID."""
+        import threading
+
+        results: dict[str, str] = {}
+
+        def thread_fn(tid: str) -> None:
+            set_request_id(tid)
+            import time
+
+            time.sleep(0.01)
+            results[tid] = get_request_id()
+
+        threads = [threading.Thread(target=thread_fn, args=(f"tid-{i}",)) for i in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        for i in range(5):
+            assert results[f"tid-{i}"] == f"tid-{i}"
+
+
+# ---------------------------------------------------------------------------
+# setup_logging — new parameters
+# ---------------------------------------------------------------------------
+
+
+class TestSetupLoggingExtended:
+    def _unique_name(self, suffix: str = "") -> str:
+        import uuid
+
+        return f"test_ext_{uuid.uuid4().hex[:8]}{suffix}"
+
+    def test_default_max_bytes_is_100mb(self, tmp_path):
+        import logging.handlers as lh
+
+        name = self._unique_name()
+        logger = setup_logging(name, log_dir=tmp_path)
+        handler = logger.handlers[0]
+        assert isinstance(handler, lh.RotatingFileHandler)
+        assert handler.maxBytes == 100 * 1024 * 1024
+
+    def test_default_backup_count_is_7(self, tmp_path):
+        import logging.handlers as lh
+
+        name = self._unique_name()
+        logger = setup_logging(name, log_dir=tmp_path)
+        handler = logger.handlers[0]
+        assert isinstance(handler, lh.RotatingFileHandler)
+        assert handler.backupCount == 7
+
+    def test_fmt_text_uses_text_formatter(self, tmp_path):
+        name = self._unique_name()
+        logger = setup_logging(name, log_dir=tmp_path, fmt="text")
+        assert isinstance(logger.handlers[0].formatter, TextFormatter)
+
+    def test_fmt_json_uses_json_formatter(self, tmp_path):
+        name = self._unique_name()
+        logger = setup_logging(name, log_dir=tmp_path, fmt="json")
+        assert isinstance(logger.handlers[0].formatter, JSONFormatter)
+
+    def test_request_id_filter_attached(self, tmp_path):
+        name = self._unique_name()
+        logger = setup_logging(name, log_dir=tmp_path)
+        handler = logger.handlers[0]
+        filters = handler.filters
+        assert any(isinstance(f, RequestIDFilter) for f in filters)
+
+    def test_module_levels_applied(self, tmp_path):
+        import uuid
+
+        name = self._unique_name()
+        target_module = f"bmt_test_{uuid.uuid4().hex[:6]}"
+        setup_logging(
+            name,
+            log_dir=tmp_path,
+            module_levels={target_module: "DEBUG"},
+        )
+        mod_logger = logging.getLogger(target_module)
+        assert mod_logger.level == logging.DEBUG
+
+    def test_module_levels_string_warning(self, tmp_path):
+        import uuid
+
+        name = self._unique_name()
+        target_module = f"bmt_test_{uuid.uuid4().hex[:6]}"
+        setup_logging(
+            name,
+            log_dir=tmp_path,
+            module_levels={target_module: "WARNING"},
+        )
+        assert logging.getLogger(target_module).level == logging.WARNING
+
+    def test_module_levels_int_value(self, tmp_path):
+        import uuid
+
+        name = self._unique_name()
+        target_module = f"bmt_test_{uuid.uuid4().hex[:6]}"
+        setup_logging(
+            name,
+            log_dir=tmp_path,
+            module_levels={target_module: logging.ERROR},
+        )
+        assert logging.getLogger(target_module).level == logging.ERROR
+
+    def test_json_record_includes_logger_field(self, tmp_path):
+        name = self._unique_name()
+        logger = setup_logging(name, log_dir=tmp_path, fmt="json")
+        logger.info("test logger field")
+        for h in logger.handlers:
+            h.flush()
+        log_file = tmp_path / f"{name}.log"
+        lines = [ln for ln in log_file.read_text().splitlines() if ln.strip()]
+        doc = json.loads(lines[-1])
+        assert "logger" in doc
+        assert doc["logger"] == name
+
+
+# ---------------------------------------------------------------------------
+# configure_log_streams
+# ---------------------------------------------------------------------------
+
+
+class TestConfigureLogStreams:
+    def test_returns_all_streams(self, tmp_path):
+        loggers = configure_log_streams(log_dir=tmp_path)
+        assert set(loggers.keys()) == set(LOG_STREAMS)
+
+    def test_each_stream_has_rotating_handler(self, tmp_path):
+        import logging.handlers as lh
+
+        loggers = configure_log_streams(log_dir=tmp_path)
+        for name, logger in loggers.items():
+            assert len(logger.handlers) >= 1
+            assert isinstance(logger.handlers[0], lh.RotatingFileHandler), (
+                f"Expected RotatingFileHandler for stream '{name}'"
+            )
+
+    def test_each_stream_has_separate_log_file(self, tmp_path):
+        configure_log_streams(log_dir=tmp_path)
+        for stream in LOG_STREAMS:
+            logger = logging.getLogger(stream)
+            logger.info("stream check %s", stream)
+            for h in logger.handlers:
+                h.flush()
+        for stream in LOG_STREAMS:
+            log_file = tmp_path / f"{stream}.log"
+            assert log_file.exists(), f"Expected log file for stream '{stream}'"
+
+    def test_stream_names_match_log_streams_constant(self):
+        assert "controller" in LOG_STREAMS
+        assert "providers" in LOG_STREAMS
+        assert "health" in LOG_STREAMS
+        assert "rag" in LOG_STREAMS
+
+    def test_stdout_fallback_when_log_dir_none(self):
+        loggers = configure_log_streams(log_dir=None)
+        assert len(loggers) == len(LOG_STREAMS)
+        for name, logger in loggers.items():
+            assert any(isinstance(h, logging.StreamHandler) for h in logger.handlers), (
+                f"Stream '{name}' has no StreamHandler fallback"
+            )
+
+    def test_level_propagated_to_all_streams(self, tmp_path):
+        configure_log_streams(log_dir=tmp_path, level=logging.DEBUG)
+        for stream in LOG_STREAMS:
+            assert logging.getLogger(stream).level == logging.DEBUG
+
+    def test_fmt_text_propagated(self, tmp_path):
+        loggers = configure_log_streams(log_dir=tmp_path, fmt="text")
+        for name, logger in loggers.items():
+            assert isinstance(logger.handlers[0].formatter, TextFormatter), (
+                f"Expected TextFormatter for stream '{name}'"
+            )

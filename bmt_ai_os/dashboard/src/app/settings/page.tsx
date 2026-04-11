@@ -1,3 +1,4 @@
+import { fetchStatus } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -19,7 +20,9 @@ const PORT_MAP = [
   { port: "11434", service: "Ollama" },
 ];
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const status = await fetchStatus().catch(() => null);
+
   return (
     <div className="space-y-8">
       <div>
@@ -34,7 +37,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Feature Flags</CardTitle>
           <CardDescription>
-            Toggle experimental features. Changes are local to this session.
+            Toggle experimental features. Changes persist in browser storage.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -56,6 +59,13 @@ export default function SettingsPage() {
             <code className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
               {API_URL}
             </code>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Status</span>
+            <span className={status ? "text-green-500" : "text-red-500"}>
+              {status ? "Connected" : "Unreachable"}
+            </span>
           </div>
           <Separator />
           <p className="text-xs text-muted-foreground">
@@ -96,6 +106,11 @@ export default function SettingsPage() {
           <CardTitle>Version</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Controller</span>
+            <span>{status?.version ?? "—"}</span>
+          </div>
+          <Separator />
           <div className="flex justify-between">
             <span className="text-muted-foreground">Dashboard</span>
             <span>v0.1.0-alpha</span>

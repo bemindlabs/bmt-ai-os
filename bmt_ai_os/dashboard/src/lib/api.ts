@@ -1,21 +1,31 @@
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080")
+    : "";
 
 export interface ServiceStatus {
   name: string;
-  status: "healthy" | "degraded" | "down" | string;
-  uptime?: number;
+  health: string;
+  state?: string;
+  uptime_seconds?: number | null;
+  restarts?: number;
+  circuit_breaker?: string;
+  last_check_ms?: number | null;
+  last_error?: string | null;
+  [key: string]: unknown;
 }
 
 export interface StatusResponse {
-  uptime: number;
+  uptime_seconds: number | null;
   services: ServiceStatus[];
+  version?: string;
+  status?: string;
 }
 
 export interface MetricsResponse {
-  total_requests: number;
-  avg_latency_ms: number;
-  error_rate: number;
+  total_requests: number | null;
+  avg_latency_ms: number | null;
+  error_rate: number | null;
   [key: string]: unknown;
 }
 
@@ -92,17 +102,31 @@ export async function fetchMetrics(): Promise<MetricsResponse> {
 }
 
 export async function fetchModels(): Promise<ModelsResponse> {
-  return apiFetch<ModelsResponse>("/v1/models");
+  return apiFetch<ModelsResponse>("/api/models");
 }
 
 export async function fetchProviders(): Promise<ProvidersResponse> {
-  return apiFetch<ProvidersResponse>("/api/v1/providers");
+  const raw = await apiFetch<{ providers: Record<string, unknown>[]; active?: string }>(
+    "/api/v1/providers",
+  );
+  return {
+    ...raw,
+    providers: raw.providers.map((p) => ({
+      ...p,
+      name: p.name as string,
+      healthy:
+        typeof p.healthy === "boolean"
+          ? p.healthy
+          : !!(p.health as Record<string, unknown> | undefined)?.healthy,
+      active: p.active as boolean | undefined,
+    })),
+  };
 }
 
 export async function setActiveProvider(name: string): Promise<unknown> {
   return apiFetch<unknown>("/api/v1/providers/active", {
     method: "POST",
-    body: JSON.stringify({ provider: name }),
+    body: JSON.stringify({ name }),
   });
 }
 

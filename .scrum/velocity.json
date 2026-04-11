@@ -1,5 +1,22 @@
 {
-  "sprints": [],
-  "average_velocity": 0,
-  "total_completed_points": 0
+  "sprints": [
+    {
+      "sprint_number": 1,
+      "planned_points": 76,
+      "completed_points": 76,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 2,
+      "planned_points": 74,
+      "completed_points": 112,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
+    }
+  ],
+  "average_velocity": 94,
+  "total_completed_points": 188
 }

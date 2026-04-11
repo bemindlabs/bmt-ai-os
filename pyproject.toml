@@ -16,6 +16,8 @@ dependencies = [
     "docker>=7.0",
     "fastapi>=0.115",
     "pydantic>=2.0",
+    "prometheus-client>=0.21",
+    "psutil>=5.9",
     "pyjwt>=2.8",
     "pyyaml>=6.0",
     "requests>=2.31",
@@ -55,4 +57,7 @@ asyncio_mode = "auto"
 markers = [
     "smoke: smoke tests",
     "integration: integration tests",
+    "e2e: end-to-end tests",
+    "security: security hardening tests",
+    "load: load and stress tests",
 ]

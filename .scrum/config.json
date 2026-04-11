@@ -7,7 +7,7 @@
   },
   "sprint": {
     "duration_days": 14,
-    "current_sprint": 0,
+    "current_sprint": 1,
     "start_day": "monday"
   },
   "workflow": {
@@ -44,5 +44,5 @@
   "version": "2026.4.9",
   "version_format": "YYYY.M.D",
   "created_at": "2026-04-09",
-  "updated_at": "2026-04-09"
+  "updated_at": "2026-04-11"
 }

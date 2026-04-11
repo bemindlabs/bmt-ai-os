@@ -159,6 +159,14 @@
             "action": "SCMP_ACT_ALLOW"
         },
         {
+            "_comment": "futex — mutex/condvar primitives used by Python threading and asyncio",
+            "names": [
+                "futex",
+                "futex_waitv"
+            ],
+            "action": "SCMP_ACT_ALLOW"
+        },
+        {
             "_comment": "epoll / eventfd — asyncio / uvicorn event loop",
             "names": [
                 "epoll_create",

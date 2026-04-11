@@ -351,6 +351,14 @@
             "action": "SCMP_ACT_ALLOW"
         },
         {
+            "_comment": "futex — mutex/condvar primitives used by Go runtime threads",
+            "names": [
+                "futex",
+                "futex_waitv"
+            ],
+            "action": "SCMP_ACT_ALLOW"
+        },
+        {
             "_comment": "epoll / eventfd — async event loop used by Ollama's HTTP server",
             "names": [
                 "epoll_create",

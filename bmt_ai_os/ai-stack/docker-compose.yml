@@ -7,6 +7,24 @@
 #   docker compose --profile full up -d           # Apple Silicon / Jetson 32GB
 #
 # Device tiers are controlled via BMT_DEVICE_TIER in .env
+#
+# Secrets:
+#   BMT_JWT_SECRET  — JWT signing key for the controller auth layer
+#   BMT_API_KEY     — Optional legacy API key (backward-compat)
+#
+#   Create secrets before first run:
+#     printf 'your-jwt-secret' | docker secret create BMT_JWT_SECRET -
+#     printf 'your-api-key'    | docker secret create BMT_API_KEY -
+#
+#   On non-Swarm single-node deployments you may instead supply plain files:
+#     echo 'your-jwt-secret' > /run/secrets/BMT_JWT_SECRET
+#     chmod 600 /run/secrets/BMT_JWT_SECRET
+
+secrets:
+  BMT_JWT_SECRET:
+    external: true
+  BMT_API_KEY:
+    external: true
 
 services:
   ollama:
@@ -17,17 +35,27 @@ services:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_models:/root/.ollama
+      - /etc/bmt_ai_os/secrets/ollama:/run/secrets:ro
     environment:
       - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
-    # BMTOS-50: security hardening (profiles in runtime/security/)
-    # Uncomment on Linux hosts with AppArmor + seccomp support:
-    # security_opt:
-    #   - no-new-privileges:true
-    #   - seccomp=/etc/bmt_ai_os/security/seccomp-ollama.json
-    #   - apparmor=bmt-ollama
+    # BMTOS-50: per-service security hardening
+    # Requires Linux host with AppArmor loaded and seccomp profile installed.
+    # On macOS/Windows Docker Desktop: security_opt is accepted but AppArmor
+    # is silently ignored; seccomp still applies.
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-ollama.json
+      - apparmor=bmt-ollama
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - SYS_RESOURCE
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -49,6 +77,7 @@ services:
         limits:
           cpus: "${OLLAMA_CPU_LIMIT:-4.0}"
           memory: "${OLLAMA_MEM_LIMIT:-8g}"
+          pids: 256
         reservations:
           cpus: "1.0"
           memory: "2g"
@@ -61,6 +90,7 @@ services:
       - "${CHROMADB_PORT:-8000}:8000"
     volumes:
       - chromadb_data:/chroma/chroma
+      - /etc/bmt_ai_os/secrets/chromadb:/run/secrets:ro
     networks:
       - bmt-ai-net
     environment:
@@ -68,15 +98,19 @@ services:
       - PERSIST_DIRECTORY=/chroma/chroma
       - ANONYMIZED_TELEMETRY=FALSE
       - CHROMA_SERVER_AUTHN_PROVIDER=${CHROMA_AUTH_PROVIDER:-}
-      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_AUTH_CREDENTIALS:-}
       - CHROMA_HOST_ADDR=${CHROMADB_HOST:-0.0.0.0}
       - CHROMA_HOST_PORT=8000
-    # BMTOS-50: security hardening (profiles in runtime/security/)
-    # Uncomment on Linux hosts with AppArmor + seccomp support:
-    # security_opt:
-    #   - no-new-privileges:true
-    #   - seccomp=/etc/bmt_ai_os/security/seccomp-chromadb.json
-    #   - apparmor=bmt-chromadb
+    # BMTOS-50: per-service security hardening
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-chromadb.json
+      - apparmor=bmt-chromadb
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/heartbeat"]
@@ -96,9 +130,51 @@ services:
         limits:
           cpus: "${CHROMADB_CPU_LIMIT:-2.0}"
           memory: "${CHROMADB_MEM_LIMIT:-1g}"
+          pids: 128
         reservations:
           cpus: "0.5"
           memory: "256m"
+
+  controller:
+    image: bmt-ai-os:latest
+    container_name: bmt-controller
+    platform: linux/arm64
+    ports:
+      - "${CONTROLLER_PORT:-8080}:8080"
+    environment:
+      - BMT_COMPOSE_FILE=/app/bmt_ai_os/ai-stack/docker-compose.yml
+      - OLLAMA_HOST=http://bmt-ollama:11434
+      - CHROMADB_HOST=http://bmt-chromadb:8000
+    secrets:
+      - BMT_JWT_SECRET
+      - BMT_API_KEY
+    depends_on:
+      ollama:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+      start_interval: 5s
+    networks:
+      - bmt-ai-net
+    labels:
+      com.bemind.service: "controller"
+      com.bemind.component: "ai-stack"
+      com.bemind.tier: "${BMT_DEVICE_TIER:-standard}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${CONTROLLER_CPU_LIMIT:-1.0}"
+          memory: "${CONTROLLER_MEM_LIMIT:-512m}"
+        reservations:
+          cpus: "0.25"
+          memory: "128m"
 
 volumes:
   ollama_models:

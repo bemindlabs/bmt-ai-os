@@ -1,0 +1,271 @@
+# BMT AI OS — Prometheus Alerting Rules
+#
+# Load this file via the Prometheus rule_files directive:
+#
+#   rule_files:
+#     - /etc/prometheus/alerts/bmt-ai-os.yml
+#
+# All alerts use the "bmt_ai_os" namespace in their labels.
+
+groups:
+
+  # --------------------------------------------------------------------------
+  # Service availability
+  # --------------------------------------------------------------------------
+  - name: bmt_service_availability
+    rules:
+
+      - alert: BMTServiceDown
+        expr: bmt_service_healthy == 0
+        for: 1m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "BMT AI OS service {{ $labels.service }} is down"
+          description: >
+            Service {{ $labels.service }} has been reporting unhealthy for
+            more than 1 minute.  Check container logs and restart if needed.
+
+      - alert: BMTControllerDown
+        expr: absent(bmt_uptime_seconds)
+        for: 2m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "BMT AI OS controller is not reachable"
+          description: >
+            The controller /metrics endpoint has not responded for 2 minutes.
+            Verify the controller process is running on port 8080.
+
+      - alert: BMTOllamaDown
+        expr: bmt_service_healthy{service="ollama"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Ollama inference service is down"
+          description: >
+            Ollama (port 11434) has been unhealthy for 2 minutes.
+            LLM inference requests will fail until the service recovers.
+
+      - alert: BMTChromaDBDown
+        expr: bmt_service_healthy{service="chromadb"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "ChromaDB vector store is down"
+          description: >
+            ChromaDB (port 8000) has been unhealthy for 2 minutes.
+            RAG queries will fail until the service recovers.
+
+  # --------------------------------------------------------------------------
+  # Latency
+  # --------------------------------------------------------------------------
+  - name: bmt_latency
+    rules:
+
+      - alert: BMTHighRequestLatency
+        expr: >
+          histogram_quantile(0.95,
+            rate(bmt_request_latency_seconds_bucket[5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "High p95 request latency on endpoint {{ $labels.endpoint }}"
+          description: >
+            The 95th-percentile latency for {{ $labels.method }}
+            {{ $labels.endpoint }} has exceeded 10 seconds over the last
+            5 minutes (current: {{ $value | humanizeDuration }}).
+
+      - alert: BMTCriticalRequestLatency
+        expr: >
+          histogram_quantile(0.99,
+            rate(bmt_request_latency_seconds_bucket[5m])
+          ) > 30
+        for: 5m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Critical p99 request latency on endpoint {{ $labels.endpoint }}"
+          description: >
+            The 99th-percentile latency for {{ $labels.method }}
+            {{ $labels.endpoint }} has exceeded 30 seconds over the last
+            5 minutes (current: {{ $value | humanizeDuration }}).
+
+      - alert: BMTHighProviderLatency
+        expr: >
+          histogram_quantile(0.95,
+            rate(bmt_provider_latency_seconds_bucket[5m])
+          ) > 20
+        for: 5m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "High p95 inference latency for provider {{ $labels.provider }}"
+          description: >
+            Provider {{ $labels.provider }} p95 inference latency has exceeded
+            20 seconds over the last 5 minutes
+            (current: {{ $value | humanizeDuration }}).
+
+      - alert: BMTSlowHealthCheck
+        expr: bmt_service_response_time_ms > 5000
+        for: 3m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Slow health check response from {{ $labels.service }}"
+          description: >
+            Health check for {{ $labels.service }} is taking more than 5 seconds
+            (current: {{ $value }}ms).
+
+  # --------------------------------------------------------------------------
+  # Error rate
+  # --------------------------------------------------------------------------
+  - name: bmt_error_rate
+    rules:
+
+      - alert: BMTHighErrorRate
+        expr: bmt_error_rate > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "High error rate on BMT AI OS controller"
+          description: >
+            More than 5% of controller requests are failing
+            (current: {{ $value | humanizePercentage }}).
+
+      - alert: BMTCriticalErrorRate
+        expr: bmt_error_rate > 0.25
+        for: 2m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Critical error rate on BMT AI OS controller"
+          description: >
+            More than 25% of controller requests are failing
+            (current: {{ $value | humanizePercentage }}).
+            Immediate investigation required.
+
+      - alert: BMTProviderAllFailing
+        expr: >
+          sum by (provider) (
+            rate(bmt_provider_requests_total{status="error"}[5m])
+          ) /
+          sum by (provider) (
+            rate(bmt_provider_requests_total[5m])
+          ) > 0.5
+        for: 3m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Provider {{ $labels.provider }} has >50% failure rate"
+          description: >
+            More than 50% of requests to provider {{ $labels.provider }} are
+            failing over the last 5 minutes.
+
+  # --------------------------------------------------------------------------
+  # Circuit breaker
+  # --------------------------------------------------------------------------
+  - name: bmt_circuit_breaker
+    rules:
+
+      - alert: BMTCircuitBreakerOpen
+        expr: bmt_provider_circuit_state == 2
+        for: 1m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Circuit breaker OPEN for provider {{ $labels.provider }}"
+          description: >
+            The circuit breaker for provider {{ $labels.provider }} has been
+            in the OPEN state for more than 1 minute.  All requests to this
+            provider are being blocked.  Check provider health.
+
+  # --------------------------------------------------------------------------
+  # System resources
+  # --------------------------------------------------------------------------
+  - name: bmt_system_resources
+    rules:
+
+      - alert: BMTHighCPUUsage
+        expr: bmt_system_cpu_usage_percent > 90
+        for: 10m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "High CPU usage on BMT AI OS host"
+          description: >
+            CPU utilisation has been above 90% for 10 minutes
+            (current: {{ $value }}%).
+            On-device inference may be degraded.
+
+      - alert: BMTLowMemory
+        expr: >
+          (bmt_system_memory_usage_bytes / bmt_system_memory_total_bytes) > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Memory usage above 90% on BMT AI OS host"
+          description: >
+            Memory usage has exceeded 90% for 5 minutes
+            (used: {{ $labels.memory_used | humanize1024 }}B of
+            {{ $labels.memory_total | humanize1024 }}B).
+            Consider offloading models or reducing context window.
+
+      - alert: BMTCriticalMemory
+        expr: >
+          (bmt_system_memory_usage_bytes / bmt_system_memory_total_bytes) > 0.97
+        for: 2m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Critical memory pressure on BMT AI OS host"
+          description: >
+            Memory usage has exceeded 97% for 2 minutes.
+            OOM kills are imminent.  Reduce model load immediately.
+
+      - alert: BMTDiskAlmostFull
+        expr: bmt_system_disk_usage_percent > 80
+        for: 15m
+        labels:
+          severity: warning
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Disk usage above 80% on BMT AI OS host"
+          description: >
+            Root filesystem disk usage has been above 80% for 15 minutes
+            (current: {{ $value }}%).
+            Consider pruning old model weights or container images.
+
+      - alert: BMTDiskFull
+        expr: bmt_system_disk_usage_percent > 95
+        for: 5m
+        labels:
+          severity: critical
+          namespace: bmt_ai_os
+        annotations:
+          summary: "Disk almost full on BMT AI OS host"
+          description: >
+            Root filesystem disk usage has exceeded 95%
+            (current: {{ $value }}%).
+            Writes may fail.  Free space immediately.

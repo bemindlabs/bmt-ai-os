@@ -15,6 +15,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import os
 import time
 import uuid
 from typing import Any, AsyncIterator
@@ -24,6 +25,91 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# RAG injection helpers
+# ---------------------------------------------------------------------------
+
+
+def _rag_enabled() -> bool:
+    """Return True when RAG auto-injection is enabled via env var."""
+    return os.getenv("BMT_RAG_ENABLED", "").lower() in ("1", "true", "yes")
+
+
+async def _inject_rag_context(messages: list[Any]) -> list[Any]:
+    """Prepend a RAG-retrieved context system message to *messages*.
+
+    Queries ChromaDB using the last user message as the search query.
+    Returns the original list unchanged when RAG is unavailable or returns
+    no useful results, so the behaviour is always non-breaking.
+
+    Parameters
+    ----------
+    messages:
+        List of ChatMessage-like objects (must have ``.role`` and ``.content``).
+
+    Returns
+    -------
+    list
+        Augmented list with a prepended system message, or the original list.
+    """
+    # Find the last user message to use as the RAG query
+    query_text = ""
+    for msg in reversed(messages):
+        role = getattr(msg, "role", None) or (msg.get("role") if isinstance(msg, dict) else None)
+        content = getattr(msg, "content", None) or (
+            msg.get("content") if isinstance(msg, dict) else None
+        )
+        if role == "user" and content:
+            query_text = content
+            break
+
+    if not query_text:
+        return messages
+
+    try:
+        from bmt_ai_os.rag.config import RAGConfig
+        from bmt_ai_os.rag.storage import ChromaStorage
+
+        config = RAGConfig()
+        storage = ChromaStorage(config)
+        raw = storage.query("default", query_text, top_k=3)
+
+        documents = (raw.get("documents") or [[]])[0]
+        if not documents:
+            return messages
+
+        context_text = "\n\n".join(
+            f"[Context {i + 1}]\n{doc}" for i, doc in enumerate(documents) if doc
+        )
+        if not context_text.strip():
+            return messages
+
+        system_content = (
+            "Use the following retrieved context to help answer the user's question.\n\n"
+            f"{context_text}"
+        )
+
+        # Build an injected system message using the same type as existing messages
+        try:
+            from bmt_ai_os.providers.base import ChatMessage
+
+            injected = ChatMessage(role="system", content=system_content)
+        except Exception:
+            injected = _ChatMessage(role="system", content=system_content)
+
+        logger.debug(
+            "RAG injection: prepended context from %d chunk(s) for query: %.80s",
+            len(documents),
+            query_text,
+        )
+        return [injected, *messages]
+
+    except Exception as exc:
+        # RAG errors must never break the chat flow
+        logger.warning("RAG auto-injection failed (non-fatal): %s", exc)
+        return messages
+
 
 router = APIRouter(tags=["openai-compat"])
 
@@ -220,7 +306,7 @@ def _make_chat_message(role: str, content: str) -> Any:
         from bmt_ai_os.providers.base import ChatMessage
 
         return ChatMessage(role=role, content=content)
-    except Exception:
+    except ImportError:
         return _ChatMessage(role=role, content=content)
 
 
@@ -233,7 +319,8 @@ def _get_provider_router():
         from bmt_ai_os.providers.registry import get_registry
 
         return get_registry()
-    except Exception:
+    except ImportError:
+        logger.exception("Provider registry import failed")
         return None
 
 
@@ -253,9 +340,14 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
     model = body.model if body.model != "default" else None
     max_tokens = body.max_tokens or 4096
 
+    # RAG auto-injection (opt-in via BMT_RAG_ENABLED=true)
+    if _rag_enabled():
+        messages = await _inject_rag_context(messages)
+
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
     if body.stream:
@@ -267,8 +359,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
                 max_tokens=max_tokens,
                 stream=True,
             )
-        except Exception as exc:
-            logger.error("Streaming chat failed: %s", exc)
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+            logger.exception("Streaming chat failed")
             raise HTTPException(status_code=502, detail=str(exc))
 
         request_id = _make_id("chatcmpl")
@@ -293,8 +385,8 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
             max_tokens=max_tokens,
             stream=False,
         )
-    except Exception as exc:
-        logger.error("Chat completion failed: %s", exc)
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Chat completion failed")
         raise HTTPException(status_code=502, detail=str(exc))
 
     prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
@@ -323,7 +415,8 @@ async def completions(body: CompletionRequest, request: Request):
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
     if body.stream:
@@ -335,7 +428,8 @@ async def completions(body: CompletionRequest, request: Request):
                 max_tokens=body.max_tokens,
                 stream=True,
             )
-        except Exception as exc:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+            logger.exception("Streaming completions failed")
             raise HTTPException(status_code=502, detail=str(exc))
 
         request_id = _make_id("cmpl")
@@ -380,7 +474,8 @@ async def completions(body: CompletionRequest, request: Request):
             max_tokens=body.max_tokens,
             stream=False,
         )
-    except Exception as exc:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Completions (non-streaming) failed")
         raise HTTPException(status_code=502, detail=str(exc))
 
     prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
@@ -408,13 +503,14 @@ async def embeddings(body: EmbeddingRequest):
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
         raise HTTPException(status_code=503, detail="No active provider")
 
     try:
         result = await provider.embed(texts, model=model)
-    except Exception as exc:
-        logger.error("Embedding failed: %s", exc)
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.exception("Embedding failed")
         raise HTTPException(status_code=502, detail=str(exc))
 
     # Normalise result to a list of embedding vectors
@@ -472,12 +568,14 @@ async def list_models():
 
     try:
         provider = registry.get_active()
-    except Exception:
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider for model listing: %s", exc)
         return {"object": "list", "data": []}
 
     try:
         models = await provider.list_models()
-    except Exception:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+        logger.warning("Failed to list models from provider: %s", exc)
         return {"object": "list", "data": []}
 
     data = []

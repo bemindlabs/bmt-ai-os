@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -409,3 +410,117 @@ class TestPluginCLI:
         with patch("bmt_ai_os.plugins.manager.discover_plugins", return_value=[]):
             result = runner.invoke(cli, ["plugin", "disable", "no-such-plugin", "--state-file", sf])
         assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# Atomicity and thread safety (BMTOS-67)
+# ---------------------------------------------------------------------------
+
+
+class TestPluginManagerAtomicity:
+    """Verify that enable/disable are atomic and roll back on save failure."""
+
+    @pytest.fixture
+    def state_file(self, tmp_path: Path) -> str:
+        return str(tmp_path / "plugins.json")
+
+    @pytest.fixture
+    def mock_discover_alpha(self):
+        infos = [PluginInfo("alpha", "1.0.0", PluginHook.PROVIDER, "pkg.alpha")]
+        with patch("bmt_ai_os.plugins.manager.discover_plugins", return_value=infos):
+            yield
+
+    def test_enable_rolls_back_on_save_failure(self, state_file, mock_discover_alpha):
+        """If _save_state raises, in-memory state must revert to pre-call value."""
+        Path(state_file).write_text(json.dumps({"alpha": False}))
+        mgr = PluginManager(state_file=state_file)
+
+        with patch.object(mgr, "_save_state", side_effect=OSError("disk full")):
+            with pytest.raises(OSError):
+                mgr.enable("alpha")
+
+        # State must still be False (rolled back)
+        assert mgr._state["alpha"] is False
+
+    def test_disable_rolls_back_on_save_failure(self, state_file, mock_discover_alpha):
+        """If _save_state raises during disable, state reverts to True."""
+        mgr = PluginManager(state_file=state_file)
+        mgr._state["alpha"] = True
+
+        with patch.object(mgr, "_save_state", side_effect=OSError("disk full")):
+            with pytest.raises(OSError):
+                mgr.disable("alpha")
+
+        assert mgr._state["alpha"] is True
+
+    def test_enable_rolls_back_when_previously_absent(self, state_file, mock_discover_alpha):
+        """When a plugin has no prior state entry, rollback removes the key."""
+        mgr = PluginManager(state_file=state_file)
+        # Ensure 'alpha' is NOT in _state initially
+        mgr._state.pop("alpha", None)
+
+        with patch.object(mgr, "_save_state", side_effect=OSError("disk full")):
+            with pytest.raises(OSError):
+                mgr.enable("alpha")
+
+        assert "alpha" not in mgr._state
+
+    def test_lock_exists_on_manager(self, state_file):
+        """PluginManager must expose a threading.Lock."""
+        mgr = PluginManager(state_file=state_file)
+        assert isinstance(mgr._lock, type(threading.Lock()))
+
+    def test_concurrent_enable_disable_does_not_corrupt_state(self, state_file, tmp_path):
+        """Concurrent callers must not leave _state in a partially-written state."""
+        infos = [PluginInfo(f"p{i}", "1.0.0", PluginHook.PROVIDER, f"m{i}") for i in range(5)]
+        errors: list[Exception] = []
+
+        with patch("bmt_ai_os.plugins.manager.discover_plugins", return_value=infos):
+            mgr = PluginManager(state_file=state_file)
+
+            def _toggle(name: str, value: bool) -> None:
+                try:
+                    if value:
+                        mgr.enable(name)
+                    else:
+                        mgr.disable(name)
+                except Exception as exc:
+                    errors.append(exc)
+
+            threads = []
+            for i in range(5):
+                for val in (True, False, True):
+                    threads.append(threading.Thread(target=_toggle, args=(f"p{i}", val)))
+
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        # No unhandled exceptions
+        assert not errors
+        # All values must be boolean
+        for v in mgr._state.values():
+            assert isinstance(v, bool)
+
+    def test_save_is_atomic_via_temp_file(self, state_file, mock_discover_alpha):
+        """_save_state must write via a temp file then rename (no partial writes)."""
+        mgr = PluginManager(state_file=state_file)
+
+        temp_files_created: list[str] = []
+        real_mkstemp = __import__("tempfile").mkstemp
+
+        def _spy_mkstemp(**kwargs):
+            fd, path = real_mkstemp(**kwargs)
+            temp_files_created.append(path)
+            return fd, path
+
+        with patch("bmt_ai_os.plugins.manager.tempfile.mkstemp", side_effect=_spy_mkstemp):
+            mgr.enable("alpha")
+
+        # A temp file was created and then replaced (no longer exists)
+        assert len(temp_files_created) == 1
+        assert not Path(temp_files_created[0]).exists()
+        # The final state file exists and is valid JSON
+        data = json.loads(Path(state_file).read_text())
+        assert data["alpha"] is True

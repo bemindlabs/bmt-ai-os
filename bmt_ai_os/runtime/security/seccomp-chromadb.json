@@ -330,6 +330,14 @@
             "action": "SCMP_ACT_ALLOW"
         },
         {
+            "_comment": "futex — mutex/condvar primitives used by Python threading and uvicorn",
+            "names": [
+                "futex",
+                "futex_waitv"
+            ],
+            "action": "SCMP_ACT_ALLOW"
+        },
+        {
             "_comment": "epoll / eventfd — Uvicorn async event loop",
             "names": [
                 "epoll_create",

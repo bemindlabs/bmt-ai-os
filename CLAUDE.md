@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 BMT AI OS is an open-source, AI-first operating system for ARM64 by Bemind Technology Co., Ltd. It uses a minimal Linux base (Buildroot) with containerized LLM inference, vector search, AI coding tools, and on-device model training. MIT licensed.
 
-Current release: **v2026.4.10**
+Current release: **v2026.4.11**
 
 ## Project Structure
 
@@ -22,9 +22,14 @@ ai-first-os/
 │   │   ├── api.py              #     FastAPI app (/healthz)
 │   │   ├── openai_compat.py    #     OpenAI-compatible /v1/chat/completions
 │   │   ├── rag_routes.py       #     RAG API routes
+│   │   ├── auth.py             #     JWT auth + RBAC (admin/operator/viewer)
+│   │   ├── auth_routes.py      #     Auth API routes + user management
+│   │   ├── prometheus.py       #     Prometheus /metrics endpoint
+│   │   ├── plugin_routes.py    #     Plugin management API
 │   │   ├── health.py           #     Health checker + circuit breaker
+│   │   ├── metrics.py          #     Internal metrics collector
 │   │   ├── config.py           #     Controller config (YAML loader)
-│   │   └── middleware.py       #     CORS + logging middleware
+│   │   └── middleware.py       #     CORS + logging + request ID middleware
 │   ├── providers/              #   Multi-provider LLM abstraction
 │   │   ├── base.py             #     ABC + data classes (ChatMessage, etc.)
 │   │   ├── registry.py         #     Provider registry singleton
@@ -45,17 +50,43 @@ ai-first-os/
 │   │   ├── chunker.py          #     Text chunking
 │   │   ├── storage.py          #     ChromaDB storage
 │   │   └── config.py           #     RAG configuration
+│   ├── fleet/                  #   Fleet management
+│   │   ├── agent.py            #     Fleet agent (heartbeats, offline queue)
+│   │   ├── registry.py         #     Central device registry
+│   │   ├── routes.py           #     Fleet API routes
+│   │   └── models.py           #     Data models
+│   ├── ota/                    #   OTA update engine
+│   │   ├── engine.py           #     A/B slot switching + rollback
+│   │   ├── state.py            #     OTA state management
+│   │   └── verify.py           #     Image verification (SHA-256, Ed25519)
+│   ├── update/                 #   OS update orchestration
+│   │   └── orchestrator.py     #     4-stage update pipeline
+│   ├── plugins/                #   Plugin system
+│   │   ├── manager.py          #     Plugin lifecycle + sandboxed execution
+│   │   ├── loader.py           #     Plugin discovery (manifests + entry points)
+│   │   └── hooks.py            #     Hook types + plugin manifest
+│   ├── tls/                    #   TLS/mTLS support
+│   │   ├── config.py           #     TLS config + cipher hardening
+│   │   ├── certs.py            #     Self-signed cert generation + renewal
+│   │   └── mtls.py             #     mTLS PKI (CA, server, client certs)
+│   ├── benchmark/              #   Performance benchmarking
+│   │   ├── suite.py            #     Benchmark suite runner + reports
+│   │   ├── inference.py        #     Inference benchmarks
+│   │   ├── rag.py              #     RAG benchmarks
+│   │   └── system.py           #     CPU/memory/disk benchmarks
+│   ├── logging.py              #   Structured JSON logging + rotation
 │   ├── kernel/                 #   Kernel configs
 │   │   ├── defconfig           #     Buildroot ARM64 defconfig
 │   │   ├── linux.config        #     Kernel config fragment
 │   │   └── uboot.config        #     U-Boot config
 │   └── runtime/                #   OS runtime configs
 │       ├── init.d/             #     OpenRC init scripts
-│       ├── networking/         #     Network setup, firewall, DNS
+│       ├── networking/         #     Network setup, firewall, DNS-over-TLS
+│       ├── monitoring/         #     Prometheus alerts + Grafana dashboard
 │       ├── containerd/         #     Container runtime config
 │       ├── docker/             #     Docker daemon config
 │       ├── npu/                #     NPU passthrough stubs
-│       └── security/           #     Security hardening
+│       └── security/           #     AppArmor/seccomp profiles, secrets
 ├── bmt-ai-os-build/            # Build-time
 │   ├── buildroot-external/     #   Buildroot external tree
 │   │   ├── Config.in           #     Package menu (BR2_EXTERNAL)
@@ -72,7 +103,7 @@ ai-first-os/
 │   └── services/               #   Service definitions
 ├── tests/
 │   ├── smoke/                  #   Compose validation tests
-│   ├── unit/                   #   Provider, RAG, router tests (295 tests)
+│   ├── unit/                   #   Provider, RAG, router tests (950 tests)
 │   └── integration/            #   QEMU boot + networking tests
 ├── scripts/
 │   └── build.sh                #   Buildroot image build pipeline
@@ -100,6 +131,8 @@ The controller (`bmt_ai_os/controller/main.py`) orchestrates AI-stack containers
 |------|---------|
 | 8000 | ChromaDB |
 | 8080 | Controller API (OpenAI-compatible) |
+| 8443 | Controller API (HTTPS, when TLS enabled) |
+| 9090 | Dashboard (Web UI) |
 | 11434 | Ollama |
 
 ## Commands
@@ -138,14 +171,15 @@ gh release create vYYYY.M.DD --target main --title "vYYYY.M.DD" --notes-file rel
 
 The `.scrum/` directory tracks backlog, sprints, and ceremonies. Backlog items use the `BMTOS-{n}` ID scheme with Fibonacci estimation. Workflow: `backlog → ready → in_progress → review → testing → done`.
 
-**Epics:**
+**Epics (all completed):**
 
-- BMTOS-EPIC-1: Multi-Provider LLM Support (35 pts)
-- BMTOS-EPIC-2: AI Coding CLI & Agent Support (36 pts)
-- BMTOS-EPIC-3: OS Foundation & Infrastructure (73 pts)
-- BMTOS-EPIC-4: Hardware Board Support Packages (29 pts)
-- BMTOS-EPIC-5: Native Dashboard — Next.js + shadcn/ui + TUI (52 pts)
-- BMTOS-EPIC-6: On-Device AI Training & Fine-Tuning (36 pts)
+- BMTOS-EPIC-1: Multi-Provider LLM Support (35 pts) — DONE
+- BMTOS-EPIC-2: AI Coding CLI & Agent Support (36 pts) — DONE
+- BMTOS-EPIC-3: OS Foundation & Infrastructure (86 pts) — DONE
+- BMTOS-EPIC-4: Hardware Board Support Packages (29 pts) — DONE
+- BMTOS-EPIC-5: Native Dashboard — Next.js + shadcn/ui + TUI (52 pts) — DONE
+- BMTOS-EPIC-6: On-Device AI Training & Fine-Tuning (36 pts) — DONE
+- BMTOS-EPIC-7: Production Hardening (76 pts) — DONE
 
 ## Tech Stack
 

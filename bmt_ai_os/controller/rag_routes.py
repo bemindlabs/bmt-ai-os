@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from bmt_ai_os.rag.config import RAGConfig
 from bmt_ai_os.rag.query import RAGQueryEngine, RAGResponse
@@ -23,6 +24,9 @@ _config = RAGConfig()
 _engine = RAGQueryEngine(_config)
 _storage = ChromaStorage(_config)
 
+# Collection name pattern: alphanumeric, hyphens, underscores, 1–100 chars.
+_COLLECTION_PATTERN = r"^[a-zA-Z0-9_-]{1,100}$"
+
 
 # ------------------------------------------------------------------
 # Request / response models
@@ -30,16 +34,24 @@ _storage = ChromaStorage(_config)
 
 
 class QueryRequest(BaseModel):
-    question: str
-    collection: str = "default"
+    question: str = Field(max_length=5000)
+    collection: str = Field(default="default", pattern=_COLLECTION_PATTERN)
     top_k: int = Field(default=5, ge=1, le=50)
     code_mode: bool = False
 
 
 class IngestRequest(BaseModel):
     path: str
-    collection: str = "default"
+    collection: str = Field(default="default", pattern=_COLLECTION_PATTERN)
     recursive: bool = True
+
+    @field_validator("path")
+    @classmethod
+    def path_must_be_absolute(cls, v: str) -> str:
+        """Reject relative paths early so the whitelist check is unambiguous."""
+        if not Path(v).is_absolute():
+            raise ValueError("path must be an absolute filesystem path")
+        return v
 
 
 class QueryResponseModel(BaseModel):
@@ -57,6 +69,9 @@ class QueryResponseModel(BaseModel):
 @router.post("/query", response_model=QueryResponseModel)
 async def query(req: QueryRequest) -> dict:
     """Run a RAG query and return the augmented answer."""
+    import uuid as _uuid
+
+    request_id = str(_uuid.uuid4())
     try:
         result: RAGResponse = _engine.query(
             question=req.question,
@@ -65,9 +80,15 @@ async def query(req: QueryRequest) -> dict:
             code_mode=req.code_mode,
         )
         return result.to_dict()
-    except Exception as exc:
-        logger.exception("RAG query failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except (ValueError, KeyError) as exc:
+        logger.exception("Invalid RAG query parameters [request_id=%s]", request_id)
+        raise HTTPException(status_code=400, detail="Invalid query parameters") from exc
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.exception("RAG query failed due to storage error [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Vector store unavailable") from exc
+    except RuntimeError as exc:
+        logger.exception("RAG query failed [request_id=%s]", request_id)
+        raise HTTPException(status_code=500, detail="RAG query failed") from exc
 
 
 @router.post("/query/stream")
@@ -100,23 +121,62 @@ async def query_stream(req: QueryRequest) -> StreamingResponse:
 @router.get("/collections")
 async def list_collections() -> list[dict]:
     """List all ChromaDB collections."""
+    import uuid as _uuid
+
+    request_id = str(_uuid.uuid4())
     try:
         return _storage.list_collections()
-    except Exception as exc:
-        logger.exception("Failed to list collections")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.exception("Storage error while listing collections [request_id=%s]", request_id)
+        raise HTTPException(status_code=502, detail="Vector store unavailable") from exc
+    except RuntimeError as exc:
+        logger.exception("Failed to list collections [request_id=%s]", request_id)
+        raise HTTPException(status_code=500, detail="Failed to list collections") from exc
+
+
+def _resolve_and_check_path(raw_path: str) -> Path:
+    """Resolve *raw_path* and verify it sits inside an allowed directory.
+
+    Raises ``HTTPException(403)`` when no whitelist is configured or when the
+    resolved path falls outside every entry in the whitelist.  Using
+    ``Path.resolve()`` expands symlinks and ``..`` components, which prevents
+    directory-traversal attacks.
+    """
+    resolved = Path(raw_path).resolve()
+
+    allowed = _config.allowed_ingest_dirs
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Ingest is disabled: BMT_INGEST_ALLOWED_DIRS is not configured.",
+        )
+
+    for allowed_dir in allowed:
+        try:
+            resolved.relative_to(allowed_dir)
+            return resolved  # path is inside this allowed dir — accept
+        except ValueError:
+            continue  # not under this dir, try the next one
+
+    raise HTTPException(
+        status_code=403,
+        detail=f"Path '{resolved}' is outside all allowed ingest directories.",
+    )
 
 
 @router.post("/ingest")
 async def ingest(req: IngestRequest) -> dict:
     """Ingest documents from a local path into a ChromaDB collection.
 
-    This is a placeholder -- full ingestion logic lives in the ingest module
-    and will be wired in a follow-up story.
+    The requested path must resolve to a location inside one of the
+    directories listed in ``BMT_INGEST_ALLOWED_DIRS``; otherwise a 403 is
+    returned.  Symlinks and ``..`` traversal are neutralised via
+    ``Path.resolve()``.
     """
+    safe_path = _resolve_and_check_path(req.path)
     return {
         "status": "accepted",
-        "path": req.path,
+        "path": str(safe_path),
         "collection": req.collection,
         "recursive": req.recursive,
     }

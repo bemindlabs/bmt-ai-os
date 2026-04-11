@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -67,6 +68,65 @@ class DocumentIngester:
         # Track ingested file hashes for duplicate detection
         self._ingested_hashes: Set[str] = set()
 
+        # Workspace root for path traversal checks.  Defaults to cwd so that
+        # all ingested paths must live inside the process working directory.
+        # Override via the BMT_RAG_WORKSPACE env var in production.
+        workspace = os.environ.get("BMT_RAG_WORKSPACE", "")
+        self._workspace_root: Path | None = Path(workspace).resolve() if workspace else None
+
+    # ------------------------------------------------------------------
+    # Path validation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _validate_path(path: Path, workspace_root: Path | None = None) -> None:
+        """Raise ValueError if *path* contains a traversal attempt.
+
+        Two checks are applied:
+        1. The raw string must not contain ``..`` components — this catches
+           obvious traversal strings like ``../../etc/passwd`` before any
+           resolution.
+        2. When *workspace_root* is set, the resolved absolute path must be
+           inside (or equal to) the workspace root.
+
+        Args:
+            path: The candidate path to validate.
+            workspace_root: Optional resolved absolute directory that all paths
+                must reside within.  Pass ``None`` to skip the containment check.
+
+        Raises:
+            ValueError: When a traversal attempt is detected.
+        """
+        # Reject raw ".." path components
+        parts = Path(path).parts
+        if ".." in parts:
+            raise ValueError(
+                f"Path traversal detected: '{path}' contains '..' components. "
+                "Absolute or resolved paths are required."
+            )
+
+        # Reject paths whose string representation contains ".." anywhere
+        # (catches cases like "foo/../../bar" that might slip past parts check)
+        raw = str(path)
+        if ".." in raw:
+            raise ValueError(f"Path traversal detected: '{path}' contains '..' sequence.")
+
+        # Workspace containment check
+        if workspace_root is not None:
+            try:
+                resolved = path.resolve()
+            except OSError:
+                # If we cannot resolve the path, reject it for safety
+                raise ValueError(f"Cannot resolve path '{path}' for traversal check.")
+
+            try:
+                resolved.relative_to(workspace_root)
+            except ValueError:
+                raise ValueError(
+                    f"Path '{path}' resolves to '{resolved}' which is outside the "
+                    f"allowed workspace root '{workspace_root}'."
+                )
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -74,6 +134,13 @@ class DocumentIngester:
     def ingest_file(self, path: str | Path) -> int:
         """Ingest a single file. Returns number of chunks stored."""
         path = Path(path)
+
+        try:
+            self._validate_path(path, self._workspace_root)
+        except ValueError as exc:
+            logger.error("Rejected path due to traversal check: %s", exc)
+            return 0
+
         if not path.is_file():
             logger.warning("Skipping non-file path: %s", path)
             return 0
@@ -116,6 +183,13 @@ class DocumentIngester:
         special ``_errors`` key with the count of failed files.
         """
         path = Path(path)
+
+        try:
+            self._validate_path(path, self._workspace_root)
+        except ValueError as exc:
+            logger.error("Rejected directory due to traversal check: %s", exc)
+            return {"_errors": 1}
+
         if not path.is_dir():
             logger.error("Not a directory: %s", path)
             return {"_errors": 1}

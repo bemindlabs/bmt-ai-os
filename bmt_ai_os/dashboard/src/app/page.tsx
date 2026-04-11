@@ -10,13 +10,13 @@ import { Badge } from "@/components/ui/badge";
 
 function ServiceHealthCard({
   name,
-  status,
+  health,
 }: {
   name: string;
-  status: string;
+  health: string;
 }) {
-  const healthy = status === "healthy";
-  const degraded = status === "degraded";
+  const healthy = health === "healthy";
+  const degraded = health === "degraded";
 
   return (
     <Card>
@@ -26,7 +26,7 @@ function ServiceHealthCard({
           <Badge
             variant={healthy ? "default" : degraded ? "outline" : "destructive"}
           >
-            {status}
+            {health}
           </Badge>
         </div>
         <CardDescription>Service status</CardDescription>
@@ -43,7 +43,7 @@ function ServiceHealthCard({
             }`}
           />
           <span className="text-xs text-muted-foreground capitalize">
-            {status}
+            {health}
           </span>
         </div>
       </CardContent>
@@ -89,9 +89,9 @@ export default async function OverviewPage() {
 
   // Expected core services — fall back if API is unreachable
   const coreServices = status?.services ?? [
-    { name: "Ollama", status: "unknown" },
-    { name: "ChromaDB", status: "unknown" },
-    { name: "Controller", status: "unknown" },
+    { name: "Ollama", health: "unknown" },
+    { name: "ChromaDB", health: "unknown" },
+    { name: "Controller", health: "unknown" },
   ];
 
   return (
@@ -113,7 +113,7 @@ export default async function OverviewPage() {
             <ServiceHealthCard
               key={svc.name}
               name={svc.name}
-              status={svc.status}
+              health={svc.health}
             />
           ))}
         </div>
@@ -127,12 +127,12 @@ export default async function OverviewPage() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
             label="Uptime"
-            value={status ? formatUptime(status.uptime) : "—"}
+            value={status?.uptime_seconds != null ? formatUptime(status.uptime_seconds) : "—"}
           />
           <StatCard
             label="Total Requests"
             value={
-              metrics
+              metrics?.total_requests != null
                 ? metrics.total_requests.toLocaleString()
                 : "—"
             }
@@ -140,7 +140,7 @@ export default async function OverviewPage() {
           <StatCard
             label="Avg Latency"
             value={
-              metrics
+              metrics?.avg_latency_ms != null
                 ? `${metrics.avg_latency_ms.toFixed(0)} ms`
                 : "—"
             }
@@ -148,12 +148,12 @@ export default async function OverviewPage() {
           <StatCard
             label="Error Rate"
             value={
-              metrics
+              metrics?.error_rate != null
                 ? `${(metrics.error_rate * 100).toFixed(2)}%`
                 : "—"
             }
             sub={
-              metrics && metrics.error_rate > 0.05
+              metrics?.error_rate != null && metrics.error_rate > 0.05
                 ? "Above threshold"
                 : undefined
             }

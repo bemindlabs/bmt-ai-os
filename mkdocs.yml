@@ -67,6 +67,10 @@ markdown_extensions:
   - toc:
       permalink: true
 
+exclude_docs: |
+  README.md
+  ide-integration/README.md
+
 plugins:
   - search:
       lang: en
@@ -79,6 +83,7 @@ plugins:
             show_root_heading: true
             show_category_heading: true
             members_order: source
+            docstring_style: google
 
 extra:
   social:
@@ -90,22 +95,49 @@ extra:
 nav:
   - Home: index.md
   - Getting Started:
+    - getting-started/index.md
     - Quick Start: getting-started/quick-start.md
     - Installation: getting-started/installation.md
     - Dev Setup (x86 Docker): getting-started/dev-setup.md
   - Architecture:
+    - architecture/index.md
     - System Overview: architecture/system-overview.md
     - Provider Layer: architecture/provider-layer.md
     - Boot Sequence: architecture/boot-sequence.md
     - Filesystem Layout: architecture/filesystem-layout.md
   - Hardware:
+    - hardware/index.md
     - Supported Boards: hardware/supported-boards.md
+    - Apple Silicon: hardware/apple-silicon.md
+    - Jetson Orin Nano Super: hardware/jetson-orin.md
+    - RK3588 (Orange Pi 5, ROCK 5B): hardware/rk3588.md
+    - Raspberry Pi 5 + Hailo: hardware/pi5-hailo.md
+  - API Reference:
+    - api/index.md
+    - REST API Overview: api/overview.md
+    - OpenAI-Compatible API: api/openai-compat.md
+    - RAG API: api/rag.md
+    - Health & Status: api/health.md
+    - Python Modules:
+      - Controller: api/python/controller.md
+      - Providers: api/python/providers.md
+      - RAG Pipeline: api/python/rag.md
+  - Configuration:
+    - reference/configuration.md
   - IDE Integration:
+    - ide-integration/index.md
     - Cursor Setup: ide-integration/cursor-setup.md
     - Copilot Setup: ide-integration/copilot-setup.md
   - Reference:
+    - reference/index.md
     - Port Map: reference/port-map.md
+    - CLI Reference: reference/cli-reference.md
     - Troubleshooting: reference/troubleshooting.md
     - FAQ: reference/faq.md
+  - Operations:
+    - Deployment Runbook: operations/deployment-runbook.md
+    - Monitoring Guide: operations/monitoring-guide.md
+    - Backup and Restore: operations/backup-restore.md
+    - Troubleshooting: operations/troubleshooting.md
   - Security:
     - Security Policy: security/security-policy.md

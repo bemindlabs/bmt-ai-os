@@ -20,8 +20,24 @@ services:
     environment:
       - BMT_COMPOSE_FILE=/app/ai-stack/docker-compose.yml
       - PYTHONPATH=/app
+      - OLLAMA_HOST=http://ollama:11434
+      - CHROMADB_HOST=http://chromadb:8000
+    user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    # BMTOS-50: per-service security hardening
+    # seccomp/AppArmor applied on Linux; Docker Desktop silently ignores AppArmor.
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-controller.json
+      - apparmor=bmt-controller
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
     depends_on:
       ollama:
         condition: service_healthy
@@ -49,6 +65,19 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-2}
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+    # BMTOS-50: per-service security hardening
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-ollama.json
+      - apparmor=bmt-ollama
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - SYS_RESOURCE
+    pids_limit: 256
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -85,6 +114,18 @@ services:
       - IS_PERSISTENT=TRUE
       - PERSIST_DIRECTORY=/chroma/chroma
       - ANONYMIZED_TELEMETRY=FALSE
+    # BMTOS-50: per-service security hardening
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=bmt_ai_os/runtime/security/seccomp-chromadb.json
+      - apparmor=bmt-chromadb
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/heartbeat"]
@@ -108,11 +149,21 @@ services:
     command: sh -c "npm install && npm run dev"
     environment:
       - NEXT_PUBLIC_API_URL=http://controller:8080
+    # BMTOS-50: minimal hardening for dev dashboard (no AppArmor profile needed)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 256
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
     depends_on:
       - controller
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:9090"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090"]
       interval: 30s
       timeout: 5s
       retries: 3

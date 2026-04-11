@@ -296,6 +296,123 @@ class TestVerifySignature:
 
 
 # ===========================================================================
+# verify_download (BMTOS-68)
+# ===========================================================================
+
+
+class TestVerifyDownload:
+    """Tests for the high-level verify_download() convenience wrapper."""
+
+    def _make_keypair(self):
+        try:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        except ImportError:
+            return None, None, None
+
+        priv = Ed25519PrivateKey.generate()
+        pub = priv.public_key()
+        pub_bytes = pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        return priv, pub_bytes, None
+
+    def test_valid_signature_returns_true(self, tmp_path):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        priv, pub_bytes, _ = self._make_keypair()
+        image_data = b"production OTA image bytes"
+        digest = hashlib.sha256(image_data).digest()
+        sig_bytes = priv.sign(digest)
+
+        img_path = _write_file(tmp_path / "update.img", image_data)
+        sig_path = _write_file(tmp_path / "update.img.sig", sig_bytes)
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, sig_path=sig_path, pubkey_path=pub_path)
+        assert result is True
+
+    def test_default_sig_path_is_image_plus_sig(self, tmp_path):
+        """When sig_path is None, defaults to <image>.sig."""
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        priv, pub_bytes, _ = self._make_keypair()
+        image_data = b"another image"
+        digest = hashlib.sha256(image_data).digest()
+        sig_bytes = priv.sign(digest)
+
+        img_path = _write_file(tmp_path / "bmt.img", image_data)
+        # sig file at default path: bmt.img.sig
+        _write_file(tmp_path / "bmt.img.sig", sig_bytes)
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, pubkey_path=pub_path)
+        assert result is True
+
+    def test_env_var_overrides_pubkey_path(self, tmp_path, monkeypatch):
+        """BMT_OTA_PUBKEY_PATH env var is honoured when pubkey_path is None."""
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        priv, pub_bytes, _ = self._make_keypair()
+        image_data = b"env var image"
+        digest = hashlib.sha256(image_data).digest()
+        sig_bytes = priv.sign(digest)
+
+        pub_path = _write_file(tmp_path / "env-key.pub", pub_bytes)
+        monkeypatch.setenv("BMT_OTA_PUBKEY_PATH", str(pub_path))
+
+        img_path = _write_file(tmp_path / "bmt.img", image_data)
+        sig_path = _write_file(tmp_path / "bmt.img.sig", sig_bytes)
+
+        result = verify_download(img_path, sig_path=sig_path)
+        assert result is True
+
+    def test_missing_sig_file_returns_false(self, tmp_path):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        _, pub_bytes, _ = self._make_keypair()
+        img_path = _write_file(tmp_path / "update.img", b"data")
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, sig_path=tmp_path / "missing.sig", pubkey_path=pub_path)
+        assert result is False
+
+    def test_bad_signature_returns_false(self, tmp_path):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import verify_download
+
+        _, pub_bytes, _ = self._make_keypair()
+        img_path = _write_file(tmp_path / "update.img", b"data")
+        sig_path = _write_file(tmp_path / "update.img.sig", b"\x00" * 64)
+        pub_path = _write_file(tmp_path / "signing-key.pub", pub_bytes)
+
+        result = verify_download(img_path, sig_path=sig_path, pubkey_path=pub_path)
+        assert result is False
+
+
+# ===========================================================================
 # engine.py
 # ===========================================================================
 
@@ -481,45 +598,229 @@ class TestDownloadImage:
         assert dest.exists()
 
 
+def _make_signed_image(tmp_path: Path, image_data: bytes) -> tuple[Path, Path, Path]:
+    """Generate a real Ed25519 key pair, sign *image_data*, and return
+    ``(img_path, sig_path, pubkey_path)``.  Skips the test when the
+    ``cryptography`` package is absent.
+    """
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    except ImportError:
+        pytest.skip("cryptography not installed")
+
+    priv = Ed25519PrivateKey.generate()
+    pub = priv.public_key()
+    pub_bytes = pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+
+    digest = hashlib.sha256(image_data).digest()
+    sig_bytes = priv.sign(digest)
+
+    img_path = _write_file(tmp_path / "image.img", image_data)
+    sig_path = _write_file(tmp_path / "image.img.sig", sig_bytes)
+    pub_path = _write_file(tmp_path / "ota-pubkey.pem", pub_bytes)
+    return img_path, sig_path, pub_path
+
+
+# ===========================================================================
+# verify.py — enforce_signature
+# ===========================================================================
+
+
+class TestEnforceSignature:
+    def test_allow_unsigned_skips_verification(self, tmp_path, monkeypatch):
+        """BMT_OTA_ALLOW_UNSIGNED=true must bypass all checks."""
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.setenv("BMT_OTA_ALLOW_UNSIGNED", "true")
+        img = _write_file(tmp_path / "image.img", b"data")
+        # No sig file, no pubkey — should not raise.
+        enforce_signature(img)
+
+    def test_missing_sig_file_raises(self, tmp_path, monkeypatch):
+        """Without a .sig file, PermissionError must be raised."""
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        img = _write_file(tmp_path / "image.img", b"data")
+        with pytest.raises(PermissionError, match="signature file not found"):
+            enforce_signature(img)
+
+    def test_missing_pubkey_raises(self, tmp_path, monkeypatch):
+        """Sig file present but no public key → PermissionError."""
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(tmp_path / "nonexistent.pem"))
+        img = _write_file(tmp_path / "image.img", b"data")
+        _write_file(tmp_path / "image.img.sig", b"\x00" * 64)
+        with pytest.raises(PermissionError, match="public key not found"):
+            enforce_signature(img)
+
+    def test_invalid_signature_raises(self, tmp_path, monkeypatch):
+        """Wrong signature bytes must trigger PermissionError."""
+        try:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        except ImportError:
+            pytest.skip("cryptography not installed")
+
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        priv = Ed25519PrivateKey.generate()
+        pub = priv.public_key()
+        pub_bytes = pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        pub_path = _write_file(tmp_path / "ota-pubkey.pem", pub_bytes)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(pub_path))
+
+        img = _write_file(tmp_path / "image.img", b"data")
+        _write_file(tmp_path / "image.img.sig", b"\x00" * 64)  # garbage
+
+        with pytest.raises(PermissionError, match="FAILED"):
+            enforce_signature(img)
+
+    def test_valid_signature_passes(self, tmp_path, monkeypatch):
+        """Correct Ed25519 signature must not raise."""
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        image_data = b"legitimate OS image payload"
+        img_path, sig_path, pub_path = _make_signed_image(tmp_path, image_data)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(pub_path))
+
+        # Should not raise.
+        enforce_signature(img_path, sig_path)
+
+    def test_explicit_sig_path_used(self, tmp_path, monkeypatch):
+        """Caller-supplied sig_path takes precedence over the default."""
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        image_data = b"image with explicit sig path"
+        img_path, _, pub_path = _make_signed_image(tmp_path, image_data)
+        # Rename sig to a non-default name.
+        explicit_sig = tmp_path / "custom.sig"
+        (tmp_path / "image.img.sig").rename(explicit_sig)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(pub_path))
+
+        enforce_signature(img_path, explicit_sig)
+
+    def test_bmt_ota_pubkey_env_var_respected(self, tmp_path, monkeypatch):
+        """BMT_OTA_PUBKEY env var must override the compiled-in default."""
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        image_data = b"pubkey env var test"
+        img_path, sig_path, pub_path = _make_signed_image(tmp_path, image_data)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(pub_path))
+
+        # Passes because BMT_OTA_PUBKEY points to the correct key.
+        enforce_signature(img_path, sig_path)
+
+    def test_cryptography_absent_raises_permission_error(self, tmp_path, monkeypatch):
+        """When cryptography is not installed, PermissionError (not RuntimeError)
+        must propagate to the caller."""
+        import builtins
+
+        from bmt_ai_os.ota.verify import enforce_signature
+
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        img = _write_file(tmp_path / "image.img", b"data")
+        sig = _write_file(tmp_path / "image.img.sig", b"\x00" * 64)
+        pub = _write_file(tmp_path / "key.pem", b"\x00" * 32)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(pub))
+
+        real_import = builtins.__import__
+
+        def _block_cryptography(name, *args, **kwargs):
+            if name.startswith("cryptography"):
+                raise ImportError("no module named cryptography")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=_block_cryptography):
+            with pytest.raises(PermissionError, match="cryptography"):
+                enforce_signature(img, sig)
+
+
 class TestApplyUpdate:
-    def test_file_backed_write_switches_slot(self, tmp_path, monkeypatch):
-        from bmt_ai_os.ota.engine import apply_update
+    def _setup_signed(self, tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
+        """Write a properly signed image and configure env vars.
+
+        Returns ``(img_path, state_manager)``.
+        """
         from bmt_ai_os.ota.state import StateManager
 
-        monkeypatch.setenv("BMT_OTA_SLOT_DIR", str(tmp_path / "slots"))
-        sm = StateManager(path=tmp_path / "state.json")
-
         image_data = b"OS image payload"
-        img = tmp_path / "image.img"
-        img.write_bytes(image_data)
+        img_path, sig_path, pub_path = _make_signed_image(tmp_path, image_data)
+        monkeypatch.setenv("BMT_OTA_PUBKEY", str(pub_path))
+        monkeypatch.setenv("BMT_OTA_SLOT_DIR", str(tmp_path / "slots"))
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        sm = StateManager(path=tmp_path / "state.json")
+        return img_path, sm
 
-        result = apply_update(img, "b", dry_run=True, state_manager=sm)
+    def test_file_backed_write_switches_slot(self, tmp_path, monkeypatch):
+        from bmt_ai_os.ota.engine import apply_update
+
+        img_path, sm = self._setup_signed(tmp_path, monkeypatch)
+        sig_path = img_path.parent / (img_path.name + ".sig")
+
+        result = apply_update(img_path, "b", dry_run=True, state_manager=sm, sig_path=sig_path)
         assert result is True
 
         # Slot file was written
         slot_file = tmp_path / "slots" / "b.img"
         assert slot_file.exists()
-        assert slot_file.read_bytes() == image_data
+        assert slot_file.read_bytes() == img_path.read_bytes()
 
         # State was switched
         state = sm.load()
         assert state.current_slot == "b"
         assert state.standby_slot == "a"
 
-    def test_invalid_slot_returns_false(self, tmp_path):
+    def test_unsigned_update_rejected_by_default(self, tmp_path, monkeypatch):
+        """apply_update must raise PermissionError when sig file is absent."""
         from bmt_ai_os.ota.engine import apply_update
         from bmt_ai_os.ota.state import StateManager
 
+        monkeypatch.delenv("BMT_OTA_ALLOW_UNSIGNED", raising=False)
+        monkeypatch.setenv("BMT_OTA_SLOT_DIR", str(tmp_path / "slots"))
+        sm = StateManager(path=tmp_path / "state.json")
+
+        img = _write_file(tmp_path / "image.img", b"unsigned data")
+        # No .sig file written.
+        with pytest.raises(PermissionError):
+            apply_update(img, "b", dry_run=True, state_manager=sm)
+
+    def test_allow_unsigned_env_bypasses_check(self, tmp_path, monkeypatch):
+        """BMT_OTA_ALLOW_UNSIGNED=true allows unsigned images through."""
+        from bmt_ai_os.ota.engine import apply_update
+        from bmt_ai_os.ota.state import StateManager
+
+        monkeypatch.setenv("BMT_OTA_ALLOW_UNSIGNED", "true")
+        monkeypatch.setenv("BMT_OTA_SLOT_DIR", str(tmp_path / "slots"))
+        sm = StateManager(path=tmp_path / "state.json")
+
+        img = _write_file(tmp_path / "image.img", b"unsigned image data")
+        result = apply_update(img, "b", dry_run=True, state_manager=sm)
+        assert result is True
+
+    def test_invalid_slot_returns_false(self, tmp_path, monkeypatch):
+        from bmt_ai_os.ota.engine import apply_update
+        from bmt_ai_os.ota.state import StateManager
+
+        monkeypatch.setenv("BMT_OTA_ALLOW_UNSIGNED", "true")
         sm = StateManager(path=tmp_path / "state.json")
         img = tmp_path / "image.img"
         img.write_bytes(b"data")
 
         assert apply_update(img, "c", dry_run=True, state_manager=sm) is False
 
-    def test_missing_image_returns_false(self, tmp_path):
+    def test_missing_image_returns_false(self, tmp_path, monkeypatch):
         from bmt_ai_os.ota.engine import apply_update
         from bmt_ai_os.ota.state import StateManager
 
+        monkeypatch.setenv("BMT_OTA_ALLOW_UNSIGNED", "true")
         sm = StateManager(path=tmp_path / "state.json")
         assert (
             apply_update(tmp_path / "nonexistent.img", "b", dry_run=True, state_manager=sm) is False
@@ -528,9 +829,12 @@ class TestApplyUpdate:
     def test_file_backed_readback_detects_corruption(self, tmp_path, monkeypatch):
         """Simulate a silent write corruption by monkeypatching shutil.copy2."""
         from bmt_ai_os.ota.engine import apply_update
+
+        monkeypatch.setenv("BMT_OTA_ALLOW_UNSIGNED", "true")
+        monkeypatch.setenv("BMT_OTA_SLOT_DIR", str(tmp_path / "slots"))
+
         from bmt_ai_os.ota.state import StateManager
 
-        monkeypatch.setenv("BMT_OTA_SLOT_DIR", str(tmp_path / "slots"))
         sm = StateManager(path=tmp_path / "state.json")
 
         img = tmp_path / "image.img"
@@ -705,3 +1009,214 @@ class TestCLIUpdateCommands:
         result = runner.invoke(main, ["update", "status", "--state-file", state_file])
         assert result.exit_code == 0
         assert state_file in result.output
+
+    def test_rollback_switches_slots(self, runner, state_file, tmp_path):
+        from bmt_ai_os.cli import main
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=state_file)
+        sm.save(OTAState(current_slot="b", standby_slot="a", confirmed=False))
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            result = runner.invoke(
+                main, ["update", "rollback", "--state-file", state_file, "--yes"]
+            )
+
+        assert result.exit_code == 0
+        assert "rolled back" in result.output.lower()
+
+        state = sm.load()
+        assert state.current_slot == "a"
+        assert state.standby_slot == "b"
+
+    def test_rollback_prompts_without_yes(self, runner, state_file):
+        from bmt_ai_os.cli import main
+
+        result = runner.invoke(
+            main, ["update", "rollback", "--state-file", state_file], input="n\n"
+        )
+        assert result.exit_code != 0  # aborted
+
+    def test_containers_calls_docker_compose_pull(self, runner, state_file, tmp_path):
+        from bmt_ai_os.cli import main
+
+        compose_file = str(tmp_path / "docker-compose.yml")
+        Path(compose_file).write_text("version: '3'")
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
+            result = runner.invoke(
+                main,
+                ["update", "containers", "--compose-file", compose_file],
+            )
+
+        assert result.exit_code == 0
+        assert "updated successfully" in result.output.lower()
+        cmd = mock_run.call_args[0][0]
+        assert "docker" in cmd
+        assert "pull" in cmd
+
+    def test_containers_specific_service(self, runner, state_file, tmp_path):
+        from bmt_ai_os.cli import main
+
+        compose_file = str(tmp_path / "docker-compose.yml")
+        Path(compose_file).write_text("version: '3'")
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
+            result = runner.invoke(
+                main,
+                [
+                    "update",
+                    "containers",
+                    "--compose-file",
+                    compose_file,
+                    "--service",
+                    "ollama",
+                ],
+            )
+
+        assert result.exit_code == 0
+        cmd = mock_run.call_args[0][0]
+        assert "ollama" in cmd
+
+    def test_containers_docker_not_found(self, runner, tmp_path):
+        from bmt_ai_os.cli import main
+
+        compose_file = str(tmp_path / "docker-compose.yml")
+        Path(compose_file).write_text("version: '3'")
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = runner.invoke(
+                main,
+                ["update", "containers", "--compose-file", compose_file],
+            )
+
+        assert result.exit_code != 0
+        assert "docker" in result.output.lower()
+
+
+# ===========================================================================
+# engine.py — rollback and should_rollback
+# ===========================================================================
+
+
+class TestRollbackUpdate:
+    def test_swaps_slots_and_resets_bootcount(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="b", standby_slot="a", bootcount=2, confirmed=False))
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            result = rollback_update(state_manager=sm)
+
+        assert result is True
+        state = sm.load()
+        assert state.current_slot == "a"
+        assert state.standby_slot == "b"
+        assert state.bootcount == 0
+        assert state.confirmed is False
+
+    def test_calls_fw_setenv_slot_name(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="b", standby_slot="a"))
+
+        calls = []
+
+        def _mock_run(cmd, **kwargs):
+            calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=_mock_run):
+            rollback_update(state_manager=sm)
+
+        cmds = [" ".join(c) for c in calls if c[0] == "fw_setenv"]
+        assert any("slot_name" in c for c in cmds)
+        assert any("bootcount" in c for c in cmds)
+
+    def test_rollback_from_a_returns_to_b(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="a", standby_slot="b", confirmed=True))
+
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            rollback_update(state_manager=sm)
+
+        state = sm.load()
+        assert state.current_slot == "b"
+        assert state.standby_slot == "a"
+
+    def test_works_when_fw_setenv_unavailable(self, tmp_path):
+        from bmt_ai_os.ota.engine import rollback_update
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(current_slot="b", standby_slot="a"))
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = rollback_update(state_manager=sm)
+
+        assert result is True
+        state = sm.load()
+        assert state.current_slot == "a"
+
+
+class TestShouldRollback:
+    def test_returns_false_when_confirmed(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=True, bootcount=10))
+
+        assert should_rollback(state_manager=sm) is False
+
+    def test_returns_false_below_threshold(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=2))
+
+        assert should_rollback(max_bootcount=3, state_manager=sm) is False
+
+    def test_returns_true_at_threshold(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=3))
+
+        assert should_rollback(max_bootcount=3, state_manager=sm) is True
+
+    def test_returns_true_above_threshold(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=5))
+
+        assert should_rollback(max_bootcount=3, state_manager=sm) is True
+
+    def test_env_var_overrides_max_bootcount(self, tmp_path, monkeypatch):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import OTAState, StateManager
+
+        monkeypatch.setenv("BMT_OTA_MAX_BOOTCOUNT", "1")
+        sm = StateManager(path=tmp_path / "state.json")
+        sm.save(OTAState(confirmed=False, bootcount=1))
+
+        assert should_rollback(max_bootcount=5, state_manager=sm) is True
+
+    def test_returns_false_for_fresh_state(self, tmp_path):
+        from bmt_ai_os.ota.engine import should_rollback
+        from bmt_ai_os.ota.state import StateManager
+
+        sm = StateManager(path=tmp_path / "nonexistent.json")
+        # Factory default: confirmed=True, bootcount=0
+        assert should_rollback(state_manager=sm) is False

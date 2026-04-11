@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Callable
 
 from bmt_ai_os.ota.state import StateManager
+from bmt_ai_os.ota.verify import enforce_signature
 
 logger = logging.getLogger(__name__)
 
@@ -246,12 +247,19 @@ def apply_update(
     target_slot: str,
     dry_run: bool | None = None,
     state_manager: StateManager | None = None,
+    sig_path: str | Path | None = None,
 ) -> bool:
     """Write *image_path* to the *target_slot* partition.
 
     In production the image is written via ``dd`` to the block device
     associated with *target_slot*.  In file-backed / development mode the
     image is copied to ``/data/bmt_ai_os/slots/<slot>.img``.
+
+    Ed25519 signature verification is enforced before any write occurs.
+    The signature file is resolved in the same way as
+    :func:`~bmt_ai_os.ota.verify.enforce_signature`: *sig_path* when
+    provided, otherwise ``<image_path>.sig``.  Set
+    ``BMT_OTA_ALLOW_UNSIGNED=true`` to skip verification in development.
 
     The function performs a SHA-256 readback verification after writing to
     confirm data integrity.
@@ -269,11 +277,20 @@ def apply_update(
     state_manager:
         Injected :class:`~bmt_ai_os.ota.state.StateManager` for testability.
         Defaults to a fresh instance using the default path.
+    sig_path:
+        Explicit path to the detached Ed25519 signature.  Defaults to
+        ``<image_path>.sig`` when ``None``.
 
     Returns
     -------
     bool
         ``True`` when the image was written and the readback checksum matches.
+
+    Raises
+    ------
+    PermissionError
+        When Ed25519 signature verification fails and
+        ``BMT_OTA_ALLOW_UNSIGNED`` is not ``true``.
     """
     if target_slot not in ("a", "b"):
         logger.error("apply_update: invalid slot '%s'", target_slot)
@@ -283,6 +300,9 @@ def apply_update(
     if not image_path.is_file():
         logger.error("apply_update: image not found at %s", image_path)
         return False
+
+    # --- Ed25519 signature gate (required by default) -----------------
+    enforce_signature(image_path, sig_path)
 
     sm = state_manager or StateManager()
 
@@ -516,6 +536,79 @@ def _safe_unlink(path: Path) -> None:
         path.unlink()
     except OSError:
         pass
+
+
+def rollback_update(state_manager: StateManager | None = None) -> bool:
+    """Roll back to the previously active slot.
+
+    Swaps the slot pointers back so the *current* slot becomes standby again
+    and the previous standby becomes current.  On real hardware the function
+    also updates U-Boot env so the next boot uses the reverted slot.
+
+    Parameters
+    ----------
+    state_manager:
+        Injected :class:`~bmt_ai_os.ota.state.StateManager`.  Defaults to
+        a fresh instance.
+
+    Returns
+    -------
+    bool
+        ``True`` when the rollback was recorded successfully.
+    """
+    sm = state_manager or StateManager()
+    state = sm.load()
+
+    if state.confirmed:
+        logger.warning(
+            "rollback_update: current slot '%s' is already confirmed — "
+            "rollback may be unnecessary, proceeding anyway",
+            state.current_slot,
+        )
+
+    # Swap slots.
+    state.current_slot, state.standby_slot = state.standby_slot, state.current_slot
+    state.confirmed = False
+    state.bootcount = 0
+    sm.save(state)
+
+    logger.info(
+        "rollback_update: rolled back to slot '%s' (standby is now '%s')",
+        state.current_slot,
+        state.standby_slot,
+    )
+
+    # Tell U-Boot to boot the rolled-back slot on the next boot.
+    _fw_setenv("slot_name", state.current_slot)
+    _fw_setenv("upgrade_available", "0")
+    _fw_setenv("bootcount", "0")
+
+    return True
+
+
+def should_rollback(
+    max_bootcount: int = 3,
+    state_manager: StateManager | None = None,
+) -> bool:
+    """Return ``True`` when the bootcount has exceeded *max_bootcount*.
+
+    This is called by the init system (OpenRC) on each boot to decide whether
+    to trigger an automatic rollback before the controller even starts.
+
+    Parameters
+    ----------
+    max_bootcount:
+        Maximum number of consecutive unconfirmed boots before rollback.
+        Defaults to 3 (configurable via ``BMT_OTA_MAX_BOOTCOUNT`` env var).
+    state_manager:
+        Injected :class:`~bmt_ai_os.ota.state.StateManager`.
+    """
+    limit = int(os.environ.get("BMT_OTA_MAX_BOOTCOUNT", str(max_bootcount)))
+    sm = state_manager or StateManager()
+    state = sm.load()
+    if state.confirmed:
+        return False
+    return state.bootcount >= limit
 
 
 def _is_newer(candidate: str, current: str) -> bool:

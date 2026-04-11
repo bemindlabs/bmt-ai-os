@@ -17,3 +17,6 @@ pyyaml>=6.0,<7.0
 
 # Docker SDK for compose smoke tests
 docker>=7.0,<8.0
+
+# Main package (needed by unit tests that import bmt_ai_os)
+-e .

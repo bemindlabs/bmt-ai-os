@@ -1,0 +1,41 @@
+{
+  "sprint_number": 2,
+  "status": "completed",
+  "start_date": "2026-04-11",
+  "end_date": "2026-04-11",
+  "duration_days": 14,
+  "goal": "Complete Security Hardening Phase 2 and AI Assistant Memory foundations \u2014 enforce auth at startup, add rate limiting, secrets management, fleet persistence, and conversation storage",
+  "planned_points": 74,
+  "completed_points": 74,
+  "items": [
+    "BMTOS-55",
+    "BMTOS-54",
+    "BMTOS-59",
+    "BMTOS-65",
+    "BMTOS-61",
+    "BMTOS-69",
+    "BMTOS-70",
+    "BMTOS-56",
+    "BMTOS-58",
+    "BMTOS-71",
+    "BMTOS-57",
+    "BMTOS-62",
+    "BMTOS-60"
+  ],
+  "completed_items": [
+    "BMTOS-55",
+    "BMTOS-54",
+    "BMTOS-59",
+    "BMTOS-65",
+    "BMTOS-61",
+    "BMTOS-69",
+    "BMTOS-70",
+    "BMTOS-56",
+    "BMTOS-58",
+    "BMTOS-71",
+    "BMTOS-57",
+    "BMTOS-62",
+    "BMTOS-60"
+  ],
+  "scope_changes": []
+}

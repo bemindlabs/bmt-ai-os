@@ -486,6 +486,15 @@ def benchmark() -> None:
 
 @benchmark.command("run")
 @click.option(
+    "--suite",
+    "-s",
+    "suite_name",
+    default="all",
+    show_default=True,
+    type=click.Choice(["inference", "rag", "system", "all"], case_sensitive=False),
+    help="Which benchmark suite to run.",
+)
+@click.option(
     "--model",
     "-m",
     default="qwen2.5:0.5b",
@@ -521,42 +530,98 @@ def benchmark() -> None:
     show_default=True,
     help="Directory to write the JSON report into.",
 )
+@click.option(
+    "--baseline",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to a previous JSON report to compare against.",
+)
+@click.option(
+    "--markdown/--no-markdown",
+    default=True,
+    show_default=True,
+    help="Also write a markdown summary alongside the JSON report.",
+)
 def benchmark_run(
+    suite_name: str,
     model: str,
     embedding_model: str,
     ollama_url: str,
     chromadb_url: str,
     board: str | None,
     reports_dir: str,
+    baseline: str | None,
+    markdown: bool,
 ) -> None:
-    """Run the full benchmark suite and save results to reports/.
+    """Run the benchmark suite and save results to reports/.
 
-    Runs inference (throughput, first-token latency) and RAG (embed + retrieve
-    + generate) benchmarks, then writes a JSON report.
+    Use --suite to select which benchmarks to run:
+    inference, rag, system, or all (default).
+
+    Examples:
+
+      bmt-ai-os benchmark run --suite inference --model qwen2.5:7b
+
+      bmt-ai-os benchmark run --suite system
+
+      bmt-ai-os benchmark run --suite all
     """
-    click.echo(f"Running full benchmark suite (model={model})...")
+    click.echo(f"Running benchmark suite: {suite_name} (model={model})")
     try:
-        report = _suite.run_full(
-            model=model,
-            embedding_model=embedding_model,
-            ollama_url=ollama_url,
-            chromadb_url=chromadb_url,
-            board=board,
-        )
+        if suite_name == "inference":
+            report = _suite.run_inference_only(
+                model=model,
+                ollama_url=ollama_url,
+                board=board,
+            )
+        elif suite_name == "rag":
+            report = _suite.run_rag_only(
+                model=model,
+                embedding_model=embedding_model,
+                ollama_url=ollama_url,
+                chromadb_url=chromadb_url,
+                board=board,
+            )
+        elif suite_name == "system":
+            report = _suite.run_system_only(board=board)
+        else:  # "all"
+            report = _suite.run_all(
+                model=model,
+                embedding_model=embedding_model,
+                ollama_url=ollama_url,
+                chromadb_url=chromadb_url,
+                board=board,
+            )
     except RuntimeError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
 
     click.echo("\nResults:")
     click.echo(f"  Board:           {report.board}")
-    click.echo(f"  Model:           {report.model}")
-    click.echo(f"  Throughput:      {report.inference_tok_s:.1f} tok/s")
-    click.echo(f"  First token:     {report.first_token_ms:.0f} ms")
-    click.echo(f"  RAG query:       {report.rag_query_ms:.0f} ms")
-    click.echo(f"  Memory peak:     {report.memory_peak_mb:.0f} MB")
+    if report.model:
+        click.echo(f"  Model:           {report.model}")
+    if report.inference_tok_s > 0 or suite_name in ("inference", "all"):
+        click.echo(f"  Throughput:      {report.inference_tok_s:.1f} tok/s")
+        click.echo(f"  First token:     {report.first_token_ms:.0f} ms")
+    if report.rag_query_ms > 0 or suite_name in ("rag", "all"):
+        click.echo(f"  RAG query:       {report.rag_query_ms:.0f} ms")
+    if report.cpu_score > 0 or suite_name in ("system", "all"):
+        click.echo(f"  CPU score:       {report.cpu_score:.2f} iter/ms")
+        click.echo(f"  Memory read:     {report.memory_read_mb_s:.0f} MB/s")
+        click.echo(f"  Disk write:      {report.disk_write_mb_s:.0f} MB/s")
+        click.echo(f"  Disk read:       {report.disk_read_mb_s:.0f} MB/s")
+        click.echo(f"  RAM total:       {report.memory_total_mb:.0f} MB")
+    if report.memory_peak_mb > 0:
+        click.echo(f"  Memory peak:     {report.memory_peak_mb:.0f} MB")
 
     saved_path = _suite.save_report(report, reports_dir=reports_dir)
-    click.echo(f"\nReport saved to: {saved_path}")
+    click.echo(f"\nJSON report: {saved_path}")
+
+    if markdown:
+        md_path = _suite.save_markdown_report(
+            report, reports_dir=reports_dir, baseline_path=baseline
+        )
+        click.echo(f"Markdown report: {md_path}")
 
 
 @benchmark.command("inference")
@@ -1479,3 +1544,222 @@ def update_status(state_file: str | None) -> None:
     click.echo(f"  Bootcount      : {state.bootcount}")
     click.echo(f"  Last update    : {state.last_update or 'never'}")
     click.echo(f"  State file     : {sm.path}")
+
+
+@update.command("run")
+@click.option(
+    "--server",
+    default=_DEFAULT_OTA_SERVER,
+    show_default=True,
+    envvar="BMT_OTA_SERVER_URL",
+    help="Release-info endpoint URL.",
+)
+@click.option(
+    "--compose-file",
+    default=None,
+    envvar="BMT_COMPOSE_FILE",
+    help="Docker Compose file for container image updates.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Use file-backed slot store instead of a real block device.",
+)
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+@click.option(
+    "--skip-containers",
+    is_flag=True,
+    default=False,
+    help="Skip the docker compose pull stage.",
+)
+def update_run(
+    server: str,
+    compose_file: str | None,
+    dry_run: bool,
+    state_file: str | None,
+    skip_containers: bool,
+) -> None:
+    """Full system update: OS rootfs + container images.
+
+    Performs three steps in sequence:
+
+    \b
+    1. Checks the release server for a newer OS image.
+    2. Downloads and writes it to the standby A/B partition.
+    3. Pulls updated Docker container images (docker compose pull).
+
+    Model data and ChromaDB data on /data are preserved automatically
+    because they live on a separate data partition that is never modified
+    during an update.
+
+    After the next reboot, run `bmt-ai-os update confirm` to mark the
+    new partition as healthy and disable automatic rollback.
+
+    Example: bmt-ai-os update run --dry-run
+    """
+    import os as _os
+
+    from bmt_ai_os.ota.state import StateManager
+    from bmt_ai_os.update.orchestrator import UpdateOrchestrator
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+
+    # Resolve compose file: CLI flag > env > config default.
+    resolved_compose = compose_file or _os.environ.get(
+        "BMT_COMPOSE_FILE",
+        str(
+            next(
+                (
+                    p
+                    for p in [
+                        "/opt/bmt_ai_os/ai-stack/docker-compose.yml",
+                        "bmt_ai_os/ai-stack/docker-compose.yml",
+                    ]
+                    if __import__("pathlib").Path(p).exists()
+                ),
+                "/opt/bmt_ai_os/ai-stack/docker-compose.yml",
+            )
+        ),
+    )
+
+    click.echo("BMT AI OS — Full System Update")
+    click.echo("=" * 45)
+    click.echo(f"  Server        : {server}")
+    click.echo(f"  Compose file  : {resolved_compose}")
+    click.echo(f"  Dry run       : {'yes' if dry_run else 'no'}")
+    click.echo(f"  Skip containers: {'yes' if skip_containers else 'no'}")
+    click.echo()
+
+    orchestrator = UpdateOrchestrator(
+        server_url=server,
+        compose_file="" if skip_containers else resolved_compose,
+        state_manager=sm,
+        dry_run=dry_run,
+    )
+
+    result = orchestrator.run()
+
+    # Print stage results.
+    for stage in result.stages:
+        if stage.skipped:
+            status_label = "SKIP"
+        elif stage.success:
+            status_label = "OK  "
+        else:
+            status_label = "FAIL"
+        click.echo(f"  [{status_label}] {stage.name}: {stage.message}")
+
+    click.echo()
+    if result.success:
+        if result.new_version:
+            click.echo(f"Update to version {result.new_version} applied successfully.")
+            click.echo("Reboot the device, then run `bmt-ai-os update confirm`.")
+        else:
+            click.echo("System is already up to date.  No reboot required.")
+    else:
+        failed = [s.name for s in result.stages if not s.success and not s.skipped]
+        click.echo(f"Update failed at stage(s): {', '.join(failed)}", err=True)
+        sys.exit(1)
+
+
+@update.command("rollback")
+@click.option(
+    "--state-file",
+    default=None,
+    envvar="BMT_OTA_STATE_PATH",
+    help="Override OTA state file path.",
+)
+@click.option(
+    "--yes",
+    is_flag=True,
+    default=False,
+    help="Skip the confirmation prompt.",
+)
+def update_rollback(state_file: str | None, yes: bool) -> None:
+    """Roll back to the previously active slot.
+
+    Swaps slot pointers so the device will boot from the standby (previous)
+    slot on the next reboot.  Reboot manually after running this command.
+
+    Example: bmt-ai-os update rollback --yes
+    """
+    from bmt_ai_os.ota.engine import get_current_slot, rollback_update
+    from bmt_ai_os.ota.state import StateManager
+
+    sm = StateManager(path=state_file) if state_file else StateManager()
+    state = sm.load()
+    current = get_current_slot(sm)
+
+    click.echo(f"Current slot : {current}")
+    click.echo(f"Will roll back to slot : {state.standby_slot}")
+
+    if not yes:
+        click.confirm("Proceed with rollback?", abort=True)
+
+    ok = rollback_update(state_manager=sm)
+    if not ok:
+        click.echo("Error: rollback failed.", err=True)
+        sys.exit(1)
+
+    new_state = sm.load()
+    click.echo(f"Rolled back to slot '{new_state.current_slot}'.")
+    click.echo("Reboot the device to boot the previous slot.")
+
+
+@update.command("containers")
+@click.option(
+    "--compose-file",
+    default=None,
+    envvar="BMT_COMPOSE_FILE",
+    help="Path to the Docker Compose file.",
+)
+@click.option(
+    "--service",
+    "services",
+    multiple=True,
+    help="Specific service(s) to update (default: all).",
+)
+def update_containers(compose_file: str | None, services: tuple[str, ...]) -> None:
+    """Update container images via docker compose pull.
+
+    Pulls the latest container images without modifying the OS partition or
+    model data.  Container updates are independent of A/B slot switching.
+
+    Example: bmt-ai-os update containers
+    Example: bmt-ai-os update containers --service ollama --service chromadb
+    """
+    import subprocess
+
+    compose_path = compose_file or os.environ.get(
+        "BMT_COMPOSE_FILE",
+        os.path.join(os.path.dirname(__file__), "ai-stack", "docker-compose.yml"),
+    )
+
+    cmd = ["docker", "compose", "-f", compose_path, "pull", "--policy", "always"]
+    if services:
+        cmd.extend(list(services))
+
+    click.echo(f"Pulling container images from: {compose_path}")
+    if services:
+        click.echo(f"Services: {', '.join(services)}")
+    else:
+        click.echo("Services: all")
+
+    try:
+        result = subprocess.run(cmd, check=False)  # noqa: S603
+    except FileNotFoundError:
+        click.echo("Error: 'docker' not found on PATH.  Is Docker installed?", err=True)
+        sys.exit(1)
+
+    if result.returncode != 0:
+        click.echo(f"Error: docker compose pull exited with code {result.returncode}.", err=True)
+        sys.exit(result.returncode)
+
+    click.echo("Container images updated successfully.")
+    click.echo("Run `bmt-ai-os stack restart` to apply the new images.")

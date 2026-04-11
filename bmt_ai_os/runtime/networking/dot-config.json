@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "BMT AI OS — DNS-over-TLS / DNS-over-HTTPS configuration (BMTOS-52)",
+
+  "dns_mode": "dot",
+
+  "dot": {
+    "enabled": true,
+    "port": 853,
+    "upstream_servers": [
+      {
+        "name": "Cloudflare DoT (primary)",
+        "address": "1.1.1.1",
+        "tls_hostname": "cloudflare-dns.com",
+        "port": 853
+      },
+      {
+        "name": "Cloudflare DoT (secondary)",
+        "address": "1.0.0.1",
+        "tls_hostname": "cloudflare-dns.com",
+        "port": 853
+      },
+      {
+        "name": "Google DoT (primary)",
+        "address": "8.8.8.8",
+        "tls_hostname": "dns.google",
+        "port": 853
+      },
+      {
+        "name": "Google DoT (secondary)",
+        "address": "8.8.4.4",
+        "tls_hostname": "dns.google",
+        "port": 853
+      }
+    ],
+    "tls_min_version": "1.2",
+    "verify_hostname": true,
+    "cache_size": 1000,
+    "cache_ttl_min": 60,
+    "cache_ttl_max": 86400
+  },
+
+  "doh": {
+    "enabled": false,
+    "upstream_servers": [
+      {
+        "name": "Cloudflare DoH",
+        "url": "https://cloudflare-dns.com/dns-query",
+        "bootstrap_address": "1.1.1.1"
+      },
+      {
+        "name": "Google DoH",
+        "url": "https://dns.google/dns-query",
+        "bootstrap_address": "8.8.8.8"
+      }
+    ]
+  },
+
+  "fallback": {
+    "enabled": true,
+    "plain_dns": ["127.0.0.11"],
+    "_comment": "Docker embedded DNS — used as plain fallback when DoT is unavailable (offline mode)"
+  },
+
+  "offline_mode": {
+    "enabled": false,
+    "_comment": "Set to true for fully air-gapped deployments; disables all external DNS"
+  },
+
+  "stubby_config_path": "/etc/bmt_ai_os/stubby.yml",
+
+  "_integration": {
+    "_comment": "systemd-resolved / stubby integration notes",
+    "resolved_conf": {
+      "DNS": "127.0.0.53",
+      "FallbackDNS": "127.0.0.11",
+      "DNSOverTLS": "opportunistic",
+      "DNSSEC": "allow-downgrade"
+    }
+  }
+}

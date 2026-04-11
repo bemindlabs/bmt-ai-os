@@ -10,7 +10,8 @@
 #   docker run -p 8080:8080 --network bmt-ai-net bemindlabs/bmt-ai-os
 
 # --- Stage 1: Build dependencies ---
-FROM python:3.12-alpine AS builder
+# Digest pinned 2026-04-11 — python:3.12-alpine
+FROM python:3.12-alpine@sha256:7747d47f92cfca63a6e2b50275e23dba8407c30d8ae929a88ddd49a5d3f2d331 AS builder
 
 RUN apk add --no-cache gcc musl-dev libffi-dev openssl-dev cargo
 
@@ -31,7 +32,8 @@ RUN pip install --no-cache-dir --prefix=/install \
     uvicorn>=0.34
 
 # --- Stage 2: Runtime ---
-FROM python:3.12-alpine
+# Digest pinned 2026-04-11 — python:3.12-alpine
+FROM python:3.12-alpine@sha256:7747d47f92cfca63a6e2b50275e23dba8407c30d8ae929a88ddd49a5d3f2d331
 
 LABEL maintainer="Bemind Technology Co., Ltd."
 LABEL org.opencontainers.image.title="BMT AI OS"
@@ -46,7 +48,7 @@ COPY --from=builder /install /usr/local
 
 # Minimal runtime deps
 RUN apk upgrade --no-cache \
-    && apk add --no-cache curl libffi openssl \
+    && apk add --no-cache curl libffi openssl docker-cli docker-cli-compose \
     && adduser -D -s /bin/false bmt
 
 WORKDIR /app
