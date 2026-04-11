@@ -204,7 +204,7 @@ services:
     volumes:
       - training_runs:/runs
     command: >-
-      sh -c "pip install --no-cache-dir tensorboard setuptools && tensorboard --logdir=/runs --host=0.0.0.0 --port=6006"
+      sh -c "pip install --no-cache-dir 'setuptools<78' tensorboard && tensorboard --logdir=/runs --host=0.0.0.0 --port=6006"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006')"]
