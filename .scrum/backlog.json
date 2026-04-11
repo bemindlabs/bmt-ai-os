@@ -740,7 +740,7 @@
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "cli",
         "developer-experience"
@@ -796,7 +796,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "observability",
         "infrastructure"
@@ -849,7 +849,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "hardware",
         "bsp"
@@ -876,7 +876,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "hardware",
         "bsp"
@@ -903,7 +903,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "hardware",
         "bsp"
@@ -1360,7 +1360,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "hardware",
         "bsp",
