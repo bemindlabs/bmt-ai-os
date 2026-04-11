@@ -19,6 +19,8 @@ const AVAILABLE_MODELS = [
   { name: "qwen2.5:0.5b", size: "397 MB", desc: "General (tiny)" },
   { name: "llama3.2:3b", size: "2.0 GB", desc: "Meta Llama 3.2" },
   { name: "llama3.2:1b", size: "1.3 GB", desc: "Meta Llama 3.2 (small)" },
+  { name: "gemma4:12b", size: "7.6 GB", desc: "Google Gemma 4" },
+  { name: "gemma4:4b", size: "2.5 GB", desc: "Google Gemma 4 (small)" },
   { name: "gemma2:2b", size: "1.6 GB", desc: "Google Gemma 2" },
   { name: "phi3.5:3.8b", size: "2.2 GB", desc: "Microsoft Phi-3.5" },
   { name: "mistral:7b", size: "4.1 GB", desc: "Mistral 7B" },
