@@ -293,3 +293,28 @@ export async function deleteSshKey(name: string): Promise<{ deleted: boolean; na
     method: "DELETE",
   });
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge / RAG
+// ---------------------------------------------------------------------------
+export interface RagCollection { name: string; count: number; }
+export async function fetchCollections(): Promise<{ collections: RagCollection[] }> { return apiFetch("/api/v1/collections"); }
+export async function ingestDocuments(req: { path: string; collection?: string }): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify(req) }); }
+export async function searchKnowledge(req: { question: string; collection?: string; top_k?: number }): Promise<RagQueryResponse> { return apiFetch("/api/v1/query", { method: "POST", body: JSON.stringify(req) }); }
+export async function deleteCollection(name: string): Promise<{ status: string }> { return apiFetch(`/api/v1/collections/${name}`, { method: "DELETE" }); }
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+export interface FileEntry { name: string; path: string; is_dir: boolean; size: number; modified: string; }
+export async function listFiles(path: string): Promise<{ entries: FileEntry[]; breadcrumbs: { name: string; path: string }[] }> { return apiFetch(`/api/v1/files/list?path=${encodeURIComponent(path)}`); }
+export async function readFile(path: string): Promise<{ content: string; path: string }> { return apiFetch(`/api/v1/files/read?path=${encodeURIComponent(path)}`); }
+export function downloadFileUrl(path: string): string { return `/api/v1/files/download?path=${encodeURIComponent(path)}`; }
+export async function uploadFile(path: string, file: File): Promise<{ status: string }> { const form = new FormData(); form.append("file", file); const res = await fetch(`/api/v1/files/upload?path=${encodeURIComponent(path)}`, { method: "POST", body: form }); if (!res.ok) throw new Error(`${res.status}`); return res.json(); }
+export async function ingestPath(path: string): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify({ path }) }); }
+
+// ---------------------------------------------------------------------------
+// Agents
+// ---------------------------------------------------------------------------
+export interface AgentPreset { name: string; description: string; content?: string; }
+export async function fetchAgents(): Promise<{ presets: AgentPreset[] }> { try { return await apiFetch("/api/v1/persona/presets"); } catch { return { presets: [{ name: "default", description: "General AI assistant" }, { name: "coding", description: "Coding assistant" }, { name: "creative", description: "Creative writer" }] }; } }
