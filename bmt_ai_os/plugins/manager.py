@@ -7,6 +7,9 @@ provides integration with the provider registry for PROVIDER-hook plugins.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,6 +37,7 @@ class PluginManager:
 
     def __init__(self, state_file: str = _DEFAULT_STATE_FILE) -> None:
         self._state_path = Path(state_file)
+        self._lock = threading.Lock()
         # name -> enabled
         self._state: dict[str, bool] = self._load_state()
 
@@ -55,12 +59,27 @@ class PluginManager:
         return {}
 
     def _save_state(self) -> None:
-        """Persist current enabled/disabled state to disk."""
+        """Persist current enabled/disabled state to disk atomically.
+
+        Writes to a temporary file in the same directory then renames it into
+        place so that a concurrent reader never sees a partial write.  Must be
+        called while ``self._lock`` is held.
+        """
         try:
-            self._state_path.write_text(
-                json.dumps(self._state, indent=2),
-                encoding="utf-8",
-            )
+            dir_path = self._state_path.parent
+            dir_path.mkdir(parents=True, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    json.dump(self._state, fh, indent=2)
+                os.replace(tmp_path, self._state_path)
+            except Exception:
+                # Clean up the temp file on any error before re-raising.
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
         except OSError:
             # Non-fatal — e.g. read-only filesystem.
             pass
@@ -92,8 +111,9 @@ class PluginManager:
             If no plugin with *name* is discoverable.
         """
         self._assert_exists(name)
-        self._state[name] = True
-        self._save_state()
+        with self._lock:
+            self._state[name] = True
+            self._save_state()
 
     def disable(self, name: str) -> None:
         """Disable plugin *name*.
@@ -104,8 +124,9 @@ class PluginManager:
             If no plugin with *name* is discoverable.
         """
         self._assert_exists(name)
-        self._state[name] = False
-        self._save_state()
+        with self._lock:
+            self._state[name] = False
+            self._save_state()
 
     def is_enabled(self, name: str) -> bool:
         """Return whether plugin *name* is currently enabled."""

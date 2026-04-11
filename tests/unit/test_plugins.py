@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -344,6 +347,65 @@ class TestPluginManager:
             mgr.register_provider_plugin(plugin_instance)  # type: ignore[arg-type]
 
         registry_mock.register.assert_called_once_with("wrapped", inner_provider)
+
+    # -- per-instance lock / state isolation ---------------------------------
+
+    def test_two_instances_with_different_state_files_are_independent(self, tmp_path):
+        """Two PluginManager instances backed by different files must not share
+        state and must not deadlock each other."""
+        sf_a = str(tmp_path / "a.json")
+        sf_b = str(tmp_path / "b.json")
+
+        infos = [PluginInfo("alpha", "1.0.0", PluginHook.PROVIDER, "pkg.alpha")]
+        with patch("bmt_ai_os.plugins.manager.discover_plugins", return_value=infos):
+            mgr_a = PluginManager(state_file=sf_a)
+            mgr_b = PluginManager(state_file=sf_b)
+
+            mgr_a.disable("alpha")
+            # mgr_b has its own state — alpha should still be enabled there.
+            assert mgr_b.is_enabled("alpha") is True
+            assert mgr_a.is_enabled("alpha") is False
+
+            # Verify the files are separate on disk: sf_a has the disabled state,
+            # sf_b was never written because mgr_b had no state changes.
+            assert json.loads(Path(sf_a).read_text())["alpha"] is False
+            assert not Path(sf_b).exists()
+
+    def test_each_instance_has_its_own_lock(self, tmp_path):
+        """Each PluginManager must carry its own threading.Lock instance."""
+        sf_a = str(tmp_path / "a.json")
+        sf_b = str(tmp_path / "b.json")
+        mgr_a = PluginManager(state_file=sf_a)
+        mgr_b = PluginManager(state_file=sf_b)
+
+        assert isinstance(mgr_a._lock, type(threading.Lock()))
+        assert mgr_a._lock is not mgr_b._lock
+
+    def test_save_state_uses_atomic_rename(self, tmp_path):
+        """_save_state must write via a temp file in the same directory."""
+        sf = str(tmp_path / "plugins.json")
+        infos = [PluginInfo("demo", "1.0.0", PluginHook.PROVIDER, "m")]
+
+        created_temps: list[str] = []
+        real_mkstemp = tempfile.mkstemp
+
+        def spy_mkstemp(**kwargs):
+            fd, path = real_mkstemp(**kwargs)
+            created_temps.append(path)
+            return fd, path
+
+        with patch("bmt_ai_os.plugins.manager.discover_plugins", return_value=infos):
+            with patch("bmt_ai_os.plugins.manager.tempfile.mkstemp", side_effect=spy_mkstemp):
+                mgr = PluginManager(state_file=sf)
+                mgr.disable("demo")
+
+        # The temp file must have been cleaned up (renamed into place).
+        for tmp in created_temps:
+            assert not os.path.exists(tmp), f"Temp file was not renamed/removed: {tmp}"
+
+        # The final state file must be valid JSON with the expected content.
+        saved = json.loads(Path(sf).read_text())
+        assert saved["demo"] is False
 
 
 # ---------------------------------------------------------------------------
