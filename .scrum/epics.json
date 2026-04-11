@@ -308,7 +308,7 @@
       "id": "BMTOS-EPIC-13",
       "title": "Dashboard Integration Sprint",
       "description": "Wire all existing dashboard components into the live UI. Connect SSE streaming, session sidebar, slash commands, voice/file input, RAG toggle, and source cards into chat-interface.tsx. Add persona editor and agents page.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
         "BMTOS-101",
@@ -321,7 +321,26 @@
         "BMTOS-108",
         "BMTOS-109"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-14",
+      "title": "AI Workspace",
+      "description": "Transform the dashboard into a full AI workspace with resizable panels, tabbed work areas, terminal, code editor, file manager, and fleet dashboard.",
+      "status": "planned",
+      "priority": "high",
+      "stories": [
+        "BMTOS-110",
+        "BMTOS-111",
+        "BMTOS-112",
+        "BMTOS-113",
+        "BMTOS-114",
+        "BMTOS-115",
+        "BMTOS-116",
+        "BMTOS-117",
+        "BMTOS-118",
+        "BMTOS-119"
+      ]
     }
   ],
-  "next_id": 15
+  "next_id": 16
 }

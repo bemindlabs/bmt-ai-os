@@ -1,0 +1,71 @@
+{
+  "sprint_number": 3,
+  "goal": "Build the AI Workspace \u2014 resizable panels, tabs, terminal, code editor, knowledge base, notifications",
+  "start_date": "2026-04-11",
+  "end_date": "2026-04-12",
+  "status": "active",
+  "planned_points": 55,
+  "completed_points": 0,
+  "items": [
+    {
+      "id": "BMTOS-110",
+      "title": "Workspace 3-panel resizable layout",
+      "points": 8,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-111",
+      "title": "Tabbed work area with split view",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-112",
+      "title": "RAG knowledge base manager",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-113",
+      "title": "WebSocket notification center",
+      "points": 3,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-114",
+      "title": "Terminal emulator (xterm.js)",
+      "points": 8,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-115",
+      "title": "Code editor (Monaco)",
+      "points": 8,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-116",
+      "title": "File manager with tree view",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-117",
+      "title": "Training studio with live metrics",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-118",
+      "title": "Fleet dashboard with device grid",
+      "points": 5,
+      "status": "in_progress"
+    },
+    {
+      "id": "BMTOS-119",
+      "title": "Theme toggle and layout persistence",
+      "points": 3,
+      "status": "in_progress"
+    }
+  ]
+}

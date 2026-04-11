@@ -2589,7 +2589,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat"
@@ -2604,7 +2604,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat"
@@ -2619,7 +2619,7 @@
       "type": "story",
       "priority": "medium",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat"
@@ -2634,7 +2634,7 @@
       "type": "story",
       "priority": "medium",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat"
@@ -2649,7 +2649,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2665,7 +2665,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "persona"
@@ -2680,7 +2680,7 @@
       "type": "story",
       "priority": "medium",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "cli",
         "persona"
@@ -2695,7 +2695,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "agents"
@@ -2710,14 +2710,164 @@
       "type": "story",
       "priority": "high",
       "points": 2,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "auth"
       ],
       "epic_id": "BMTOS-EPIC-13",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-110",
+      "title": "Workspace 3-panel resizable layout",
+      "description": "Resizable 3-panel layout (left sidebar, center content, right context panel) with CSS Grid + ResizeObserver. Left: agent/session browser. Center: tabbed work area. Right: RAG sources/memory/tools.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-111",
+      "title": "Tabbed work area with split view",
+      "description": "Tab system for multiple chat sessions, code files, docs. Drag-drop reordering, close buttons, split view (horizontal/vertical). Active tab persistence in localStorage.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-112",
+      "title": "RAG knowledge base manager",
+      "description": "Visual collection browser at /knowledge. Ingest files/folders with progress bar. Search across collections. View ingested document chunks. Delete collections.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-113",
+      "title": "WebSocket notification center",
+      "description": "Real-time notifications via WebSocket. Toast component for alerts. Training job completion, fleet status changes, OTA updates. Bell icon in header with unread count.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-114",
+      "title": "Terminal emulator (xterm.js)",
+      "description": "WebSocket-based terminal in browser using xterm.js. Run CLI commands on the device. Split terminal panes. New WebSocket endpoint in controller.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-115",
+      "title": "Code editor (Monaco)",
+      "description": "Monaco editor integration for in-browser code editing. AI-assisted inline completions via provider. File save to device filesystem. Syntax highlighting.",
+      "type": "story",
+      "priority": "medium",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-116",
+      "title": "File manager with tree view",
+      "description": "Browse device filesystem. Upload/download files. Drag files into chat for context. File preview (code, markdown, images). New /api/v1/files endpoint.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-117",
+      "title": "Training studio with live metrics",
+      "description": "Visual training pipeline builder. Live TensorBoard embedding (iframe). Dataset preview and validation. Real-time training metrics via WebSocket.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-118",
+      "title": "Fleet dashboard with device grid",
+      "description": "Grid view of all fleet devices with health status. Per-device monitoring cards. Remote model deployment button. Fleet-wide command broadcast.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-119",
+      "title": "Theme toggle and layout persistence",
+      "description": "Dark/light theme toggle with next-themes. Save panel sizes and layout per user in localStorage. Collapsible panels with memory.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "backlog",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
     }
   ],
-  "next_id": 110
+  "next_id": 120
 }

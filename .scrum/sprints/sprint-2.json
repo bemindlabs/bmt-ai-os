@@ -3,63 +3,63 @@
   "goal": "Wire all existing dashboard components into the live UI",
   "start_date": "2026-04-11",
   "end_date": "2026-04-11",
-  "status": "active",
+  "status": "completed",
   "planned_points": 25,
-  "completed_points": 0,
+  "completed_points": 25,
   "items": [
     {
       "id": "BMTOS-101",
       "title": "Wire SSE streaming into chat-interface.tsx",
       "points": 3,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-102",
       "title": "Wire session sidebar into chat page",
       "points": 3,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-103",
       "title": "Wire slash commands into chat input",
       "points": 2,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-104",
       "title": "Wire voice input and file drop into chat",
       "points": 2,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-105",
       "title": "Wire RAG toggle and source cards into chat",
       "points": 3,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-106",
       "title": "Create persona editor component for settings",
       "points": 3,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-107",
       "title": "Add persona CLI commands (set/get/list)",
       "points": 2,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-108",
       "title": "Add /agents page for multi-agent management",
       "points": 5,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "BMTOS-109",
       "title": "Wire auth headers into all dashboard API calls",
       "points": 2,
-      "status": "in_progress"
+      "status": "done"
     }
   ]
 }
