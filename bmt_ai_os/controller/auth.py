@@ -51,6 +51,8 @@ _EXEMPT_PREFIXES = (
     "/api/v1/status",  # read-only monitoring
     "/api/v1/metrics",  # read-only monitoring
     "/v1/",  # OpenAI-compatible API (models, chat, completions)
+    "/api/models",  # Ollama model list (dashboard)
+    "/api/pull",  # Ollama model pull (dashboard)
 )
 
 

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from bmt_ai_os.fleet.routes import router as fleet_router
 
@@ -18,6 +20,7 @@ from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
 
 _CONTROLLER_VERSION = "2026.4.11"
+logger = logging.getLogger(__name__)
 
 _controller = None
 
@@ -79,3 +82,76 @@ async def system_status() -> dict:
         "uptime_seconds": uptime_seconds,
         "services": services,
     }
+
+
+# ---------------------------------------------------------------------------
+# Ollama model management (used by dashboard)
+# ---------------------------------------------------------------------------
+
+
+class PullRequest(BaseModel):
+    name: str
+
+
+async def _get_ollama_provider():
+    """Return the Ollama provider instance from the registry."""
+    try:
+        from bmt_ai_os.providers.registry import get_registry
+
+        registry = get_registry()
+        provider = registry.get("ollama")
+        if provider is None:
+            raise HTTPException(status_code=503, detail="Ollama provider not registered")
+        return provider
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.get("/api/models")
+async def list_ollama_models() -> dict:
+    """List models installed on Ollama (dashboard format)."""
+    provider = await _get_ollama_provider()
+    try:
+        models = await provider.list_models()
+        return {
+            "models": [
+                {
+                    "name": m.name,
+                    "size": m.size_bytes,
+                    "modified_at": "",
+                    "digest": "",
+                }
+                for m in models
+            ]
+        }
+    except Exception as exc:
+        logger.warning("Failed to list Ollama models: %s", exc)
+        return {"models": []}
+
+
+@app.post("/api/pull")
+async def pull_model(body: PullRequest) -> dict:
+    """Pull a model onto the local Ollama instance."""
+    import aiohttp
+
+    provider = await _get_ollama_provider()
+    base_url = provider._base_url
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{base_url}/api/pull",
+                json={"name": body.name, "stream": False},
+                timeout=aiohttp.ClientTimeout(total=600),
+            ) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    raise HTTPException(status_code=resp.status, detail=text)
+                data = await resp.json()
+                return {"status": "success", "model": body.name, "detail": data}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Ollama pull failed: {exc}")
