@@ -64,6 +64,11 @@ from bmt_ai_os.mcp.server import mcp_router  # noqa: E402
 
 app.include_router(mcp_router, prefix="/mcp")
 
+# File read/write API (BMTOS-115 — Monaco code editor)
+from bmt_ai_os.controller.file_routes import router as file_router  # noqa: E402
+
+app.include_router(file_router)
+
 
 @app.get("/healthz")
 async def healthz() -> dict:

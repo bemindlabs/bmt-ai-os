@@ -225,65 +225,65 @@ export async function queryRag(
 }
 
 // ---------------------------------------------------------------------------
-// Knowledge Base (BMTOS-112)
+// Fleet API (BMTOS-118)
 // ---------------------------------------------------------------------------
 
-export interface RagCollection {
-  name: string;
-  count: number;
+export interface FleetDevice {
+  device_id: string;
+  hostname: string;
+  arch: string;
+  board: string;
+  os_version: string;
+  cpu_percent: number;
+  memory_percent: number;
+  disk_percent: number;
+  loaded_models: string[];
+  last_seen: string;
+  registered_at: string;
+  online: boolean;
   [key: string]: unknown;
 }
 
-export interface IngestRequest {
-  path: string;
-  collection?: string;
-  recursive?: boolean;
+export interface FleetDevicesResponse {
+  devices: FleetDevice[];
+  total: number;
+  online: number;
 }
 
-export interface IngestResponse {
+export interface FleetSummary {
+  total_devices: number;
+  online_devices: number;
+  offline_devices: number;
+  total_models: number;
+  unique_models: string[];
+  [key: string]: unknown;
+}
+
+export interface DeployModelRequest {
+  model: string;
+  device_ids?: string[] | null;
+}
+
+export interface DeployModelResponse {
   status: string;
-  path: string;
-  collection: string;
-  recursive: boolean;
+  model: string;
+  targeted_devices: string[];
+  device_count: number;
 }
 
-export interface SearchRequest {
-  question: string;
-  collection?: string;
-  top_k?: number;
+export async function fetchFleetDevices(): Promise<FleetDevicesResponse> {
+  return apiFetch<FleetDevicesResponse>("/api/v1/fleet/devices");
 }
 
-export interface SearchResponse {
-  answer: string;
-  sources: RagSource[];
-  latency_ms: number;
-  model?: string;
+export async function fetchFleetSummary(): Promise<FleetSummary> {
+  return apiFetch<FleetSummary>("/api/v1/fleet/summary");
 }
 
-export async function fetchCollections(): Promise<RagCollection[]> {
-  return apiFetch<RagCollection[]>("/api/v1/collections");
-}
-
-export async function ingestDocuments(
-  req: IngestRequest,
-): Promise<IngestResponse> {
-  return apiFetch<IngestResponse>("/api/v1/ingest", {
+export async function deployModel(
+  req: DeployModelRequest,
+): Promise<DeployModelResponse> {
+  return apiFetch<DeployModelResponse>("/api/v1/fleet/deploy-model", {
     method: "POST",
     body: JSON.stringify(req),
-  });
-}
-
-export async function searchKnowledge(
-  req: SearchRequest,
-): Promise<SearchResponse> {
-  return apiFetch<SearchResponse>("/api/v1/query", {
-    method: "POST",
-    body: JSON.stringify(req),
-  });
-}
-
-export async function deleteCollection(name: string): Promise<unknown> {
-  return apiFetch<unknown>(`/api/v1/collections/${encodeURIComponent(name)}`, {
-    method: "DELETE",
   });
 }

@@ -6,14 +6,13 @@ import {
   LayoutDashboard,
   BrainCircuit,
   BrainCog,
+  Code2,
   MessageSquare,
-  Bot,
   Layers,
   Settings,
   ScrollText,
-  Terminal,
   LogOut,
-  Database,
+  Server,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
@@ -26,12 +25,11 @@ const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/models", label: "Models", icon: BrainCircuit },
   { href: "/chat", label: "Chat", icon: MessageSquare },
-  { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/editor", label: "Editor", icon: Code2 },
   { href: "/providers", label: "Providers", icon: Layers },
+  { href: "/fleet", label: "Fleet", icon: Server },
   { href: "/training", label: "Training", icon: BrainCog },
-  { href: "/knowledge", label: "Knowledge", icon: Database },
   { href: "/logs", label: "Logs", icon: ScrollText },
-  { href: "/terminal", label: "Terminal", icon: Terminal },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
