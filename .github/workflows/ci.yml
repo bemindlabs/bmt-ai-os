@@ -299,3 +299,97 @@ jobs:
           path: output/images/bmt_ai_os-arm64.img
           retention-days: 14
           compression-level: 6
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 5: Benchmark (system suite only — no live AI services needed in CI)
+  # ─────────────────────────────────────────────────────────────────────────
+  benchmark:
+    name: Benchmark (system suite)
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    permissions:
+      contents: read
+      actions: write
+    # Run on every push/PR so trends are tracked; full inference/RAG benchmarks
+    # require a live Ollama instance and are left for on-device execution.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run system benchmark
+        run: |
+          python -m bmt_ai_os.benchmark.system_cli \
+            --reports-dir benchmark-results \
+            --board ci-ubuntu-x86_64 \
+          || python -c "
+          import sys, json
+          sys.path.insert(0, '.')
+          from bmt_ai_os.benchmark import system as s, suite as st
+          result = s.run()
+          report = st.run_system_only(board='ci-ubuntu-x86_64')
+          path = st.save_report(report, reports_dir='benchmark-results')
+          md_path = st.save_markdown_report(report, reports_dir='benchmark-results')
+          print('JSON:', path)
+          print('Markdown:', md_path)
+          d = result.to_dict()
+          print('cpu_score:', d['cpu_score'])
+          print('memory_read_mb_s:', d['memory_read_mb_s'])
+          print('disk_write_mb_s:', d['disk_write_mb_s'])
+          print('disk_read_mb_s:', d['disk_read_mb_s'])
+          "
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: benchmark-results/
+          retention-days: 90
+
+      # Compare against the most recent baseline if one was cached.
+      - name: Restore benchmark baseline
+        id: cache-baseline
+        uses: actions/cache@v4
+        with:
+          path: benchmark-baseline/
+          key: benchmark-baseline-${{ github.ref_name }}
+          restore-keys: |
+            benchmark-baseline-main
+            benchmark-baseline-
+
+      - name: Compare to baseline (if available)
+        run: |
+          python -c "
+          import sys, os, glob
+          sys.path.insert(0, '.')
+          from bmt_ai_os.benchmark import suite as st
+          results = sorted(glob.glob('benchmark-results/*.json'))
+          baselines = sorted(glob.glob('benchmark-baseline/*.json'))
+          if results and baselines:
+              print('Comparing', results[-1], 'vs baseline', baselines[-1])
+              comp = st.compare_reports(baselines[-1], results[-1])
+              print(st.format_comparison(comp))
+          else:
+              print('No baseline found — skipping comparison')
+          "
+
+      # Save the latest result as the new baseline on main branch pushes.
+      - name: Update benchmark baseline
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          mkdir -p benchmark-baseline
+          cp benchmark-results/*.json benchmark-baseline/ 2>/dev/null || true
+
+      - name: Cache updated baseline
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/cache@v4
+        with:
+          path: benchmark-baseline/
+          key: benchmark-baseline-${{ github.ref_name }}

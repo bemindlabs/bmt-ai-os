@@ -30,6 +30,7 @@ from pathlib import Path
 
 from . import inference as _inf
 from . import rag as _rag
+from . import system as _sys
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +52,21 @@ class BenchmarkReport:
     rag_query_ms: float
     memory_peak_mb: float
 
-    # Extended fields (not in the minimal schema but useful for debugging).
+    # Extended inference fields.
     inference_total_ms: float = 0.0
     rag_embed_ms: float = 0.0
     rag_retrieve_ms: float = 0.0
     rag_generate_ms: float = 0.0
     embedding_model: str = _DEFAULT_EMBEDDING_MODEL
+
+    # System benchmark fields (populated only when the system suite is run).
+    cpu_score: float = 0.0
+    memory_read_mb_s: float = 0.0
+    disk_write_mb_s: float = 0.0
+    disk_read_mb_s: float = 0.0
+    memory_total_mb: float = 0.0
+    memory_available_mb: float = 0.0
+    platform_info: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -72,6 +82,13 @@ class BenchmarkReport:
             "rag_retrieve_ms": self.rag_retrieve_ms,
             "rag_generate_ms": self.rag_generate_ms,
             "embedding_model": self.embedding_model,
+            "cpu_score": self.cpu_score,
+            "memory_read_mb_s": self.memory_read_mb_s,
+            "disk_write_mb_s": self.disk_write_mb_s,
+            "disk_read_mb_s": self.disk_read_mb_s,
+            "memory_total_mb": self.memory_total_mb,
+            "memory_available_mb": self.memory_available_mb,
+            "platform_info": self.platform_info,
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -152,6 +169,114 @@ def run_inference_only(
         rag_query_ms=0.0,
         memory_peak_mb=inf_result.memory_peak_mb,
         inference_total_ms=inf_result.total_ms,
+    )
+
+
+def run_rag_only(
+    model: str = _DEFAULT_MODEL,
+    embedding_model: str = _DEFAULT_EMBEDDING_MODEL,
+    ollama_url: str = _DEFAULT_OLLAMA_URL,
+    chromadb_url: str = _DEFAULT_CHROMADB_URL,
+    board: str | None = None,
+) -> BenchmarkReport:
+    """Run only the RAG benchmark and return a partial report."""
+    board = board or detect_board()
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+    logger.info("Running RAG benchmark (model=%s, embedding=%s)", model, embedding_model)
+    rag_result = _rag.run(
+        model=model,
+        embedding_model=embedding_model,
+        ollama_url=ollama_url,
+        chromadb_url=chromadb_url,
+    )
+
+    return BenchmarkReport(
+        timestamp=timestamp,
+        board=board,
+        model=model,
+        inference_tok_s=0.0,
+        first_token_ms=0.0,
+        rag_query_ms=rag_result.total_ms,
+        memory_peak_mb=0.0,
+        rag_embed_ms=rag_result.embed_ms,
+        rag_retrieve_ms=rag_result.retrieve_ms,
+        rag_generate_ms=rag_result.generate_ms,
+        embedding_model=embedding_model,
+    )
+
+
+def run_system_only(board: str | None = None) -> BenchmarkReport:
+    """Run only the system benchmark and return a partial report."""
+    board = board or detect_board()
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+    logger.info("Running system benchmark")
+    sys_result = _sys.run()
+
+    return BenchmarkReport(
+        timestamp=timestamp,
+        board=board,
+        model="",
+        inference_tok_s=0.0,
+        first_token_ms=0.0,
+        rag_query_ms=0.0,
+        memory_peak_mb=sys_result.memory_total_mb,
+        cpu_score=sys_result.cpu_score,
+        memory_read_mb_s=sys_result.memory_read_mb_s,
+        disk_write_mb_s=sys_result.disk_write_mb_s,
+        disk_read_mb_s=sys_result.disk_read_mb_s,
+        memory_total_mb=sys_result.memory_total_mb,
+        memory_available_mb=sys_result.memory_available_mb,
+        platform_info=sys_result.platform_info,
+    )
+
+
+def run_all(
+    model: str = _DEFAULT_MODEL,
+    embedding_model: str = _DEFAULT_EMBEDDING_MODEL,
+    ollama_url: str = _DEFAULT_OLLAMA_URL,
+    chromadb_url: str = _DEFAULT_CHROMADB_URL,
+    board: str | None = None,
+) -> BenchmarkReport:
+    """Run all benchmarks (inference + RAG + system) and return a combined report."""
+    board = board or detect_board()
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+    logger.info("Running inference benchmark (model=%s)", model)
+    inf_result = _inf.run(model=model, ollama_url=ollama_url, warmup=True)
+
+    logger.info("Running RAG benchmark (model=%s, embedding=%s)", model, embedding_model)
+    rag_result = _rag.run(
+        model=model,
+        embedding_model=embedding_model,
+        ollama_url=ollama_url,
+        chromadb_url=chromadb_url,
+    )
+
+    logger.info("Running system benchmark")
+    sys_result = _sys.run()
+
+    return BenchmarkReport(
+        timestamp=timestamp,
+        board=board,
+        model=model,
+        inference_tok_s=inf_result.throughput_tok_s,
+        first_token_ms=inf_result.first_token_ms,
+        rag_query_ms=rag_result.total_ms,
+        memory_peak_mb=inf_result.memory_peak_mb,
+        inference_total_ms=inf_result.total_ms,
+        rag_embed_ms=rag_result.embed_ms,
+        rag_retrieve_ms=rag_result.retrieve_ms,
+        rag_generate_ms=rag_result.generate_ms,
+        embedding_model=embedding_model,
+        cpu_score=sys_result.cpu_score,
+        memory_read_mb_s=sys_result.memory_read_mb_s,
+        disk_write_mb_s=sys_result.disk_write_mb_s,
+        disk_read_mb_s=sys_result.disk_read_mb_s,
+        memory_total_mb=sys_result.memory_total_mb,
+        memory_available_mb=sys_result.memory_available_mb,
+        platform_info=sys_result.platform_info,
     )
 
 
@@ -313,6 +438,142 @@ def format_comparison(comparison: dict) -> str:
         )
 
     return "\n".join(lines)
+
+
+def generate_markdown_report(
+    report: BenchmarkReport,
+    baseline_path: str | Path | None = None,
+) -> str:
+    """Generate a markdown summary report from *report*.
+
+    When *baseline_path* points to a previous JSON report, a comparison
+    table is appended to the summary showing deltas against the baseline.
+
+    Parameters
+    ----------
+    report:
+        The benchmark report to summarise.
+    baseline_path:
+        Optional path to a previous JSON report for comparison.
+
+    Returns
+    -------
+    str
+        Markdown-formatted report text.
+    """
+    lines: list[str] = []
+    lines.append("# BMT AI OS Benchmark Report")
+    lines.append("")
+    lines.append(f"**Timestamp:** {report.timestamp}  ")
+    lines.append(f"**Board:** {report.board}  ")
+    if report.model:
+        lines.append(f"**Model:** `{report.model}`  ")
+    if report.platform_info:
+        lines.append(f"**Platform:** {report.platform_info}  ")
+    lines.append("")
+
+    # --- Inference section ---
+    if report.inference_tok_s > 0 or report.first_token_ms > 0:
+        lines.append("## Inference")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        lines.append(f"| Throughput | {report.inference_tok_s:.1f} tok/s |")
+        lines.append(f"| First token latency | {report.first_token_ms:.0f} ms |")
+        lines.append(f"| Total generation time | {report.inference_total_ms:.0f} ms |")
+        lines.append(f"| Peak memory | {report.memory_peak_mb:.0f} MB |")
+        lines.append("")
+
+    # --- RAG section ---
+    if report.rag_query_ms > 0:
+        lines.append("## RAG Pipeline")
+        lines.append("")
+        lines.append("| Stage | Latency |")
+        lines.append("|-------|---------|")
+        lines.append(f"| Embed | {report.rag_embed_ms:.0f} ms |")
+        lines.append(f"| Retrieve | {report.rag_retrieve_ms:.0f} ms |")
+        lines.append(f"| Generate | {report.rag_generate_ms:.0f} ms |")
+        lines.append(f"| **Total** | **{report.rag_query_ms:.0f} ms** |")
+        if report.embedding_model:
+            lines.append("")
+            lines.append(f"_Embedding model: `{report.embedding_model}`_")
+        lines.append("")
+
+    # --- System section ---
+    if report.cpu_score > 0 or report.memory_total_mb > 0:
+        lines.append("## System")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        if report.cpu_score > 0:
+            lines.append(f"| CPU score | {report.cpu_score:.2f} iter/ms |")
+        if report.memory_read_mb_s > 0:
+            lines.append(f"| Memory read | {report.memory_read_mb_s:.0f} MB/s |")
+        if report.disk_write_mb_s > 0:
+            lines.append(f"| Disk write | {report.disk_write_mb_s:.0f} MB/s |")
+        if report.disk_read_mb_s > 0:
+            lines.append(f"| Disk read | {report.disk_read_mb_s:.0f} MB/s |")
+        if report.memory_total_mb > 0:
+            lines.append(f"| Total RAM | {report.memory_total_mb:.0f} MB |")
+        if report.memory_available_mb > 0:
+            lines.append(f"| Available RAM | {report.memory_available_mb:.0f} MB |")
+        lines.append("")
+
+    # --- Comparison section ---
+    if baseline_path is not None:
+        baseline = Path(baseline_path)
+        if baseline.exists():
+            lines.append("## Comparison to Baseline")
+            lines.append("")
+            try:
+                comparison = compare_reports(baseline, _report_to_tmp_path(report))
+                lines.append("```")
+                lines.append(format_comparison(comparison))
+                lines.append("```")
+            except Exception as exc:
+                lines.append(f"_Comparison unavailable: {exc}_")
+            lines.append("")
+
+    lines.append("---")
+    lines.append("_Generated by BMT AI OS benchmark suite_")
+    return "\n".join(lines)
+
+
+def save_markdown_report(
+    report: BenchmarkReport,
+    reports_dir: str | Path = "reports",
+    baseline_path: str | Path | None = None,
+) -> Path:
+    """Write a markdown summary for *report* under *reports_dir*.
+
+    Returns
+    -------
+    Path
+        Absolute path to the written ``.md`` file.
+    """
+    out_dir = Path(reports_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_model = report.model.replace(":", "-").replace("/", "-") if report.model else "system"
+    safe_ts = report.timestamp.replace(":", "").replace("-", "").replace("T", "-")
+    filename = f"benchmark-{safe_model}-{safe_ts}.md"
+    path = out_dir / filename
+
+    md = generate_markdown_report(report, baseline_path=baseline_path)
+    path.write_text(md, encoding="utf-8")
+    logger.info("Markdown report saved to %s", path)
+    return path.resolve()
+
+
+def _report_to_tmp_path(report: BenchmarkReport) -> Path:
+    """Write *report* to a temporary JSON file and return its path."""
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write(report.to_json())
+        return Path(fh.name)
 
 
 def _ljust(text: str, width: int) -> str:
