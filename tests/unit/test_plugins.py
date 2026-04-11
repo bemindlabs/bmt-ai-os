@@ -787,9 +787,8 @@ class TestPluginRoutes:
 
     @pytest.fixture
     def client(self, tmp_path: Path):
+        from fastapi import FastAPI
         from fastapi.testclient import TestClient
-
-        from bmt_ai_os.controller.api import app
 
         env_patch = {
             "BMT_PLUGIN_STATE": str(tmp_path / "plugins.json"),
@@ -804,7 +803,9 @@ class TestPluginRoutes:
             import bmt_ai_os.controller.plugin_routes as pr
 
             importlib.reload(pr)
-            yield TestClient(app)
+            test_app = FastAPI()
+            test_app.include_router(pr.router)
+            yield TestClient(test_app)
 
     @pytest.fixture
     def mock_discover_two(self):
