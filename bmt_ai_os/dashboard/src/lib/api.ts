@@ -348,3 +348,48 @@ export async function testProviderConnection(
     { method: "POST" },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Persona API
+// ---------------------------------------------------------------------------
+export interface PresetInfo { name: string; description: string; content: string; }
+export async function getPersona(): Promise<{ content: string; workspace: string }> { return apiFetch("/api/v1/persona"); }
+export async function savePersona(content: string): Promise<{ status: string }> { return apiFetch("/api/v1/persona", { method: "PUT", body: JSON.stringify({ content }) }); }
+export async function listPresets(): Promise<{ presets: PresetInfo[] }> { return apiFetch("/api/v1/persona/presets"); }
+export async function applyPreset(name: string): Promise<{ status: string }> { return apiFetch(`/api/v1/persona/presets/${name}/apply`, { method: "POST" }); }
+
+// ---------------------------------------------------------------------------
+// Knowledge / RAG
+// ---------------------------------------------------------------------------
+export interface RagCollection { name: string; count: number; }
+export async function fetchCollections(): Promise<{ collections: RagCollection[] }> { return apiFetch("/api/v1/collections"); }
+export async function ingestDocuments(req: { path: string; collection?: string }): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify(req) }); }
+export async function searchKnowledge(req: { question: string; collection?: string; top_k?: number }): Promise<RagQueryResponse> { return apiFetch("/api/v1/query", { method: "POST", body: JSON.stringify(req) }); }
+export async function deleteCollection(name: string): Promise<{ status: string }> { return apiFetch(`/api/v1/collections/${name}`, { method: "DELETE" }); }
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+export interface FileEntry { name: string; path: string; is_dir: boolean; size: number; modified: string; }
+export async function listFiles(path: string): Promise<{ entries: FileEntry[]; breadcrumbs: { name: string; path: string }[] }> { return apiFetch(`/api/v1/files/list?path=${encodeURIComponent(path)}`); }
+export async function readFile(path: string): Promise<{ content: string; path: string }> { return apiFetch(`/api/v1/files/read?path=${encodeURIComponent(path)}`); }
+export function downloadFileUrl(path: string): string { return `/api/v1/files/download?path=${encodeURIComponent(path)}`; }
+export async function uploadFile(path: string, file: File): Promise<{ status: string }> { const form = new FormData(); form.append("file", file); const res = await fetch(`/api/v1/files/upload?path=${encodeURIComponent(path)}`, { method: "POST", body: form }); if (!res.ok) throw new Error(`${res.status}`); return res.json(); }
+export async function ingestPath(path: string): Promise<{ status: string }> { return apiFetch("/api/v1/ingest", { method: "POST", body: JSON.stringify({ path }) }); }
+
+// ---------------------------------------------------------------------------
+// Fleet
+// ---------------------------------------------------------------------------
+export interface FleetDevice { device_id: string; hostname: string; board: string; cpu_percent: number; memory_percent: number; online: boolean; loaded_models: string[]; last_seen: string; }
+export interface FleetSummary { total_devices: number; online: number; offline: number; total_models: number; }
+export interface DeployModelRequest { model: string; device_ids?: string[]; }
+export interface DeployModelResponse { status: string; queued: number; }
+export async function fetchFleetDevices(): Promise<{ devices: FleetDevice[] }> { return apiFetch("/api/v1/fleet/devices"); }
+export async function fetchFleetSummary(): Promise<FleetSummary> { return apiFetch("/api/v1/fleet/summary"); }
+export async function deployModel(req: DeployModelRequest): Promise<DeployModelResponse> { return apiFetch("/api/v1/fleet/deploy-model", { method: "POST", body: JSON.stringify(req) }); }
+
+// ---------------------------------------------------------------------------
+// Agents
+// ---------------------------------------------------------------------------
+export interface AgentPreset { name: string; description: string; content?: string; }
+export async function fetchAgents(): Promise<{ presets: AgentPreset[] }> { try { return await apiFetch("/api/v1/persona/presets"); } catch { return { presets: [{ name: "default", description: "General-purpose AI assistant" }, { name: "coding", description: "Precise coding assistant" }, { name: "creative", description: "Creative writing partner" }] }; } }

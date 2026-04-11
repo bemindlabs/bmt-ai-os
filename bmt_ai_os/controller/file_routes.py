@@ -55,7 +55,9 @@ def _entry_dict(path: Path) -> dict:
     stat = path.stat()
     return {
         "name": path.name,
-        "path": str(path.relative_to(_FILES_ROOT.resolve())),
+        "path": str(path)
+        if str(_FILES_ROOT.resolve()) == "/"
+        else str(path.relative_to(_FILES_ROOT.resolve())),
         "is_dir": path.is_dir(),
         "size": stat.st_size if not path.is_dir() else None,
         "modified": stat.st_mtime,
@@ -78,10 +80,16 @@ async def list_files(path: str = "") -> dict:
     target = _resolve_safe(path)
 
     if not target.exists():
-        # Return empty root listing if the root dir hasn't been created yet
-        if not path:
-            return {"entries": [], "breadcrumbs": []}
-        raise HTTPException(status_code=404, detail="Path not found.")
+        # Return empty listing with breadcrumbs for non-existent paths
+        root_resolved = _FILES_ROOT.resolve()
+        rel = path.strip("/")
+        parts = rel.split("/") if rel else []
+        crumbs = [{"name": "Files", "path": ""}]
+        acc = ""
+        for p in parts:
+            acc = f"{acc}/{p}".lstrip("/")
+            crumbs.append({"name": p, "path": acc})
+        return {"entries": [], "breadcrumbs": crumbs, "error": f"Directory not found: /{rel}"}
 
     if not target.is_dir():
         raise HTTPException(status_code=400, detail="Path is not a directory.")
