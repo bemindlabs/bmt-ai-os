@@ -118,7 +118,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       - name: Run smoke tests
         run: |
@@ -155,7 +155,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       - name: Run unit tests
         run: |
@@ -191,7 +191,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       - name: Run E2E tests
         run: |
@@ -229,7 +229,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       - name: Run security tests
         run: |
@@ -269,7 +269,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       - name: Run load tests
         run: |
@@ -313,7 +313,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       # -- Install QEMU for ARM64 emulation --
       - name: Install QEMU ARM64
@@ -481,7 +481,7 @@ jobs:
             .
 
       - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           image-ref: bmt-ai-os:ci-${{ github.sha }}
           format: sarif
@@ -499,7 +499,7 @@ jobs:
 
       - name: Run Trivy scan (table output for logs)
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           image-ref: bmt-ai-os:ci-${{ github.sha }}
           format: table
@@ -537,7 +537,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
 
       - name: Run system benchmark
         run: |
