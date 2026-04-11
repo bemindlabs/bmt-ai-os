@@ -20,6 +20,10 @@ class SetActiveRequest(BaseModel):
     name: str
 
 
+class FallbackOrderRequest(BaseModel):
+    order: list[str]
+
+
 class ChatRequest(BaseModel):
     messages: list[dict]  # [{"role": "user", "content": "..."}]
     model: str | None = None
@@ -71,6 +75,17 @@ async def get_active_provider():
         if isinstance(health, ProviderHealth)
         else {"healthy": bool(health)},
     }
+
+
+@router.put("/fallback-order")
+async def set_fallback_order(body: FallbackOrderRequest):
+    """Persist the fallback chain order (priority index 0 = highest priority)."""
+    registry = get_registry()
+    try:
+        registry.reorder(body.order)
+    except ProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"order": registry.list()}
 
 
 @router.post("/active")
