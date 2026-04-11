@@ -1766,238 +1766,157 @@ def update_containers(compose_file: str | None, services: tuple[str, ...]) -> No
 
 
 # ---------------------------------------------------------------------------
-# train
+# export-model
 # ---------------------------------------------------------------------------
 
 
-@main.group()
-def train() -> None:
-    """On-device LoRA/QLoRA fine-tuning commands.
-
-    Requires the BMT AI OS Jupyter/training image with PyTorch, PEFT, and
-    Hugging Face Transformers installed.
-    """
-
-
-@train.command("lora")
-@click.option("--model", "-m", required=True, help="HuggingFace model ID or local path.")
-@click.option("--data", "-d", required=True, help="Path to training JSONL file.")
+@main.command("export-model")
 @click.option(
-    "--config", "-c", "config_path", default=None, help="Path to YAML config file (optional)."
+    "--base",
+    required=True,
+    help="Base model ID or local path (e.g. Qwen/Qwen2.5-0.5B or qwen2.5:0.5b).",
 )
 @click.option(
-    "--output-dir",
-    default="/var/lib/bmt/models/lora",
+    "--adapter",
+    required=True,
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    help="Path to the saved LoRA adapter directory.",
+)
+@click.option(
+    "--output",
+    required=True,
+    type=click.Path(),
+    help="Output GGUF file path (e.g. /data/gguf/my-model.gguf).",
+)
+@click.option(
+    "--name",
+    default=None,
+    help="Model name to register with Ollama. Skips Ollama registration if not set.",
+)
+@click.option(
+    "--quantization",
+    default="q4_K_M",
     show_default=True,
-    help="Adapter output directory.",
+    help="GGUF quantization type (e.g. q4_K_M, q8_0, f16).",
 )
-@click.option("--epochs", default=3, show_default=True, type=int, help="Number of training epochs.")
 @click.option(
-    "--lr", "learning_rate", default=2e-4, show_default=True, type=float, help="Learning rate."
+    "--merge-dir",
+    default=None,
+    type=click.Path(),
+    help="Intermediate directory for merged weights. Uses a temp dir when not set.",
 )
-@click.option("--lora-rank", default=16, show_default=True, type=int, help="LoRA rank (r).")
 @click.option(
-    "--lora-alpha", default=32, show_default=True, type=int, help="LoRA alpha scaling factor."
+    "--convert-script",
+    default=None,
+    type=click.Path(exists=True),
+    help="Explicit path to convert_hf_to_gguf.py (llama.cpp). Auto-detected when not set.",
 )
-@click.option("--batch-size", default=4, show_default=True, type=int, help="Per-device batch size.")
 @click.option(
-    "--max-seq-length", default=2048, show_default=True, type=int, help="Maximum sequence length."
+    "--system-prompt",
+    default=None,
+    help="System prompt to embed in the Ollama Modelfile.",
 )
-@click.option("--use-4bit", is_flag=True, default=False, help="Enable QLoRA 4-bit quantisation.")
-@click.option("--use-8bit", is_flag=True, default=False, help="Enable 8-bit quantisation.")
-def train_lora(
-    model: str,
-    data: str,
-    config_path: str | None,
-    output_dir: str,
-    epochs: int,
-    learning_rate: float,
-    lora_rank: int,
-    lora_alpha: int,
-    batch_size: int,
-    max_seq_length: int,
-    use_4bit: bool,
-    use_8bit: bool,
+def export_model(
+    base: str,
+    adapter: str,
+    output: str,
+    name: str | None,
+    quantization: str,
+    merge_dir: str | None,
+    convert_script: str | None,
+    system_prompt: str | None,
 ) -> None:
-    """Start a LoRA fine-tuning job.
+    """Export a fine-tuned LoRA adapter as a GGUF model and optionally register with Ollama.
 
-    Example: bmt-ai-os train lora --model Qwen/Qwen2.5-Coder-7B-Instruct --data train.jsonl
+    Steps:
+    \b
+    1. Merge LoRA adapter weights into the base model
+    2. Convert merged weights to GGUF (requires llama.cpp)
+    3. Register the GGUF with Ollama (when --name is provided)
+
+    Example:
+
+    \b
+        bmt-ai-os export-model \\
+            --base Qwen/Qwen2.5-0.5B \\
+            --adapter /data/adapters/my-run \\
+            --output /data/gguf/my-model.gguf \\
+            --name my-custom-qwen \\
+            --quantization q4_K_M
     """
+    import tempfile
+
+    from bmt_ai_os.training.export import (
+        convert_to_gguf,
+        merge_adapter,
+        register_with_ollama,
+    )
+
+    # --- Step 1: Merge adapter ---
+    use_temp = merge_dir is None
+    tmp_dir = None
     try:
-        from bmt_ai_os.training.lora import LoRAConfig, LoRATrainer
-    except ImportError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+        if use_temp:
+            tmp_dir = tempfile.mkdtemp(prefix="bmt_merged_")
+            effective_merge_dir = tmp_dir
+        else:
+            effective_merge_dir = merge_dir
 
-    cfg_kwargs: dict[str, Any] = {
-        "model": model,
-        "dataset_path": data,
-        "output_dir": output_dir,
-        "epochs": epochs,
-        "learning_rate": learning_rate,
-        "lora_rank": lora_rank,
-        "lora_alpha": lora_alpha,
-        "batch_size": batch_size,
-        "max_seq_length": max_seq_length,
-        "use_4bit": use_4bit,
-        "use_8bit": use_8bit,
-    }
-
-    if config_path is not None:
-        import yaml  # type: ignore[import-untyped]
-
+        click.echo(f"[1/3] Merging LoRA adapter '{adapter}' into base model '{base}' …")
         try:
-            with open(config_path) as fh:
-                overrides = yaml.safe_load(fh) or {}
-            cfg_kwargs.update(
-                {k: v for k, v in overrides.items() if k in LoRAConfig.__dataclass_fields__}
-            )
+            merged = merge_adapter(base, adapter, effective_merge_dir)
+            click.echo(f"      Merged model saved to: {merged}")
+        except ImportError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(1)
+        except FileNotFoundError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(1)
         except Exception as exc:
-            click.echo(f"Error reading config file: {exc}", err=True)
+            click.echo(f"Error during merge: {exc}", err=True)
             sys.exit(1)
 
-    config = LoRAConfig(**cfg_kwargs)
-    trainer = LoRATrainer(config)
-
-    click.echo(f"Starting LoRA training job: {trainer.job_id}")
-    click.echo(f"  Model     : {model}")
-    click.echo(f"  Dataset   : {data}")
-    click.echo(f"  Epochs    : {epochs}")
-    click.echo(f"  LR        : {learning_rate}")
-    click.echo(f"  LoRA rank : {lora_rank}")
-    click.echo(f"  Batch size: {batch_size}")
-    click.echo("")
-
-    try:
-        trainer.train()
-    except ImportError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
-    except Exception as exc:
-        click.echo(f"Training failed: {exc}", err=True)
-        sys.exit(1)
-
-    progress = trainer.get_status()
-    click.echo(f"Training completed — job_id={progress.job_id}")
-    click.echo(f"  Final loss : {progress.loss}")
-    click.echo(f"  Steps      : {progress.current_step}/{progress.total_steps}")
-    click.echo(f"  Elapsed    : {progress.elapsed_seconds:.1f}s")
-    click.echo(f"  Output dir : {output_dir}/{trainer.job_id}/adapter_final")
-
-
-@train.command("status")
-def train_status() -> None:
-    """Show running and recently completed training jobs.
-
-    Queries the controller API for active job records. Falls back to scanning
-    the local runs directory when the controller is unreachable.
-    """
-    import glob as _glob
-
-    click.echo("Training Jobs")
-    click.echo("=" * 60)
-
-    # Try controller API first
-    api_jobs = _http_get(f"{_OPENAI_COMPAT_BASE}/v1/training/jobs")
-    if api_jobs and "jobs" in api_jobs:
-        jobs = api_jobs["jobs"]
-        if not jobs:
-            click.echo("No training jobs found.")
-            return
-        col_w = [36, 12, 10, 10]
-        click.echo(
-            "  ".join(
-                [
-                    _fmt_col("JOB ID", col_w[0]),
-                    _fmt_col("STATUS", col_w[1]),
-                    _fmt_col("STEPS", col_w[2]),
-                    _fmt_col("LOSS", col_w[3]),
-                ]
+        # --- Step 2: Convert to GGUF ---
+        click.echo(f"[2/3] Converting to GGUF ({quantization}) → {output} …")
+        try:
+            gguf = convert_to_gguf(
+                merged,
+                output,
+                quantization=quantization,
+                convert_script=convert_script,
             )
-        )
-        click.echo(_separator(col_w))
-        for job in jobs:
-            click.echo(
-                "  ".join(
-                    [
-                        _fmt_col(job.get("job_id", "?"), col_w[0]),
-                        _fmt_col(job.get("status", "?"), col_w[1]),
-                        _fmt_col(str(job.get("current_step", "?")), col_w[2]),
-                        _fmt_col(str(job.get("loss", "?")), col_w[3]),
-                    ]
-                )
-            )
-        return
+            click.echo(f"      GGUF saved to: {gguf}")
+        except FileNotFoundError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(1)
+        except subprocess.CalledProcessError as exc:
+            click.echo(f"Error: conversion subprocess failed (exit {exc.returncode}).", err=True)
+            sys.exit(exc.returncode)
+        except Exception as exc:
+            click.echo(f"Error during GGUF conversion: {exc}", err=True)
+            sys.exit(1)
 
-    # Fall back to local runs directory
-    runs_root = os.environ.get("BMT_TRAINING_RUNS", "/var/lib/bmt/runs")
-    if not os.path.isdir(runs_root):
-        click.echo(f"No jobs found. Runs directory does not exist: {runs_root}")
-        return
+        # --- Step 3: Register with Ollama (optional) ---
+        if name:
+            click.echo(f"[3/3] Registering '{name}' with Ollama …")
+            try:
+                register_with_ollama(gguf, name, system_prompt=system_prompt)
+                click.echo(f"      Model '{name}' registered. Run: ollama run {name}")
+            except FileNotFoundError as exc:
+                click.echo(f"Error: {exc}", err=True)
+                sys.exit(1)
+            except subprocess.CalledProcessError as exc:
+                click.echo(f"Error: ollama create failed (exit {exc.returncode}).", err=True)
+                sys.exit(exc.returncode)
+            except Exception as exc:
+                click.echo(f"Error during Ollama registration: {exc}", err=True)
+                sys.exit(1)
+        else:
+            click.echo("[3/3] Skipping Ollama registration (--name not provided).")
 
-    run_dirs = sorted(_glob.glob(os.path.join(runs_root, "*")), reverse=True)
-    if not run_dirs:
-        click.echo(f"No training runs found in {runs_root}")
-        return
+        click.echo("Export complete.")
+    finally:
+        if use_temp and tmp_dir:
+            import shutil
 
-    click.echo(f"Local runs in {runs_root}:")
-    for run_dir in run_dirs[:20]:
-        job_id = os.path.basename(run_dir)
-        click.echo(f"  {job_id}")
-
-
-# ---------------------------------------------------------------------------
-# data-prepare
-# ---------------------------------------------------------------------------
-
-
-@main.command("data-prepare")
-@click.option("--input", "-i", "input_path", required=True, help="Path to source dataset file.")
-@click.option("--output", "-o", "output_path", required=True, help="Destination JSONL file path.")
-@click.option(
-    "--format",
-    "-f",
-    "fmt",
-    default="alpaca",
-    show_default=True,
-    type=click.Choice(["alpaca", "sharegpt", "raw"], case_sensitive=False),
-    help="Dataset format.",
-)
-def data_prepare(input_path: str, output_path: str, fmt: str) -> None:
-    """Prepare a dataset for LoRA fine-tuning.
-
-    Converts raw dataset files into the JSONL format expected by the training
-    pipeline. Run this before `bmt-ai-os train lora`.
-
-    Example: bmt-ai-os data-prepare --input raw.json --output train.jsonl --format alpaca
-    """
-    try:
-        from bmt_ai_os.training.data_prep import prepare_dataset
-    except ImportError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
-
-    click.echo(f"Preparing dataset: format={fmt}")
-    click.echo(f"  Input  : {input_path}")
-    click.echo(f"  Output : {output_path}")
-    click.echo("")
-
-    try:
-        stats = prepare_dataset(input_path, output_path, format=fmt)
-    except FileNotFoundError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
-    except Exception as exc:
-        click.echo(f"Error preparing dataset: {exc}", err=True)
-        sys.exit(1)
-
-    click.echo("Dataset prepared successfully.")
-    click.echo(f"  Examples written : {stats.total_examples}")
-    click.echo(f"  Examples skipped : {stats.skipped_examples}")
-    if stats.validation_errors:
-        click.echo(f"  Validation errors ({len(stats.validation_errors)}):")
-        for err in stats.validation_errors[:10]:
-            click.echo(f"    - {err}")
-        if len(stats.validation_errors) > 10:
-            click.echo(f"    ... and {len(stats.validation_errors) - 10} more")
-    click.echo(f"  Output file      : {stats.output_path}")
+            shutil.rmtree(tmp_dir, ignore_errors=True)
