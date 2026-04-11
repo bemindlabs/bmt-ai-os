@@ -282,6 +282,11 @@ class BMTAIOSController:
 
         tls_cfg = load_tls_config()
 
+        # Ensure a default admin user exists on first boot.
+        from bmt_ai_os.controller.auth import ensure_default_admin
+
+        ensure_default_admin()
+
         # Attach controller to API and run the server (HTTP or HTTPS).
         set_controller(self)
 
