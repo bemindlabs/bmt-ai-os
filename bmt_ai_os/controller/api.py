@@ -16,6 +16,7 @@ from .prometheus import router as prometheus_router
 from .provider_config_routes import router as provider_config_router
 from .provider_routes import router as provider_router
 from .rag_routes import router as rag_router
+from .ssh_key_routes import router as ssh_key_router
 from .ssh_ws import router as ssh_ws_router
 from .terminal_ws import router as terminal_ws_router
 from .training_routes import router as training_router
