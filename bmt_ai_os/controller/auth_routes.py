@@ -6,10 +6,15 @@ GET  /api/v1/auth/me     — Return info for the currently authenticated user
 
 from __future__ import annotations
 
+import logging
+
+import jwt
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from .auth import Role, create_token, get_store
+from .auth import Role, create_token, get_store, revoke_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -66,6 +71,40 @@ async def login(body: LoginRequest) -> LoginResponse:
         role=user.role.value,
         username=user.username,
     )
+
+
+@router.post("/logout", summary="Revoke the current JWT access token")
+async def logout(request: Request) -> dict:
+    """Revoke the bearer token presented in the Authorization header.
+
+    After this call the token will be rejected by the auth middleware even if
+    it has not yet expired.  Returns HTTP 400 when no valid token is provided.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "No Bearer token found in Authorization header.",
+                "type": "invalid_request_error",
+                "code": "missing_token",
+            },
+        )
+    token = auth_header[7:]
+    store = get_store()
+    try:
+        revoke_token(token, store=store)
+    except (jwt.PyJWTError, ValueError) as exc:
+        logger.warning("Logout failed — could not revoke token: %s", exc)
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Could not revoke token: {exc}",
+                "type": "invalid_request_error",
+                "code": "invalid_token",
+            },
+        )
+    return {"message": "Token revoked successfully."}
 
 
 @router.get("/me", response_model=MeResponse, summary="Current authenticated user")
