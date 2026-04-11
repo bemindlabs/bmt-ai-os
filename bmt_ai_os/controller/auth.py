@@ -50,6 +50,7 @@ _EXEMPT_PREFIXES = (
     "/api/v1/auth/login",  # token acquisition must be exempt
     "/api/v1/status",  # read-only monitoring
     "/api/v1/metrics",  # read-only monitoring
+    "/v1/",  # OpenAI-compatible API (models, chat, completions)
 )
 
 

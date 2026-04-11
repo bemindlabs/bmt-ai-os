@@ -225,7 +225,7 @@ class BMTAIOSController:
                 try:
                     module = importlib.import_module(module_path)
                     provider_cls = getattr(module, class_name)
-                    base_url = f"http://localhost:{svc.port}"
+                    base_url = f"http://{svc.container_name}:{svc.port}"
                     provider = provider_cls(base_url=base_url)
                     registry.register(svc.name, provider)
                     logger.info(
