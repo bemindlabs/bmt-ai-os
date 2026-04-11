@@ -1,0 +1,111 @@
+site_name: BMT AI OS
+site_description: An open-source, AI-first operating system for ARM64
+site_url: https://bemindlabs.github.io/bmt-ai-os
+repo_url: https://github.com/bemindlabs/bmt-ai-os
+repo_name: bemindlabs/bmt-ai-os
+edit_uri: edit/main/docs/
+copyright: "Copyright &copy; 2026 Bemind Technology Co., Ltd. &mdash; MIT License"
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      lang: en
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_category_heading: true
+            members_order: source
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/bemindlabs/bmt-ai-os
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quick-start.md
+    - Installation: getting-started/installation.md
+    - Dev Setup (x86 Docker): getting-started/dev-setup.md
+  - Architecture:
+    - System Overview: architecture/system-overview.md
+    - Provider Layer: architecture/provider-layer.md
+    - Boot Sequence: architecture/boot-sequence.md
+    - Filesystem Layout: architecture/filesystem-layout.md
+  - Hardware:
+    - Supported Boards: hardware/supported-boards.md
+  - IDE Integration:
+    - Cursor Setup: ide-integration/cursor-setup.md
+    - Copilot Setup: ide-integration/copilot-setup.md
+  - Reference:
+    - Port Map: reference/port-map.md
+    - Troubleshooting: reference/troubleshooting.md
+    - FAQ: reference/faq.md
+  - Security:
+    - Security Policy: security/security-policy.md

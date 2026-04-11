@@ -147,9 +147,13 @@ def apply_middleware(app: FastAPI, *, api_key: str | None = None) -> None:
     Order matters: outermost middleware runs first.
 
     1. CORS (outermost — must run before auth to handle preflight)
-    2. API key authentication
-    3. Request logging (innermost — logs after response)
+    2. JWT auth + RBAC (when users exist in the store)
+    3. API key authentication (legacy fallback when no users are registered)
+    4. Request logging (innermost — logs after response)
     """
+    from .auth import JWTAuthMiddleware  # local import avoids circular deps at module load
+
     add_cors(app)
+    app.add_middleware(JWTAuthMiddleware)
     app.add_middleware(APIKeyMiddleware, api_key=api_key)
     app.add_middleware(RequestLoggingMiddleware)
