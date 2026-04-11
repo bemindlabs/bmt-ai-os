@@ -6,7 +6,16 @@
       "description": "Abstraction layer supporting multiple LLM backends — local-first (Ollama, vLLM, llama.cpp) with optional cloud fallback (OpenAI, Anthropic, Google, Mistral, Groq). Includes provider interface, routing, and fallback chain.",
       "status": "planned",
       "priority": "high",
-      "stories": ["BMTOS-6", "BMTOS-7a", "BMTOS-7b", "BMTOS-8a", "BMTOS-8b", "BMTOS-8c", "BMTOS-8d", "BMTOS-9"],
+      "stories": [
+        "BMTOS-6",
+        "BMTOS-7a",
+        "BMTOS-7b",
+        "BMTOS-8a",
+        "BMTOS-8b",
+        "BMTOS-8c",
+        "BMTOS-8d",
+        "BMTOS-9"
+      ],
       "acceptance_criteria": [
         "Unified provider interface for all LLM backends",
         "At least 3 local providers supported (Ollama, vLLM, llama.cpp)",
@@ -23,7 +32,14 @@
       "description": "Pre-installed, auto-configured AI coding tools — CLIs (Claude Code, Aider, Continue, Tabby, Open Interpreter), IDE plugins (Cursor, Copilot, Cody), and code agents (SWE-agent, Codex CLI, Mentat). All wired to the local LLM provider layer with RAG-enhanced project context.",
       "status": "planned",
       "priority": "high",
-      "stories": ["BMTOS-10", "BMTOS-11", "BMTOS-12", "BMTOS-13", "BMTOS-14", "BMTOS-15"],
+      "stories": [
+        "BMTOS-10",
+        "BMTOS-11",
+        "BMTOS-12",
+        "BMTOS-13",
+        "BMTOS-14",
+        "BMTOS-15"
+      ],
       "acceptance_criteria": [
         "At least 5 coding CLIs installed and functional on ARM64",
         "All tools auto-configured to use local LLM providers",
@@ -42,7 +58,21 @@
       "description": "Core OS infrastructure: bootable ARM64 image build pipeline, init system, boot ordering, filesystem layout, networking, security, CI/CD. The foundation everything else depends on.",
       "status": "planned",
       "priority": "critical",
-      "stories": ["BMTOS-1", "BMTOS-2a", "BMTOS-2b", "BMTOS-3", "BMTOS-4", "BMTOS-5a", "BMTOS-5b", "BMTOS-16", "BMTOS-17", "BMTOS-18", "BMTOS-19", "BMTOS-20", "BMTOS-21"],
+      "stories": [
+        "BMTOS-1",
+        "BMTOS-2a",
+        "BMTOS-2b",
+        "BMTOS-3",
+        "BMTOS-4",
+        "BMTOS-5a",
+        "BMTOS-5b",
+        "BMTOS-16",
+        "BMTOS-17",
+        "BMTOS-18",
+        "BMTOS-19",
+        "BMTOS-20",
+        "BMTOS-21"
+      ],
       "acceptance_criteria": [
         "Buildroot produces bootable ARM64 image for at least one Tier 1 target",
         "Full boot sequence: kernel → init → containerd → AI stack → controller",
@@ -58,9 +88,14 @@
       "id": "BMTOS-EPIC-4",
       "title": "Hardware Board Support Packages",
       "description": "Board-specific support for Tier 1 hardware targets: Apple Silicon via Asahi Linux (CPU-first), Jetson Orin Nano Super (CUDA), RK3588 (RKNN NPU), Raspberry Pi 5 + Hailo-10H. Each BSP includes drivers, acceleration, and performance validation.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
-      "stories": ["BMTOS-43", "BMTOS-26", "BMTOS-27", "BMTOS-28"],
+      "stories": [
+        "BMTOS-43",
+        "BMTOS-26",
+        "BMTOS-27",
+        "BMTOS-28"
+      ],
       "acceptance_criteria": [
         "BMT AI OS boots on all four Tier 1 targets",
         "NPU/GPU acceleration functional per board",
@@ -76,7 +111,16 @@
       "description": "Native web dashboard for system monitoring, model management, RAG console, provider config, and log viewing. Built with Next.js + shadcn/ui + Tailwind CSS. Dark theme default, responsive, real-time via WebSocket.",
       "status": "planned",
       "priority": "high",
-      "stories": ["BMTOS-29", "BMTOS-30", "BMTOS-31", "BMTOS-32", "BMTOS-33", "BMTOS-34", "BMTOS-35", "BMTOS-36"],
+      "stories": [
+        "BMTOS-29",
+        "BMTOS-30",
+        "BMTOS-31",
+        "BMTOS-32",
+        "BMTOS-33",
+        "BMTOS-34",
+        "BMTOS-35",
+        "BMTOS-36"
+      ],
       "acceptance_criteria": [
         "Dashboard accessible via http://device-ip:9090 from any browser",
         "Built with Next.js App Router + shadcn/ui (new-york style) + Tailwind CSS",
@@ -98,7 +142,14 @@
       "description": "Local model training and LoRA/QLoRA fine-tuning on edge hardware. PyTorch + Hugging Face stack with data preparation tools, Jupyter notebooks, TensorBoard monitoring, and model export to Ollama/GGUF. Train on Jetson (CUDA), run on all targets.",
       "status": "planned",
       "priority": "medium",
-      "stories": ["BMTOS-37", "BMTOS-38", "BMTOS-39", "BMTOS-40", "BMTOS-41", "BMTOS-42"],
+      "stories": [
+        "BMTOS-37",
+        "BMTOS-38",
+        "BMTOS-39",
+        "BMTOS-40",
+        "BMTOS-41",
+        "BMTOS-42"
+      ],
       "acceptance_criteria": [
         "PyTorch ARM64-native with CUDA support on Jetson",
         "LoRA fine-tune a 1.5B model on Jetson Orin (8GB) in under 1 hour",
@@ -111,6 +162,25 @@
       ],
       "total_points": 36,
       "created_at": "2026-04-09"
+    },
+    {
+      "id": "BMTOS-EPIC-7",
+      "title": "Production Hardening",
+      "status": "planned",
+      "priority": "high",
+      "points": 68,
+      "stories": [
+        "BMTOS-44",
+        "BMTOS-45",
+        "BMTOS-46",
+        "BMTOS-47",
+        "BMTOS-48",
+        "BMTOS-49",
+        "BMTOS-50",
+        "BMTOS-51",
+        "BMTOS-52",
+        "BMTOS-53"
+      ]
     }
   ],
   "next_id": 7
