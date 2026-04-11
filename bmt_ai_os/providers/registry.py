@@ -59,6 +59,29 @@ class ProviderRegistry:
         """Return the names of all registered providers."""
         return list(self._providers)
 
+    def reorder(self, names: list[str]) -> None:
+        """Reorder providers according to *names*.
+
+        *names* must contain exactly the same provider names that are currently
+        registered (no additions, no omissions). The internal dict is rebuilt in
+        the specified order so that :meth:`list` reflects the new priority.
+
+        Raises :class:`ProviderError` if the supplied names do not match the
+        currently registered set.
+        """
+        registered = set(self._providers)
+        supplied = set(names)
+        if registered != supplied:
+            missing = registered - supplied
+            extra = supplied - registered
+            parts: list[str] = []
+            if missing:
+                parts.append(f"missing: {', '.join(sorted(missing))}")
+            if extra:
+                parts.append(f"unknown: {', '.join(sorted(extra))}")
+            raise ProviderError(f"Provider name mismatch — {'; '.join(parts)}")
+        self._providers = {n: self._providers[n] for n in names}
+
     # -- Active provider --------------------------------------------------
 
     def set_active(self, name: str) -> None:

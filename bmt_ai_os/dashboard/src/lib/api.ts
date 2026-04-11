@@ -138,6 +138,19 @@ export async function fetchProviders(): Promise<ProvidersResponse> {
   };
 }
 
+export async function setFallbackOrder(order: string[]): Promise<{ order: string[] }> {
+  return apiFetch<{ order: string[] }>("/api/v1/providers/fallback-order", {
+    method: "PUT",
+    body: JSON.stringify({ order }),
+  });
+}
+
+export async function fetchProviderModels(name: string): Promise<{ models: { id: string; name?: string; [key: string]: unknown }[] }> {
+  return apiFetch<{ models: { id: string; name?: string; [key: string]: unknown }[] }>(
+    `/api/v1/providers/${encodeURIComponent(name)}/models`,
+  );
+}
+
 export async function setActiveProvider(name: string): Promise<unknown> {
   return apiFetch<unknown>("/api/v1/providers/active", {
     method: "POST",
