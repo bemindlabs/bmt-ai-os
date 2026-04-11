@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/version-2026.4.9-green.svg" alt="Version"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os/releases/tag/v2026.4.10"><img src="https://img.shields.io/badge/version-2026.4.10-green.svg" alt="Version"></a>
   <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
   <a href="https://github.com/bemindlabs/bmt_ai_os"><img src="https://img.shields.io/badge/progress-84%25_(41%2F48_stories)-brightgreen.svg" alt="Progress: 84%"></a>
 </p>
@@ -89,8 +89,12 @@ curl http://localhost:8000/api/v1/heartbeat  # ChromaDB
 ### Run the Controller
 
 ```bash
-pip install docker
-python bmt_ai_os/controller/main.py
+pip install -e .
+BMT_COMPOSE_FILE=$(pwd)/bmt_ai_os/ai-stack/docker-compose.yml \
+  PYTHONPATH=$(pwd) python3 -m bmt_ai_os.controller.main
+
+# Or via Docker
+docker build -t bmt-ai-os . && docker run -p 8080:8080 --network bmt-ai-net bmt-ai-os
 ```
 
 ### Build the OS Image
@@ -125,7 +129,7 @@ ai-first-os/
 │   ├── dashboard/            # Next.js 15 + shadcn/ui web dashboard (6 pages)
 │   ├── tui/                  # Python Textual terminal UI (5 screens)
 │   └── runtime/              # OpenRC init, containerd, networking, security, NPU passthrough
-├── bmt_ai_os-build/          # Build infrastructure
+├── bmt-ai-os-build/          # Build infrastructure
 │   ├── base-config.toml      # Base distro config (Alpine, aarch64)
 │   ├── buildroot-external/   # Buildroot packages (containerd, docker, ollama, training)
 │   └── layers/               # BitBake/Yocto layers (NPU drivers, etc.)

@@ -49,3 +49,7 @@ releases/
 test-results/
 htmlcov/
 .coverage
+
+# Tools
+.claude/
+.agents/
