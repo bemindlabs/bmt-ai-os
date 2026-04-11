@@ -59,6 +59,11 @@ app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(training_router)
 app.include_router(terminal_router)
 
+# File manager routes (BMTOS-116)
+from bmt_ai_os.controller.file_routes import router as file_router  # noqa: E402
+
+app.include_router(file_router, prefix="/api/v1")
+
 # MCP server (Model Context Protocol — Claude Code integration)
 from bmt_ai_os.mcp.server import mcp_router  # noqa: E402
 

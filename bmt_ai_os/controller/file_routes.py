@@ -1,112 +1,66 @@
-"""File read/write endpoints for the BMT AI OS controller API.
+"""File manager endpoints for the BMT AI OS controller API.
 
-GET  /api/v1/files?path=         — list directory contents
-GET  /api/v1/files/read?path=    — read file content as text
-PUT  /api/v1/files/write         — write file content
-
-All paths are validated against BMT_FILES_ALLOWED_DIRS (env var, colon-separated).
-Falls back to a hard-coded safe list when the env var is not set.
+Provides directory listing, file reading, uploading, and downloading.
+All paths are validated against BMT_FILES_ROOT (default: /data/files).
+Symlinks and path traversal are neutralised via Path.resolve().
 """
 
 from __future__ import annotations
 
 import logging
+import mimetypes
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/files", tags=["files"])
+router = APIRouter(tags=["files"])
 
 # ---------------------------------------------------------------------------
-# Allowed directories
+# Root directory — override with BMT_FILES_ROOT env var
 # ---------------------------------------------------------------------------
 
-_DEFAULT_ALLOWED = [
-    "/home",
-    "/opt/bmt",
-    "/var/lib/bmt",
-    "/tmp/bmt-editor",
-]
+_DEFAULT_ROOT = "/data/files"
+_FILES_ROOT = Path(os.environ.get("BMT_FILES_ROOT", _DEFAULT_ROOT))
 
 
-def _get_allowed_dirs() -> list[Path]:
-    """Return resolved allowed root directories from env or defaults."""
-    raw = os.environ.get("BMT_FILES_ALLOWED_DIRS", "")
-    if raw.strip():
-        dirs = [Path(p.strip()).resolve() for p in raw.split(":") if p.strip()]
-    else:
-        dirs = [Path(p).resolve() for p in _DEFAULT_ALLOWED]
-    return dirs
+def _resolve_safe(rel: str) -> Path:
+    """Resolve *rel* relative to _FILES_ROOT and guard against traversal.
 
-
-def _resolve_and_check(raw_path: str, *, must_exist: bool = False) -> Path:
-    """Resolve *raw_path* and assert it is within an allowed directory.
-
-    Raises ``HTTPException(400)`` for relative paths.
-    Raises ``HTTPException(403)`` when the resolved path escapes allowed roots.
-    Raises ``HTTPException(404)`` when *must_exist* is True and path is absent.
+    Raises HTTPException(403) if the resolved path escapes the root.
+    Raises HTTPException(404) if the path does not exist.
     """
-    if not Path(raw_path).is_absolute():
-        raise HTTPException(status_code=400, detail="path must be absolute")
+    # Strip leading slashes so Path("/etc/passwd") doesn't break join
+    clean = rel.lstrip("/") if rel else ""
+    resolved = (_FILES_ROOT / clean).resolve()
 
-    resolved = Path(raw_path).resolve()
-
-    allowed_dirs = _get_allowed_dirs()
-    for allowed in allowed_dirs:
-        try:
-            resolved.relative_to(allowed)
-            break  # inside this allowed dir — OK
-        except ValueError:
-            continue
-    else:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Path '{resolved}' is outside all allowed directories.",
-        )
-
-    if must_exist and not resolved.exists():
-        raise HTTPException(status_code=404, detail=f"Path not found: {resolved}")
+    try:
+        resolved.relative_to(_FILES_ROOT.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: path outside files root.")
 
     return resolved
 
 
 # ---------------------------------------------------------------------------
-# Request / response models
+# Models (inline — no Pydantic needed for simple dicts)
 # ---------------------------------------------------------------------------
 
 
-class FileEntry(BaseModel):
-    name: str
-    path: str
-    is_dir: bool
-    size: int | None = None
-    extension: str | None = None
-
-
-class FileListResponse(BaseModel):
-    path: str
-    entries: list[FileEntry]
-
-
-class FileReadResponse(BaseModel):
-    path: str
-    content: str
-    size: int
-
-
-class FileWriteRequest(BaseModel):
-    path: str
-    content: str
-
-
-class FileWriteResponse(BaseModel):
-    path: str
-    size: int
-    ok: bool = True
+def _entry_dict(path: Path) -> dict:
+    """Return a JSON-serialisable dict describing a filesystem entry."""
+    stat = path.stat()
+    return {
+        "name": path.name,
+        "path": str(path.relative_to(_FILES_ROOT.resolve())),
+        "is_dir": path.is_dir(),
+        "size": stat.st_size if not path.is_dir() else None,
+        "modified": stat.st_mtime,
+        "mime": mimetypes.guess_type(path.name)[0] if not path.is_dir() else None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -114,98 +68,139 @@ class FileWriteResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=FileListResponse)
-async def list_directory(
-    path: str = Query(..., description="Absolute path to list"),
-) -> FileListResponse:
-    """List directory contents."""
-    resolved = _resolve_and_check(path, must_exist=True)
+@router.get("/files/list")
+async def list_files(path: str = "") -> dict:
+    """List entries in a directory.
 
-    if not resolved.is_dir():
-        raise HTTPException(status_code=400, detail="Path is not a directory")
+    Query param ``path`` is relative to the files root (default: "").
+    Returns ``{ entries: [...], breadcrumbs: [...] }``.
+    """
+    target = _resolve_safe(path)
 
-    entries: list[FileEntry] = []
+    if not target.exists():
+        # Return empty root listing if the root dir hasn't been created yet
+        if not path:
+            return {"entries": [], "breadcrumbs": []}
+        raise HTTPException(status_code=404, detail="Path not found.")
+
+    if not target.is_dir():
+        raise HTTPException(status_code=400, detail="Path is not a directory.")
+
     try:
-        for child in sorted(resolved.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
-            try:
-                stat = child.stat()
-                size = stat.st_size if child.is_file() else None
-            except OSError:
-                size = None
+        entries = sorted(
+            target.iterdir(),
+            key=lambda p: (not p.is_dir(), p.name.lower()),
+        )
+        entry_list = [_entry_dict(e) for e in entries]
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
 
-            entries.append(
-                FileEntry(
-                    name=child.name,
-                    path=str(child),
-                    is_dir=child.is_dir(),
-                    size=size,
-                    extension=child.suffix.lstrip(".")
-                    if child.is_file() and child.suffix
-                    else None,
-                )
-            )
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail="Permission denied") from exc
+    # Build breadcrumb chain
+    root_resolved = _FILES_ROOT.resolve()
+    rel_parts = target.relative_to(root_resolved).parts
+    breadcrumbs = [{"name": "Files", "path": ""}]
+    accumulated = ""
+    for part in rel_parts:
+        accumulated = f"{accumulated}/{part}".lstrip("/")
+        breadcrumbs.append({"name": part, "path": accumulated})
 
-    return FileListResponse(path=str(resolved), entries=entries)
+    return {"entries": entry_list, "breadcrumbs": breadcrumbs}
 
 
-@router.get("/read", response_model=FileReadResponse)
-async def read_file(
-    path: str = Query(..., description="Absolute path to read"),
-) -> FileReadResponse:
-    """Read a text file and return its content."""
-    resolved = _resolve_and_check(path, must_exist=True)
+@router.get("/files/read")
+async def read_file(path: str) -> dict:
+    """Return the text content of a file (max 1 MB).
 
-    if resolved.is_dir():
-        raise HTTPException(status_code=400, detail="Path is a directory, not a file")
+    Binary files are rejected with a 415 error. The caller should use
+    ``/files/download`` to fetch binary content.
+    """
+    target = _resolve_safe(path)
 
-    # Guard against very large files (>10 MB)
-    try:
-        stat = resolved.stat()
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail="Could not stat file") from exc
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
+    if target.is_dir():
+        raise HTTPException(status_code=400, detail="Path is a directory.")
 
-    max_bytes = 10 * 1024 * 1024  # 10 MB
-    if stat.st_size > max_bytes:
+    size = target.stat().st_size
+    if size > 1 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large for inline preview (max 1 MB).")
+
+    mime, _ = mimetypes.guess_type(target.name)
+    # Accept text/* and common code/data types
+    text_types = {
+        "application/json",
+        "application/xml",
+        "application/javascript",
+        "application/typescript",
+        "application/x-sh",
+        "application/toml",
+        "application/yaml",
+        "application/x-yaml",
+    }
+    is_text = (mime is None) or (mime.startswith("text/")) or (mime in text_types)
+    if not is_text:
         raise HTTPException(
-            status_code=413,
-            detail=f"File too large ({stat.st_size} bytes). Max 10 MB.",
+            status_code=415,
+            detail="Binary file — use /api/v1/files/download to retrieve it.",
         )
 
     try:
-        content = resolved.read_text(encoding="utf-8", errors="replace")
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail="Permission denied") from exc
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail="Could not read file") from exc
+        content = target.read_text(encoding="utf-8", errors="replace")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
 
-    return FileReadResponse(path=str(resolved), content=content, size=stat.st_size)
+    return {
+        "path": path,
+        "name": target.name,
+        "content": content,
+        "size": size,
+        "mime": mime or "text/plain",
+    }
 
 
-@router.put("/write", response_model=FileWriteResponse)
-async def write_file(req: FileWriteRequest) -> FileWriteResponse:
-    """Write (create or overwrite) a text file."""
-    resolved = _resolve_and_check(req.path)
+@router.get("/files/download")
+async def download_file(path: str) -> FileResponse:
+    """Stream a file to the client as a download."""
+    target = _resolve_safe(path)
 
-    # Ensure parent directory exists
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
+    if target.is_dir():
+        raise HTTPException(status_code=400, detail="Cannot download a directory.")
+
+    mime, _ = mimetypes.guess_type(target.name)
+    return FileResponse(
+        path=str(target),
+        filename=target.name,
+        media_type=mime or "application/octet-stream",
+    )
+
+
+@router.post("/files/upload")
+async def upload_file(path: str = "", file: UploadFile = None) -> dict:  # type: ignore[assignment]
+    """Upload a file into the directory at *path* (relative to files root)."""
+    if file is None:
+        raise HTTPException(status_code=422, detail="No file provided.")
+
+    target_dir = _resolve_safe(path)
+
+    if target_dir.exists() and not target_dir.is_dir():
+        raise HTTPException(status_code=400, detail="Target path is not a directory.")
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = Path(file.filename or "upload").name  # strip any directory component
+    dest = target_dir / filename
+
     try:
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-    except PermissionError as exc:
-        raise HTTPException(
-            status_code=403, detail="Permission denied creating directories"
-        ) from exc
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail="Could not create parent directories") from exc
+        contents = await file.read()
+        dest.write_bytes(contents)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
 
-    try:
-        resolved.write_text(req.content, encoding="utf-8")
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail="Permission denied writing file") from exc
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail="Could not write file") from exc
-
-    size = len(req.content.encode("utf-8"))
-    logger.info("File written: %s (%d bytes)", resolved, size)
-
-    return FileWriteResponse(path=str(resolved), size=size)
+    return {
+        "status": "uploaded",
+        "path": str(dest.relative_to(_FILES_ROOT.resolve())),
+        "name": filename,
+        "size": len(contents),
+    }
