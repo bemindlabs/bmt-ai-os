@@ -68,6 +68,28 @@ async def healthz() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/models")
+async def list_ollama_models() -> dict:
+    """List models from Ollama in native format (name, size, digest, modified_at)."""
+    import os
+
+    import aiohttp
+
+    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{ollama_host}/api/tags",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return {"models": data.get("models", [])}
+    except Exception:
+        pass
+    return {"models": []}
+
+
 @app.post("/api/pull")
 async def pull_model(request: Request) -> dict:
     """Pull a model via Ollama API. Proxies to the Ollama /api/pull endpoint."""

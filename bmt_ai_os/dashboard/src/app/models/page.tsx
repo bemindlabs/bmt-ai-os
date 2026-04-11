@@ -19,7 +19,7 @@ import { PullModelForm } from "./pull-model-form";
 
 export default async function ModelsPage() {
   const result = await fetchModels().catch(() => null);
-  const models = result?.models ?? [];
+  const models = result?.models ?? result?.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -30,7 +30,6 @@ export default async function ModelsPage() {
         </p>
       </div>
 
-      {/* Loaded models table */}
       <Card>
         <CardHeader>
           <CardTitle>Loaded Models</CardTitle>
@@ -52,30 +51,45 @@ export default async function ModelsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {models.map((m) => (
-                  <TableRow key={m.name}>
-                    <TableCell className="font-mono text-xs font-medium">
-                      {m.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{formatBytes(m.size)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(m.modified_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {m.digest ? m.digest.slice(0, 12) : "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {models.map((m: Record<string, unknown>) => {
+                  const name = (m.name ?? m.id ?? "unknown") as string;
+                  const size = (m.size ?? 0) as number;
+                  const modified = (m.modified_at ?? m.created ?? "") as string;
+                  const digest = (m.digest ?? "") as string;
+                  return (
+                    <TableRow key={name}>
+                      <TableCell className="font-mono text-xs font-medium">
+                        {name}
+                      </TableCell>
+                      <TableCell>
+                        {size > 0 ? (
+                          <Badge variant="secondary">{formatBytes(size)}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {modified
+                          ? new Date(
+                              typeof modified === "number"
+                                ? modified * 1000
+                                : modified,
+                            ).toLocaleDateString()
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {digest ? digest.slice(0, 12) : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Pull new model */}
-      <PullModelForm installedModels={models.map((m) => m.name)} />
+      <PullModelForm installedModels={models.map((m: Record<string, unknown>) => (m.name ?? m.id ?? "") as string)} />
     </div>
   );
 }
