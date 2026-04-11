@@ -1763,3 +1763,48 @@ def update_containers(compose_file: str | None, services: tuple[str, ...]) -> No
 
     click.echo("Container images updated successfully.")
     click.echo("Run `bmt-ai-os stack restart` to apply the new images.")
+
+
+# ---------------------------------------------------------------------------
+# mcp
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def mcp() -> None:
+    """Model Context Protocol (MCP) server commands."""
+
+
+@mcp.command("serve")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind host.")
+@click.option("--port", default=8765, show_default=True, help="Bind port.")
+@click.option(
+    "--log-level",
+    default="info",
+    show_default=True,
+    type=click.Choice(["debug", "info", "warning", "error"], case_sensitive=False),
+    help="Uvicorn log level.",
+)
+def mcp_serve(host: str, port: int, log_level: str) -> None:
+    """Start the standalone BMT AI OS MCP server.
+
+    Exposes BMT AI OS resources (models, status, providers) and tools
+    (chat, pull_model, query_rag, list_models) to Claude Code and other
+    MCP-compatible clients.
+
+    Example:
+
+        bmt-ai-os mcp serve --port 8765
+
+    Then configure Claude Code with:
+
+        {"mcpServers": {"bmt-ai-os": {"url": "http://127.0.0.1:8765/mcp/"}}}
+    """
+    import uvicorn
+
+    from bmt_ai_os.mcp.server import create_mcp_app
+
+    click.echo(f"Starting BMT AI OS MCP server on {host}:{port}")
+    click.echo("Endpoint: POST /mcp/  (JSON-RPC 2.0)")
+    click.echo("Press Ctrl+C to stop.")
+    uvicorn.run(create_mcp_app(), host=host, port=port, log_level=log_level.lower())
