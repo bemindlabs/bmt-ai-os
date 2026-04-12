@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     import yaml
@@ -169,9 +172,7 @@ def parse_vault(vault_dir: str | Path) -> list[ObsidianNote]:
         try:
             notes.append(parse_note(md_file))
         except OSError:
-            import sys
-
-            print(f"[obsidian] Skipping unreadable file: {md_file}", file=sys.stderr)
+            logger.warning("Skipping unreadable file: %s", md_file)
 
     return notes
 

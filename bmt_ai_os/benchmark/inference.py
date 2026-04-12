@@ -176,8 +176,8 @@ def _read_model_memory_mb(base_url: str, model: str) -> float:
                 size = entry.get("size", 0) or 0
                 total_bytes = size_vram if size_vram else size
                 return total_bytes / (1024 * 1024)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001
+        logger.debug("Could not determine model size", exc_info=True)
     return 0.0
 
 

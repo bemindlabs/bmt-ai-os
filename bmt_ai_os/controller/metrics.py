@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import defaultdict, deque
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class MetricsCollector:
@@ -188,10 +191,10 @@ class MetricsCollector:
                     try:
                         cb = router.get_circuit_breaker(pname)
                         circuit_states[pname] = cb.state.value
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         circuit_states[pname] = "closed"
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001
+                logger.debug("Failed to collect provider metrics", exc_info=True)
 
         with self._lock:
             return {
