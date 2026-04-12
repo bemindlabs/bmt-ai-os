@@ -24,9 +24,12 @@ services:
       - CHROMADB_HOST=http://chromadb:8000
       - BMT_ENV=dev
       - BMT_JWT_SECRET=dev-only-secret-change-in-production-32chars!
+      - BMT_BUILD_SCRIPT=/project/scripts/build.sh
+      - BMT_PROJECT_ROOT=/project
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - .:/project:ro
     # BMTOS-50: per-service security hardening
     # seccomp/AppArmor applied on Linux; Docker Desktop silently ignores AppArmor.
     security_opt:
