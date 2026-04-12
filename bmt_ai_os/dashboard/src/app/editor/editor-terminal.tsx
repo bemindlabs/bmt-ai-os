@@ -10,16 +10,21 @@ import { ConnectionStatus } from "@/components/terminal/connection-status";
 // Constants
 // ---------------------------------------------------------------------------
 
-const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-function buildWsUrl(origin: string, path: string): string {
-  const url = new URL(origin);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = path;
-  return url.toString();
+/**
+ * Build the WebSocket URL for the terminal.
+ * In the browser, we derive it from the current page URL so it works
+ * regardless of Docker internal hostnames (NEXT_PUBLIC_API_URL may be
+ * "http://controller:8080" which isn't resolvable from the browser).
+ * Falls back to localhost:8080 during SSR.
+ */
+function getTerminalWsUrl(): string {
+  if (typeof window === "undefined") return "ws://localhost:8080/ws/terminal";
+  const loc = window.location;
+  const proto = loc.protocol === "https:" ? "wss:" : "ws:";
+  // Dashboard runs on port 9090, controller on 8080 — same host, different port
+  const host = loc.hostname;
+  return `${proto}//${host}:8080/ws/terminal`;
 }
-
-const LOCAL_WS_URL = buildWsUrl(API_ORIGIN, "/ws/terminal");
 
 const HEIGHT_STORAGE_KEY = "bmt_editor_terminal_height";
 const DEFAULT_HEIGHT = 200;
@@ -66,7 +71,7 @@ export function EditorTerminal({ visible, onClose }: EditorTerminalProps) {
 
   const { connect, disconnect, status, dispose } = useTerminal({
     containerRef,
-    wsUrl: LOCAL_WS_URL,
+    wsUrl: getTerminalWsUrl(),
   });
 
   // ------------------------------------------------------------------

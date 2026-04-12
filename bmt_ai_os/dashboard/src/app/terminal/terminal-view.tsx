@@ -17,16 +17,19 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-function buildWsUrl(origin: string, path: string): string {
-  const url = new URL(origin);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = path;
-  return url.toString();
+/**
+ * Build the WebSocket URL from the browser's current location.
+ * This avoids using NEXT_PUBLIC_API_URL which may contain Docker-internal
+ * hostnames (e.g., "http://controller:8080") unresolvable from the browser.
+ */
+function getWsBaseUrl(): string {
+  if (typeof window === "undefined") return "ws://localhost:8080";
+  const loc = window.location;
+  const proto = loc.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${loc.hostname}:8080`;
 }
 
-const LOCAL_WS_URL = buildWsUrl(API_ORIGIN, "/ws/terminal");
+const LOCAL_WS_URL = `${getWsBaseUrl()}/ws/terminal`;
 
 // ---------------------------------------------------------------------------
 // SSH form state reducer
