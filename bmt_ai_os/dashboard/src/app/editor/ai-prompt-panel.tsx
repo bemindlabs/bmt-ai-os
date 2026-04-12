@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   streamChat,
   fetchProviders,
@@ -23,9 +23,16 @@ import {
   AlertTriangle,
   ChevronDown,
   GitCompare,
+  Diff,
 } from "lucide-react";
 import { ProviderKeySetup } from "./provider-key-setup";
 import { ModelCompare } from "./model-compare";
+import { DiffView } from "./diff-view";
+import {
+  SlashCommandPopup,
+  filterEditorCommands,
+  type EditorSlashCommand,
+} from "./slash-commands";
 
 // ---------------------------------------------------------------------------
 // SSE parser
@@ -193,6 +200,19 @@ export function AiPromptPanel({
   const [saveAsPath, setSaveAsPath] = useState("");
   const [saveAsStatus, setSaveAsStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const abortRef = useRef<AbortController | null>(null);
+
+  // Diff preview state
+  const [showDiff, setShowDiff] = useState(false);
+
+  // ---------------------------------------------------------------------------
+  // Slash command state
+  // ---------------------------------------------------------------------------
+
+  const [showCommands, setShowCommands] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const [commandIndex, setCommandIndex] = useState(0);
+  const [activeCommand, setActiveCommand] = useState<EditorSlashCommand | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // ---------------------------------------------------------------------------
   // Provider + model state
@@ -366,30 +386,59 @@ export function AiPromptPanel({
       .finally(() => setShowKeySetup(false));
   }, [selectedProvider]);
 
+  // ---------------------------------------------------------------------------
+  // Slash command selection
+  // ---------------------------------------------------------------------------
+
+  const handleCommandSelect = useCallback((cmd: EditorSlashCommand) => {
+    setActiveCommand(cmd);
+    setShowCommands(false);
+    // Replace the "/name" trigger text with the command description as a
+    // ready-to-use prompt so the user can edit or send immediately.
+    setPrompt((prev) => {
+      // Remove the trailing "/<query>" that triggered the popup.
+      const replaced = prev.replace(/(^|\n)\/([\w]*)$/, "$1");
+      return replaced + cmd.description;
+    });
+    // Return focus to the textarea.
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
     setResponse("");
+    setShowDiff(false);
     onPromptSubmit?.(prompt);
 
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const defaultSystemContent = [
+      "You are a coding assistant integrated into a code editor.",
+      "The user is editing a file and wants you to generate or modify code.",
+      "Respond ONLY with the code — no markdown fences, no explanations, no preamble.",
+      "If the user asks to modify existing code, return the complete modified file content.",
+      "If the user asks to generate new code, return just the code.",
+      "The user can save your output as a new file using the 'Save As' button.",
+      filePath ? `Current file: ${filePath} (${language})` : "",
+      currentDir ? `Current directory: ${currentDir}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     const systemMessage: ChatMessage = {
       role: "system",
-      content: [
-        "You are a coding assistant integrated into a code editor.",
-        "The user is editing a file and wants you to generate or modify code.",
-        "Respond ONLY with the code — no markdown fences, no explanations, no preamble.",
-        "If the user asks to modify existing code, return the complete modified file content.",
-        "If the user asks to generate new code, return just the code.",
-        "The user can save your output as a new file using the 'Save As' button.",
-        filePath ? `Current file: ${filePath} (${language})` : "",
-        currentDir ? `Current directory: ${currentDir}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      content: activeCommand
+        ? [
+            activeCommand.systemPrompt,
+            filePath ? `Current file: ${filePath} (${language})` : "",
+            currentDir ? `Current directory: ${currentDir}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : defaultSystemContent,
     };
 
     const userContent = fileContent.trim()
@@ -447,7 +496,7 @@ export function AiPromptPanel({
       setLoading(false);
       abortRef.current = null;
     }
-  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens]);
+  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens, activeCommand]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -460,20 +509,25 @@ export function AiPromptPanel({
     setTimeout(() => setCopied(false), 2000);
   }, [response]);
 
+  /** Strip markdown fences from AI response, leaving raw code. */
+  const extractCode = useCallback(
+    (raw: string): string => {
+      const fenceMatch = raw.match(/^```[\w]*\n([\s\S]*?)\n```$/);
+      return fenceMatch ? fenceMatch[1] : raw;
+    },
+    [],
+  );
+
   const handleApply = useCallback(() => {
-    let code = response;
-    const fenceMatch = code.match(/^```[\w]*\n([\s\S]*?)\n```$/);
-    if (fenceMatch) code = fenceMatch[1];
-    onApply(code);
-  }, [response, onApply]);
+    onApply(extractCode(response));
+    setShowDiff(false);
+  }, [response, onApply, extractCode]);
 
   const handleSaveAs = useCallback(async () => {
     if (!saveAsPath.trim() || !response.trim()) return;
     setSaveAsStatus("saving");
     try {
-      let code = response;
-      const fenceMatch = code.match(/^```[\w]*\n([\s\S]*?)\n```$/);
-      if (fenceMatch) code = fenceMatch[1];
+      const code = extractCode(response);
 
       const fullPath = saveAsPath.startsWith("/")
         ? saveAsPath
@@ -492,7 +546,7 @@ export function AiPromptPanel({
       setSaveAsStatus("error");
       setTimeout(() => setSaveAsStatus("idle"), 2000);
     }
-  }, [saveAsPath, response, currentDir, onFileCreated]);
+  }, [saveAsPath, response, currentDir, onFileCreated, extractCode]);
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
@@ -670,24 +724,96 @@ export function AiPromptPanel({
 
       {/* Prompt input */}
       <div className="border-b border-border p-3">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              void handleSubmit();
+        {/* Active command badge */}
+        {activeCommand && (
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <activeCommand.Icon className="size-3" />
+              {activeCommand.label}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveCommand(null)}
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+              aria-label="Clear active command"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        )}
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={prompt}
+            onChange={(e) => {
+              const value = e.target.value;
+              setPrompt(value);
+
+              // Detect a "/" at the start of a line or the whole input.
+              const slashMatch = value.match(/(^|\n)\/([\w]*)$/);
+              if (slashMatch) {
+                const q = slashMatch[2];
+                setCommandQuery(q);
+                setCommandIndex(0);
+                setShowCommands(true);
+              } else {
+                setShowCommands(false);
+              }
+            }}
+            onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+              if (showCommands) {
+                const filtered = filterEditorCommands(commandQuery);
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setCommandIndex((i) => (i + 1) % Math.max(filtered.length, 1));
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setCommandIndex((i) =>
+                    (i - 1 + Math.max(filtered.length, 1)) % Math.max(filtered.length, 1),
+                  );
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  const cmd = filtered[commandIndex];
+                  if (cmd) handleCommandSelect(cmd);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setShowCommands(false);
+                  return;
+                }
+              }
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                void handleSubmit();
+              }
+            }}
+            onBlur={() => {
+              // Delay so mouseDown on popup items fires first.
+              setTimeout(() => setShowCommands(false), 150);
+            }}
+            placeholder={
+              fileContent.trim()
+                ? "Describe the change... (Ctrl+Enter to send, / for commands)"
+                : "Describe what to generate... (Ctrl+Enter to send, / for commands)"
             }
-          }}
-          placeholder={
-            fileContent.trim()
-              ? "Describe the change... (Ctrl+Enter to send)"
-              : "Describe what to generate... (Ctrl+Enter to send)"
-          }
-          className="w-full resize-none rounded border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          rows={3}
-          spellCheck={false}
-        />
+            className="w-full resize-none rounded border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            rows={3}
+            spellCheck={false}
+          />
+          {showCommands && (
+            <SlashCommandPopup
+              query={commandQuery}
+              activeIndex={commandIndex}
+              onSelect={handleCommandSelect}
+              onActiveIndexChange={setCommandIndex}
+            />
+          )}
+        </div>
         {/* Prompt history */}
         {promptHistory.length > 0 && (
           <div className="mt-1.5">
@@ -786,7 +912,7 @@ export function AiPromptPanel({
         </div>
       </div>
 
-      {/* Response area — compare mode or normal */}
+      {/* Response area — compare mode, diff preview, or normal */}
       {compareMode ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <ModelCompare
@@ -800,6 +926,18 @@ export function AiPromptPanel({
             onClose={() => setCompareMode(false)}
           />
         </div>
+      ) : showDiff && response ? (
+        /* Diff preview — replaces the raw response area */
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <DiffView
+            original={fileContent}
+            modified={extractCode(response)}
+            language={language}
+            fileName={filePath ? filePath.split("/").pop() : undefined}
+            onApply={handleApply}
+            onReject={() => setShowDiff(false)}
+          />
+        </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {response ? (
@@ -811,11 +949,27 @@ export function AiPromptPanel({
               </div>
               <div className="shrink-0 border-t border-border px-3 py-2 space-y-2">
                 <div className="flex items-center gap-2">
+                  {/* Preview Diff — opens the diff view (only when a file is open) */}
+                  {fileContent.trim() && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowDiff(true)}
+                      disabled={loading}
+                      className="h-7 gap-1.5 text-xs"
+                      title="Preview changes before applying"
+                    >
+                      <Diff className="size-3" />
+                      Preview Diff
+                    </Button>
+                  )}
+                  {/* Apply directly (skip diff review) */}
                   <Button
                     size="sm"
                     onClick={handleApply}
                     disabled={loading}
                     className="h-7 gap-1.5 text-xs"
+                    title="Apply to editor without reviewing diff"
                   >
                     <Replace className="size-3" />
                     Apply

@@ -453,6 +453,21 @@
         "BMTOS-150",
         "BMTOS-151"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-21",
+      "title": "AI Coding Workflow (Claw-Code Inspired)",
+      "description": "IDE-grade coding workflow: diff preview, slash commands, tool use, multi-file edits, git integration.",
+      "status": "in_progress",
+      "priority": "critical",
+      "total_points": 26,
+      "stories": [
+        "BMTOS-152",
+        "BMTOS-153",
+        "BMTOS-154",
+        "BMTOS-155",
+        "BMTOS-156"
+      ]
     }
   ],
   "next_id": 18

@@ -3463,6 +3463,79 @@
         "Shows latency, token count per response",
         "User can apply either response to editor"
       ]
+    },
+    {
+      "id": "BMTOS-152",
+      "title": "Diff preview before applying AI-generated code",
+      "description": "Show a unified diff view between current file content and AI-generated code before applying. User reviews changes (green=added, red=removed), then clicks Apply or Reject. Uses a simple side-by-side or inline diff renderer.",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-153",
+      "title": "Slash commands in AI prompt (/fix, /refactor, /explain, /test)",
+      "description": "Add slash command support in the AI prompt textarea. Typing / shows a command palette with coding actions. Each command pre-fills a specialized system prompt. Commands: /fix (fix bugs), /refactor (improve code), /explain (explain code), /test (generate tests), /doc (add documentation), /optimize (performance).",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-154",
+      "title": "AI tool use: read files, run commands, search code",
+      "description": "Enable the AI to use tools during code generation. Backend: extend the chat endpoint to support function calling with tools: read_file, write_file, run_command, search_code. Frontend: show tool invocations inline in the response (collapsible tool call blocks).",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "backlog",
+      "labels": [
+        "backend",
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-155",
+      "title": "Multi-file edit workflow from AI prompt",
+      "description": "AI can suggest edits across multiple files from a single prompt. Response shows a file tree of changes with per-file diffs. User can apply all or select individual files. Uses structured output format with file paths and content.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-156",
+      "title": "Git integration in Code Editor (status, diff, commit)",
+      "description": "Add git panel to the editor: show file status (modified/staged/untracked), view diffs, stage files, commit with message. Backend: add git endpoints for status, diff, stage, commit. Uses the workspace directory as git root.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "frontend",
+        "editor",
+        "git"
+      ],
+      "epic": "BMTOS-EPIC-21"
     }
   ],
   "next_id": 136
