@@ -520,3 +520,59 @@ class TestPasswordSecurity:
             payload = jwt.decode(token, options={"verify_signature": False})
             assert "password" not in payload
             assert "SecretPass123!" not in str(payload)
+
+
+# ---------------------------------------------------------------------------
+# 7. Security Headers
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityHeaders:
+    """Verify OWASP-recommended security headers on API responses."""
+
+    def test_x_content_type_options(self, sec_client: TestClient):
+        resp = sec_client.get("/healthz")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_x_frame_options(self, sec_client: TestClient):
+        resp = sec_client.get("/healthz")
+        assert resp.headers.get("X-Frame-Options") == "DENY"
+
+    def test_referrer_policy(self, sec_client: TestClient):
+        resp = sec_client.get("/healthz")
+        assert "strict-origin" in resp.headers.get("Referrer-Policy", "")
+
+    def test_permissions_policy(self, sec_client: TestClient):
+        resp = sec_client.get("/healthz")
+        pp = resp.headers.get("Permissions-Policy", "")
+        assert "camera=()" in pp
+        assert "microphone=()" in pp
+
+    def test_api_cache_control_no_store(self, sec_client: TestClient):
+        resp = sec_client.get("/api/v1/status")
+        assert resp.headers.get("Cache-Control") == "no-store"
+
+
+# ---------------------------------------------------------------------------
+# 8. Request Body Size Limit
+# ---------------------------------------------------------------------------
+
+
+class TestBodySizeLimit:
+    """Verify oversized payloads are rejected."""
+
+    def test_oversized_json_rejected(self, sec_client: TestClient, sec_env: dict):
+        """Send a payload exceeding BMT_MAX_BODY_BYTES (default 10 MB)."""
+        import bmt_ai_os.controller.middleware as mw
+
+        original = mw._MAX_BODY_BYTES
+        mw._MAX_BODY_BYTES = 1024  # 1 KB for test
+        try:
+            resp = sec_client.post(
+                "/api/v1/auth/login",
+                content=b"x" * 2048,
+                headers={"content-type": "application/json", "content-length": "2048"},
+            )
+            assert resp.status_code == 413
+        finally:
+            mw._MAX_BODY_BYTES = original
