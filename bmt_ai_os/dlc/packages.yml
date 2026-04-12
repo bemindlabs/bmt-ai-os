@@ -1,0 +1,445 @@
+# BMT AI OS — DLC Tool Package Registry
+# Each package can be selected for inclusion in a custom OS image build.
+# Categories: inference, coding-cli, agent, ide-plugin, utility, rag, training
+
+metadata:
+  version: "1.0.0"
+  description: "AI tool packages available for BMT AI OS image builds"
+  updated: "2026-04-12"
+
+packages:
+  # ─── Inference Engines ──────────────────────────────────────────────────────
+  - id: ollama
+    name: Ollama
+    description: "Local LLM inference server with model management and OpenAI-compatible API"
+    category: inference
+    size_mb: 180
+    arm64: true
+    required: true
+    tier_minimum: lite
+    container_image: "ollama/ollama:latest"
+    buildroot_packages: []
+    ports: [11434]
+    tags: [core, inference, openai-compat]
+
+  - id: vllm
+    name: vLLM
+    description: "High-throughput LLM serving with PagedAttention, continuous batching, and tensor parallelism"
+    category: inference
+    size_mb: 2400
+    arm64: true
+    required: false
+    tier_minimum: full
+    container_image: "vllm/vllm-openai:latest"
+    buildroot_packages: []
+    dependencies: []
+    ports: [8000]
+    tags: [inference, high-throughput, gpu]
+    hardware_requirements:
+      min_ram_gb: 16
+      gpu_recommended: true
+
+  - id: llamacpp
+    name: "llama.cpp"
+    description: "Lightweight C++ inference engine with ARM NEON/SVE optimization, ideal for CPU-only devices"
+    category: inference
+    size_mb: 45
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [llama-cpp]
+    dependencies: []
+    ports: [8081]
+    tags: [inference, cpu, lightweight]
+
+  # ─── Coding CLIs ────────────────────────────────────────────────────────────
+  - id: claude-code
+    name: Claude Code
+    description: "Anthropic's AI coding CLI — agentic coding with tool use, multi-file edits, and git integration"
+    category: coding-cli
+    size_mb: 120
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [nodejs]
+    install_command: "npm install -g @anthropic-ai/claude-code"
+    dependencies: []
+    tags: [coding, cli, anthropic]
+    env_vars:
+      ANTHROPIC_API_KEY: ""
+
+  - id: aider
+    name: Aider
+    description: "AI pair programming CLI — git-aware, multi-file editing with diff preview"
+    category: coding-cli
+    size_mb: 85
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    install_command: "pip install aider-chat"
+    dependencies: []
+    tags: [coding, cli, git-aware]
+
+  - id: codex-cli
+    name: Codex CLI
+    description: "OpenAI's Codex CLI — code generation, explanation, and sandboxed execution"
+    category: coding-cli
+    size_mb: 95
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [nodejs]
+    install_command: "npm install -g @openai/codex"
+    dependencies: []
+    tags: [coding, cli, openai]
+
+  - id: continue-dev
+    name: Continue
+    description: "Open-source AI code assistant — IDE extension with local model support"
+    category: coding-cli
+    size_mb: 60
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [nodejs]
+    install_command: "npm install -g @continue/cli"
+    dependencies: []
+    tags: [coding, cli, open-source]
+
+  - id: tabby
+    name: Tabby
+    description: "Self-hosted AI coding assistant with code completion and RAG-based context"
+    category: coding-cli
+    size_mb: 350
+    arm64: true
+    required: false
+    tier_minimum: standard
+    container_image: "tabbyml/tabby:latest"
+    dependencies: [ollama]
+    ports: [8082]
+    tags: [coding, completion, self-hosted]
+
+  - id: open-interpreter
+    name: Open Interpreter
+    description: "Natural language interface for computer control — code execution, file management, web browsing"
+    category: coding-cli
+    size_mb: 110
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    install_command: "pip install open-interpreter"
+    dependencies: []
+    tags: [coding, cli, interpreter]
+
+  # ─── AI Agents ──────────────────────────────────────────────────────────────
+  - id: swe-agent
+    name: SWE-agent
+    description: "Autonomous software engineering agent — resolves GitHub issues end-to-end"
+    category: agent
+    size_mb: 200
+    arm64: true
+    required: false
+    tier_minimum: standard
+    buildroot_packages: [python3, git]
+    install_command: "pip install swe-agent"
+    dependencies: []
+    tags: [agent, autonomous, github]
+
+  - id: mentat
+    name: Mentat
+    description: "AI coding agent with codebase understanding and multi-file editing"
+    category: agent
+    size_mb: 90
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    install_command: "pip install mentat"
+    dependencies: []
+    tags: [agent, coding, codebase-aware]
+
+  - id: kimi-coder
+    name: Kimi Coder
+    description: "Kimi K2 coding agent with long-context understanding and thinking mode"
+    category: agent
+    size_mb: 75
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    install_command: "pip install kimi-coder"
+    dependencies: []
+    tags: [agent, coding, long-context]
+
+  - id: gemini-cli
+    name: Gemini CLI
+    description: "Google's Gemini CLI with multimodal input, MCP support, and extensions"
+    category: agent
+    size_mb: 90
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [nodejs]
+    install_command: "npm install -g @google/gemini-cli"
+    dependencies: []
+    tags: [agent, cli, google, multimodal]
+
+  # ─── RAG & Knowledge ───────────────────────────────────────────────────────
+  - id: chromadb
+    name: ChromaDB
+    description: "Embedded vector database for RAG pipelines — document storage, embedding, and semantic search"
+    category: rag
+    size_mb: 120
+    arm64: true
+    required: true
+    tier_minimum: lite
+    container_image: "chromadb/chroma:latest"
+    buildroot_packages: []
+    ports: [8000]
+    tags: [core, rag, vector-db]
+
+  - id: rag-pipeline
+    name: "RAG Pipeline"
+    description: "Built-in document ingestion, chunking, and query pipeline with hybrid BM25 + vector search"
+    category: rag
+    size_mb: 50
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    dependencies: [chromadb]
+    tags: [rag, search, ingestion]
+
+  # ─── Training ──────────────────────────────────────────────────────────────
+  - id: training-framework
+    name: "On-Device Training"
+    description: "LoRA/QLoRA fine-tuning with PyTorch, Transformers, and PEFT — train models locally"
+    category: training
+    size_mb: 1800
+    arm64: true
+    required: false
+    tier_minimum: standard
+    buildroot_packages: [python3]
+    install_command: "pip install torch transformers peft datasets"
+    dependencies: [ollama]
+    tags: [training, lora, fine-tuning]
+    hardware_requirements:
+      min_ram_gb: 16
+      gpu_recommended: true
+
+  # ─── Utilities ─────────────────────────────────────────────────────────────
+  - id: bmt-controller
+    name: "BMT Controller"
+    description: "FastAPI controller with OpenAI-compatible API, auth, fleet management, and plugin system"
+    category: utility
+    size_mb: 80
+    arm64: true
+    required: true
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    dependencies: [ollama]
+    ports: [8080, 8443]
+    tags: [core, api, controller]
+
+  - id: bmt-dashboard
+    name: "BMT Dashboard"
+    description: "Next.js web dashboard — chat, models, training, agents, settings, and image builder"
+    category: utility
+    size_mb: 95
+    arm64: true
+    required: true
+    tier_minimum: lite
+    buildroot_packages: [nodejs]
+    dependencies: [bmt-controller]
+    ports: [9090]
+    tags: [core, dashboard, ui]
+
+  - id: mcp-server
+    name: "MCP Server"
+    description: "Model Context Protocol server for Claude Code native integration"
+    category: utility
+    size_mb: 15
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    dependencies: [bmt-controller]
+    tags: [integration, mcp, claude-code]
+
+  - id: monitoring
+    name: "Monitoring Stack"
+    description: "Prometheus metrics, Grafana dashboards, and alerting for system and AI workloads"
+    category: utility
+    size_mb: 250
+    arm64: true
+    required: false
+    tier_minimum: standard
+    container_image: "prom/prometheus:latest"
+    dependencies: [bmt-controller]
+    ports: [9091, 3000]
+    tags: [monitoring, prometheus, grafana]
+
+  - id: fleet-agent
+    name: "Fleet Agent"
+    description: "Edge device fleet management — heartbeats, remote commands, OTA updates"
+    category: utility
+    size_mb: 20
+    arm64: true
+    required: false
+    tier_minimum: lite
+    buildroot_packages: [python3]
+    dependencies: [bmt-controller]
+    tags: [fleet, management, ota]
+
+# ─── Hardware Targets ─────────────────────────────────────────────────────────
+
+targets:
+  - id: qemu
+    name: "QEMU Virtual Machine"
+    description: "ARM64 virtual machine for testing and development"
+    arch: aarch64
+    accelerator: cpu
+    default_tier: standard
+    image_format: ext4
+    min_storage_gb: 4
+    specs:
+      cpu: "Cortex-A57 (emulated)"
+      ram: "Configurable"
+      accelerator: "None (CPU only)"
+      storage: "Virtual disk"
+
+  - id: pi5
+    name: "Raspberry Pi 5"
+    description: "Raspberry Pi 5 with optional Hailo AI HAT+ for NPU acceleration"
+    arch: aarch64
+    accelerator: hailo
+    default_tier: lite
+    image_format: sdcard
+    min_storage_gb: 8
+    specs:
+      cpu: "Cortex-A76 (4-core, 2.4GHz)"
+      ram: "4GB / 8GB"
+      accelerator: "Hailo-8L (13 TOPS) or Hailo-10H (40 TOPS)"
+      storage: "microSD / NVMe via HAT+"
+
+  - id: jetson
+    name: "NVIDIA Jetson Orin Nano Super"
+    description: "NVIDIA Jetson Orin Nano Super with CUDA GPU acceleration"
+    arch: aarch64
+    accelerator: cuda
+    default_tier: standard
+    image_format: ext4
+    min_storage_gb: 16
+    specs:
+      cpu: "Cortex-A78AE (6-core)"
+      ram: "8GB LPDDR5"
+      accelerator: "NVIDIA Ampere GPU (1024 CUDA cores, 67 TOPS)"
+      storage: "NVMe SSD"
+
+  - id: rk3588
+    name: "Rockchip RK3588"
+    description: "Rockchip RK3588 SoC with RKNN NPU acceleration (Orange Pi 5, Rock 5B, etc.)"
+    arch: aarch64
+    accelerator: rknn
+    default_tier: standard
+    image_format: ext4
+    min_storage_gb: 16
+    specs:
+      cpu: "Cortex-A76 (4-core) + Cortex-A55 (4-core)"
+      ram: "8GB / 16GB / 32GB"
+      accelerator: "RKNN NPU (6 TOPS)"
+      storage: "eMMC / NVMe"
+
+  - id: apple-silicon
+    name: "Apple Silicon"
+    description: "Apple Silicon Mac via Asahi Linux — fastest ARM64 CPU inference, no GPU on Linux"
+    arch: aarch64
+    accelerator: cpu
+    default_tier: full
+    image_format: ext4
+    min_storage_gb: 32
+    specs:
+      cpu: "Apple M1/M2/M3/M4 (high-perf + efficiency cores)"
+      ram: "8GB / 16GB / 24GB / 32GB+"
+      accelerator: "None (CPU-only on Linux, no Metal)"
+      storage: "NVMe SSD"
+
+# ─── Device Tiers ────────────────────────────────────────────────────────────
+
+tiers:
+  - id: lite
+    name: "Lite"
+    description: "8GB RAM devices — minimal footprint, 1.5B-3B models"
+    min_ram_gb: 4
+    max_ram_gb: 8
+    default_model: "qwen2.5-coder:3b"
+    max_image_size_gb: 4
+
+  - id: standard
+    name: "Standard"
+    description: "16GB RAM devices — balanced, 7B models"
+    min_ram_gb: 8
+    max_ram_gb: 16
+    default_model: "qwen2.5-coder:7b"
+    max_image_size_gb: 8
+
+  - id: full
+    name: "Full"
+    description: "32GB+ RAM devices — all tools, 14B+ models"
+    min_ram_gb: 16
+    max_ram_gb: 128
+    default_model: "qwen2.5-coder:14b"
+    max_image_size_gb: 16
+
+# ─── Presets ─────────────────────────────────────────────────────────────────
+
+presets:
+  - id: minimal
+    name: "Minimal"
+    description: "Inference only — Ollama + controller + dashboard"
+    packages:
+      - ollama
+      - chromadb
+      - bmt-controller
+      - bmt-dashboard
+
+  - id: developer
+    name: "Developer"
+    description: "AI coding workstation — inference + coding CLIs + RAG"
+    packages:
+      - ollama
+      - chromadb
+      - bmt-controller
+      - bmt-dashboard
+      - claude-code
+      - aider
+      - continue-dev
+      - rag-pipeline
+      - mcp-server
+
+  - id: full
+    name: "Full"
+    description: "Everything — all tools, agents, training, monitoring"
+    packages:
+      - ollama
+      - chromadb
+      - bmt-controller
+      - bmt-dashboard
+      - llamacpp
+      - claude-code
+      - aider
+      - codex-cli
+      - continue-dev
+      - tabby
+      - open-interpreter
+      - swe-agent
+      - mentat
+      - kimi-coder
+      - gemini-cli
+      - rag-pipeline
+      - training-framework
+      - mcp-server
+      - monitoring
+      - fleet-agent
