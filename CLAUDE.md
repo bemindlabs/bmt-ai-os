@@ -214,7 +214,17 @@ The `.scrum/` directory tracks backlog, sprints, and ceremonies. Backlog items u
 - BMTOS-EPIC-10b: Training Pipeline Implementation (60 pts) — DONE
 - BMTOS-EPIC-11: Claude Code Integration (21 pts) — DONE
 - BMTOS-EPIC-12: AI Persona System (24 pts) — DONE
-- BMTOS-EPIC-13: Dashboard Integration Sprint (25 pts) — IN PROGRESS
+- BMTOS-EPIC-13: Dashboard Integration Sprint (25 pts) — DONE
+- BMTOS-EPIC-14: AI Workspace (55 pts) — DONE
+- BMTOS-EPIC-15: Dynamic Provider Configuration (22 pts) — DONE
+- BMTOS-EPIC-16: Web SSH Terminal (22 pts) — DONE
+- BMTOS-EPIC-17: Enhanced Provider Management (21 pts) — DONE
+- BMTOS-EPIC-18: Multi-Agent Persona Knowledge Vaults (39 pts) — DONE
+- BMTOS-EPIC-19: Integrated Editor Terminal (16 pts) — DONE
+- BMTOS-EPIC-20: Multi-Provider AI Coding & Models (21 pts) — DONE
+- BMTOS-EPIC-21: AI Coding Workflow (26 pts) — DONE
+- BMTOS-EPIC-22: Raspberry Pi 5 Bootable OS Image (47 pts) — DONE
+- BMTOS-EPIC-23: AI DLC & Custom OS Builder (47 pts) — DONE
 
 ## Tech Stack
 

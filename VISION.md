@@ -56,8 +56,10 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt_ai_os tui)        │
-│  Next.js+shadcn/ui  │  Python Textual             │
+│  AI Workspace (:9090)                             │
+│  Monaco Editor │ Terminal │ File Manager │ Chat   │
+│  AI Coding (Claude/Codex/Gemini) │ Knowledge     │
+│  Next.js 16 + shadcn/ui │ Python Textual TUI     │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│
 │  Claude Code, Aider │  Cursor       │  SWE-agent  │
@@ -67,6 +69,9 @@ BMT AI OS fills the gap: **the AI-native OS for $100-250 ARM64 hardware.**
 │  PyTorch + LoRA     │  Ingest→Embed │  :8080      │
 │  Jupyter (:8888)    │  →ChromaDB    │  OpenAI-    │
 │  TensorBoard (:6006)│  →Query→LLM   │  compatible │
+├───────────────────────────────────────────────────┤
+│  Persona System     │  Knowledge Vaults (Obsidian)│
+│  SOUL.md presets    │  Per-agent RAG collections  │
 ├───────────────────────────────────────────────────┤
 │  Workspace Context (codebase → ChromaDB → LLM)    │
 ├───────────────────────────────────────────────────┤
@@ -163,8 +168,10 @@ The combination that no one else offers:
 - **Vendor-neutral** (not hardware-locked) — unlike JetPack
 - **AI as system service** (not an app) — unlike Balena OS, Umbrel
 - **On-device training** (not just inference) — unlike everything else in this category
+- **Browser-based AI IDE** (Monaco + terminal + AI coding) — unlike CLI-only alternatives
+- **Knowledge vaults** (per-persona Obsidian-compatible RAG) — unique in this category
+- **Web SSH terminal** (fleet device access from browser) — unlike ssh-only alternatives
 - **Coding tools pre-configured** — unlike everything else
-- **Native dashboard** (web + TUI) — unlike CLI-only alternatives
 - **Affordable target hardware** ($100-250) — unlike Apple Silicon, enterprise GPUs
 
 ## Market Context (2026)
@@ -176,39 +183,35 @@ The combination that no one else offers:
 - MoE models (Qwen3.5-35B-A3B, Gemma 4 26B-A4B) activate only 3-4B params — big model quality on small hardware
 - NPU adoption accelerating: Hailo-10H (40 TOPS for $130), Jetson Orin Super (67 TOPS for $250)
 
-## Roadmap
+## Roadmap — All 23 Phases Complete (177 stories, 965 pts)
 
-### Phase 1 — Foundation (BMTOS-EPIC-3, 73 pts)
+See [ROADMAP.md](ROADMAP.md) for full details.
 
-Bootable ARM64 image, OpenRC init, containerd, networking, security, CI/CD, filesystem layout
-
-### Phase 2 — AI Stack (26 pts)
-
-Ollama + ChromaDB as system services, controller orchestration, RAG pipeline
-
-### Phase 3 — Provider Layer (BMTOS-EPIC-1, 35 pts)
-
-Multi-provider abstraction (Ollama, vLLM, llama.cpp), cloud fallback chain, NPU passthrough
-
-### Phase 4 — Developer Experience (BMTOS-EPIC-2, 36 pts)
-
-Pre-installed coding CLIs, IDE plugin API, codebase RAG, model presets
-
-### Phase 5 — Dashboard (BMTOS-EPIC-5, 52 pts)
-
-Next.js + shadcn/ui web dashboard, Python Textual TUI, system monitoring
-
-### Phase 6 — Training (BMTOS-EPIC-6, 36 pts)
-
-PyTorch ARM64, LoRA/QLoRA fine-tuning, data prep, Jupyter, TensorBoard, model export
-
-### Phase 7 — Hardware (BMTOS-EPIC-4, 29 pts)
-
-Board support packages: Apple Silicon (CPU-first), Jetson Orin (CUDA), RK3588 (RKNN), Pi 5 + Hailo
-
-### Phase 8 — Production
-
-OTA updates with rollback, fleet management, security hardening
+| Phase | Title | Pts | Status |
+|-------|-------|-----|--------|
+| 1 | OS Foundation & Infrastructure | 86 | Complete |
+| 2 | Multi-Provider LLM Support | 35 | Complete |
+| 3 | AI Coding CLI & Agent Support | 36 | Complete |
+| 4 | Native Dashboard | 52 | Complete |
+| 5 | On-Device Training (Framework) | 36 | Complete |
+| 6 | Hardware BSPs | 29 | Complete |
+| 7 | Production Hardening | 76 | Complete |
+| 8 | Security Hardening | 68 | Complete |
+| 9 | AI Memory & Conversations | 44 | Complete |
+| 10 | Dashboard AI Assistant | 39 | Complete |
+| 11 | Training Pipeline + Claude Code | 81 | Complete |
+| 12 | AI Persona System | 24 | Complete |
+| 13 | Dashboard Integration Sprint | 25 | Complete |
+| 14 | AI Workspace | 55 | Complete |
+| 15 | Dynamic Provider Configuration | 22 | Complete |
+| 16 | Web SSH Terminal | 22 | Complete |
+| 17 | Enhanced Provider Management | 21 | Complete |
+| 18 | Knowledge Vaults (Obsidian) | 39 | Complete |
+| 19 | Integrated Editor Terminal | 16 | Complete |
+| 20 | Multi-Provider AI Coding & Models | 21 | Complete |
+| 21 | AI Coding Workflow | 26 | Complete |
+| 22 | Raspberry Pi 5 Bootable OS Image | 47 | Complete |
+| 23 | AI DLC & Custom OS Builder | 47 | Complete |
 
 ## License
 

@@ -112,6 +112,7 @@ nav:
     - Jetson Orin Nano Super: hardware/jetson-orin.md
     - RK3588 (Orange Pi 5, ROCK 5B): hardware/rk3588.md
     - Raspberry Pi 5 + Hailo: hardware/pi5-hailo.md
+    - Pi 5 Image Flash Guide: hardware/pi5-image-flash.md
   - API Reference:
     - api/index.md
     - REST API Overview: api/overview.md
@@ -122,6 +123,11 @@ nav:
       - Controller: api/python/controller.md
       - Providers: api/python/providers.md
       - RAG Pipeline: api/python/rag.md
+  - AI Workspace:
+    - workspace/index.md
+    - AI Coding Workflow: workspace/ai-coding.md
+    - Knowledge Vaults: workspace/knowledge-vaults.md
+    - Provider Management: workspace/providers.md
   - Configuration:
     - reference/configuration.md
   - IDE Integration:
@@ -139,5 +145,11 @@ nav:
     - Monitoring Guide: operations/monitoring-guide.md
     - Backup and Restore: operations/backup-restore.md
     - Troubleshooting: operations/troubleshooting.md
+  - Training:
+    - Overview: training/overview.md
+    - LoRA Guide: training/lora-guide.md
+    - Data Preparation: training/data-preparation.md
+  - Coding Tools:
+    - Claude Code: coding-tools/claude-code.md
   - Security:
     - Security Policy: security/security-policy.md
