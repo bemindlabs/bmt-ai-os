@@ -198,7 +198,7 @@ class TestPasswordComplexity:
 class TestAccountLockout:
     def test_failed_logins_incremented(self, store):
         store.create_user("fail_user", "CorrectPass1X", "viewer")
-        for i in range(3):
+        for _i in range(3):
             store.authenticate("fail_user", "WrongPasswd1X")
         user = store.get_user("fail_user")
         assert user.failed_logins == 3

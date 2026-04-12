@@ -181,7 +181,7 @@ async def get_workspace_structure() -> dict:
 
     descriptions: dict[str, str] = {rel: desc for rel, desc in _WORKSPACE_DIRS}
 
-    for rel, desc in _WORKSPACE_DIRS:
+    for rel, _desc in _WORKSPACE_DIRS:
         # Emit parent segments first so callers can build a tree if desired.
         parts = rel.split("/")
         for depth in range(1, len(parts) + 1):

@@ -26,6 +26,7 @@ memory_available_mb:
 from __future__ import annotations
 
 import array
+import contextlib
 import logging
 import math
 import os
@@ -168,10 +169,8 @@ def _disk_io_benchmark(size: int) -> tuple[float, float]:
         read_elapsed = time.perf_counter() - t_start
 
     finally:
-        try:
+        with contextlib.suppress(OSError):
             tmp_path.unlink()
-        except OSError:
-            pass
 
     mb = size / (1024 * 1024)
     write_mb_s = mb / write_elapsed if write_elapsed > 0 else 0.0
@@ -194,10 +193,8 @@ def _memory_info() -> tuple[float, float]:
                 parts = line.split()
                 if len(parts) >= 2:
                     key = parts[0].rstrip(":")
-                    try:
+                    with contextlib.suppress(ValueError):
                         values[key] = float(parts[1])  # kB
-                    except ValueError:
-                        pass
             total_kb = values.get("MemTotal", 0.0)
             avail_kb = values.get("MemAvailable", values.get("MemFree", 0.0))
             return total_kb / 1024, avail_kb / 1024

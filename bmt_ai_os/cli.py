@@ -68,7 +68,7 @@ def _run_compose(args: list[str], compose_file: str) -> int:
 
     Returns the process exit code.
     """
-    cmd = ["docker", "compose", "-f", compose_file] + args
+    cmd = ["docker", "compose", "-f", compose_file, *args]
     result = subprocess.run(cmd)
     return result.returncode
 
