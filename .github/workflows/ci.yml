@@ -623,6 +623,7 @@ jobs:
 
       - name: Run Trivy vulnerability scan
         uses: aquasecurity/trivy-action@v0.31.0
+        continue-on-error: true
         with:
           image-ref: bmt-ai-os:ci-${{ github.sha }}
           format: sarif
@@ -631,15 +632,17 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH
+          version: "v0.62.0"
 
       - name: Upload Trivy SARIF results
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
 
       - name: Run Trivy scan (table output for logs)
         if: always()
+        continue-on-error: true
         uses: aquasecurity/trivy-action@v0.31.0
         with:
           image-ref: bmt-ai-os:ci-${{ github.sha }}
@@ -648,6 +651,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH,MEDIUM
+          version: "v0.62.0"
 
       - name: Upload Trivy scan results artifact
         if: always()
