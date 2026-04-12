@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   streamChat,
+  streamChatWithTools,
   fetchProviders,
   fetchProviderModels,
   fetchProviderKeys,
   writeFile,
 } from "@/lib/api";
-import type { ChatMessage, Provider } from "@/lib/api";
+import type { ChatMessage, Provider, ToolCallSummary } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +25,9 @@ import {
   ChevronDown,
   GitCompare,
   Diff,
+  FolderEdit,
+  Wrench,
+  ChevronRight,
 } from "lucide-react";
 import { ProviderKeySetup } from "./provider-key-setup";
 import { ModelCompare } from "./model-compare";
@@ -33,6 +37,7 @@ import {
   filterEditorCommands,
   type EditorSlashCommand,
 } from "./slash-commands";
+import { MultiFileEdit, parseMultiFileResponse } from "./multi-file-edit";
 
 // ---------------------------------------------------------------------------
 // SSE parser
@@ -203,6 +208,17 @@ export function AiPromptPanel({
 
   // Diff preview state
   const [showDiff, setShowDiff] = useState(false);
+
+  // Tool-use mode (BMTOS-154)
+  const STORAGE_TOOLS = "bmt_ai_tools_enabled";
+  const [toolsEnabled, setToolsEnabled] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("bmt_ai_tools_enabled") === "1",
+  );
+  const [toolCallLog, setToolCallLog] = useState<ToolCallSummary[]>([]);
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+
+  // Multi-file edit mode
+  const [multiFileMode, setMultiFileMode] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Slash command state
@@ -412,6 +428,17 @@ export function AiPromptPanel({
     setShowDiff(false);
     onPromptSubmit?.(prompt);
 
+    const MULTI_FILE_SYSTEM_PROMPT = [
+      "When creating or editing multiple files, use this format for each file:",
+      "",
+      "### FILE: path/to/file.ext",
+      "```language",
+      "file content here",
+      "```",
+      "",
+      "Include the complete file content for each file. List all files that need to be created or modified.",
+    ].join("\n");
+
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -428,6 +455,15 @@ export function AiPromptPanel({
       .filter(Boolean)
       .join("\n");
 
+    const multiFileSystemContent = [
+      "You are a coding assistant integrated into a code editor.",
+      MULTI_FILE_SYSTEM_PROMPT,
+      filePath ? `Current file: ${filePath} (${language})` : "",
+      currentDir ? `Current directory: ${currentDir}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     const systemMessage: ChatMessage = {
       role: "system",
       content: activeCommand
@@ -438,7 +474,9 @@ export function AiPromptPanel({
           ]
             .filter(Boolean)
             .join("\n")
-        : defaultSystemContent,
+        : multiFileMode
+          ? multiFileSystemContent
+          : defaultSystemContent,
     };
 
     const userContent = fileContent.trim()
@@ -462,15 +500,24 @@ export function AiPromptPanel({
     }
 
     try {
-      const reader = await streamChat(
-        {
-          model: modelArg,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        },
-        controller.signal,
-      );
+      const chatReq = {
+        model: modelArg,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      };
+
+      let reader: ReadableStreamDefaultReader<string>;
+      if (toolsEnabled) {
+        setToolCallLog([]);
+        const result = await streamChatWithTools(chatReq, controller.signal);
+        reader = result.reader;
+        if (result.toolCalls.length > 0) {
+          setToolCallLog(result.toolCalls);
+        }
+      } else {
+        reader = await streamChat(chatReq, controller.signal);
+      }
 
       let accumulated = "";
       while (true) {
@@ -480,6 +527,13 @@ export function AiPromptPanel({
         if (text) {
           accumulated += text;
           setResponse(accumulated);
+        }
+      }
+      // Auto-switch to multi-file view if response contains 2+ FILE blocks
+      if (!multiFileMode) {
+        const parsed = parseMultiFileResponse(accumulated);
+        if (parsed.length >= 2) {
+          setMultiFileMode(true);
         }
       }
     } catch (err) {
@@ -496,7 +550,7 @@ export function AiPromptPanel({
       setLoading(false);
       abortRef.current = null;
     }
-  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens, activeCommand]);
+  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens, activeCommand, multiFileMode, toolsEnabled]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -858,6 +912,17 @@ export function AiPromptPanel({
           </Button>
           <Button
             size="sm"
+            variant={multiFileMode ? "default" : "outline"}
+            onClick={() => setMultiFileMode((v) => !v)}
+            disabled={loading}
+            className="h-7 gap-1.5 text-xs"
+            title="Generate edits across multiple files using the ### FILE: format"
+          >
+            <FolderEdit className="size-3" />
+            Multi-file
+          </Button>
+          <Button
+            size="sm"
             variant={compareMode ? "default" : "outline"}
             onClick={() => setCompareMode((v) => !v)}
             disabled={loading}
@@ -866,6 +931,23 @@ export function AiPromptPanel({
           >
             <GitCompare className="size-3" />
             Compare
+          </Button>
+          <Button
+            size="sm"
+            variant={toolsEnabled ? "default" : "outline"}
+            onClick={() => {
+              const next = !toolsEnabled;
+              setToolsEnabled(next);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("bmt_ai_tools_enabled", next ? "1" : "0");
+              }
+            }}
+            disabled={loading}
+            className="h-7 gap-1.5 text-xs"
+            title="Enable AI tool use (read files, run commands, search code)"
+          >
+            <Wrench className="size-3" />
+            Tools
           </Button>
           {loading && (
             <Button
@@ -912,7 +994,7 @@ export function AiPromptPanel({
         </div>
       </div>
 
-      {/* Response area — compare mode, diff preview, or normal */}
+      {/* Response area — compare mode, multi-file view, diff preview, or normal */}
       {compareMode ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <ModelCompare
@@ -924,6 +1006,20 @@ export function AiPromptPanel({
             maxTokens={maxTokens}
             onApply={onApply}
             onClose={() => setCompareMode(false)}
+          />
+        </div>
+      ) : multiFileMode && response && parseMultiFileResponse(response).length > 0 ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <MultiFileEdit
+            response={response}
+            currentDir={currentDir}
+            onApplyFile={(_path, _content) => {
+              onFileCreated?.();
+            }}
+            onApplyAll={() => {
+              onFileCreated?.();
+            }}
+            onClose={() => setMultiFileMode(false)}
           />
         </div>
       ) : showDiff && response ? (
@@ -942,7 +1038,54 @@ export function AiPromptPanel({
         <div className="flex min-h-0 flex-1 flex-col">
           {response ? (
             <>
-              <div className="flex-1 overflow-auto p-3">
+              <div className="flex-1 overflow-auto p-3 space-y-2">
+                {/* Tool call log — shown when tools mode is active */}
+                {toolCallLog.length > 0 && (
+                  <div className="space-y-1">
+                    {toolCallLog.map((tc) => {
+                      const key = tc.id;
+                      const expanded = expandedTools.has(key);
+                      return (
+                        <div
+                          key={key}
+                          className="rounded border border-border bg-muted/20 text-[10px]"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedTools((prev) => {
+                                const next = new Set(prev);
+                                if (expanded) next.delete(key);
+                                else next.add(key);
+                                return next;
+                              })
+                            }
+                            className="flex w-full items-center gap-1.5 px-2 py-1 text-left hover:bg-muted/40"
+                          >
+                            <Wrench className="size-2.5 text-orange-400 shrink-0" />
+                            <span className="font-mono text-orange-400">{tc.name}</span>
+                            <span className="text-muted-foreground truncate">
+                              ({Object.entries(tc.arguments)
+                                .map(([k, v]) => `${k}="${String(v)}"`)
+                                .join(", ")})
+                            </span>
+                            <ChevronRight
+                              className={[
+                                "ml-auto size-2.5 text-muted-foreground shrink-0 transition-transform",
+                                expanded ? "rotate-90" : "",
+                              ].join(" ")}
+                            />
+                          </button>
+                          {expanded && (
+                            <pre className="border-t border-border px-2 py-1 whitespace-pre-wrap font-mono text-[10px] text-muted-foreground max-h-32 overflow-auto">
+                              {tc.result_preview}
+                            </pre>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <pre className="whitespace-pre-wrap font-mono text-xs text-foreground">
                   {response}
                 </pre>

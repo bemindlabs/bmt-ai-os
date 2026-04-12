@@ -522,6 +522,52 @@ export async function fetchProviderModels(name: string): Promise<{ models: { id:
 }
 
 // ---------------------------------------------------------------------------
+// Tool-augmented chat streaming (BMTOS-154)
+// ---------------------------------------------------------------------------
+
+export interface ToolCallSummary {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result_preview: string;
+}
+
+export interface ToolChatResult {
+  reader: ReadableStreamDefaultReader<string>;
+  /** Populated after the stream completes via the X-Tool-Calls header. */
+  toolCalls: ToolCallSummary[];
+}
+
+export async function streamChatWithTools(
+  req: ChatRequest,
+  signal?: AbortSignal,
+): Promise<ToolChatResult> {
+  const res = await fetch(`${BASE_URL}/api/v1/chat/tools`, {
+    method: "POST",
+    headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ ...req, stream: true }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  if (!res.body) throw new Error("Response body is null");
+
+  // Parse tool call log from the response header (set by the backend).
+  let toolCalls: ToolCallSummary[] = [];
+  const toolCallsHeader = res.headers.get("X-Tool-Calls");
+  if (toolCallsHeader) {
+    try {
+      toolCalls = JSON.parse(toolCallsHeader) as ToolCallSummary[];
+    } catch {
+      // ignore malformed header
+    }
+  }
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  return { reader, toolCalls };
+}
+
+// ---------------------------------------------------------------------------
 // Provider Key Setup (BMTOS-150) — compact alias used by editor AI panel
 // ---------------------------------------------------------------------------
 

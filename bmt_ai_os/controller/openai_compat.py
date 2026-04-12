@@ -820,6 +820,194 @@ async def embeddings(body: EmbeddingRequest):
     }
 
 
+@router.post("/api/v1/chat/tools", dependencies=[Depends(inference_rate_limit)])
+async def chat_with_tools(body: ChatCompletionRequest, request: Request):
+    """Agentic chat endpoint with automatic tool execution.
+
+    Accepts the same body as ``POST /v1/chat/completions``.  The
+    ``AVAILABLE_TOOLS`` set (read_file, list_directory, search_code,
+    run_command) is automatically appended to the request regardless of
+    what the caller supplies.
+
+    The loop runs up to 5 iterations:
+      1. Call the LLM with the current message list + tools.
+      2. If the response contains ``tool_calls``, execute each tool and
+         append the results as ``tool`` role messages.
+      3. Re-call the LLM with the updated message list.
+      4. When the LLM returns a plain text answer (no tool calls) or the
+         iteration limit is reached, stream the final response back.
+
+    The response is an SSE stream identical to ``/v1/chat/completions``
+    with ``stream=true``, with an additional ``X-Tool-Calls`` header
+    containing a JSON array summarising every tool invocation made during
+    the session.
+    """
+    from .tool_executor import AVAILABLE_TOOLS, execute_tool
+
+    registry = _get_provider_router()
+    if registry is None:
+        raise HTTPException(status_code=503, detail="No provider available")
+
+    try:
+        provider = registry.get_active()
+    except (RuntimeError, LookupError) as exc:
+        logger.warning("No active provider available: %s", exc)
+        raise HTTPException(status_code=503, detail="No active provider")
+
+    messages = [_make_chat_message(m.role, m.content) for m in body.messages]
+    model = body.model if body.model != "default" else None
+    max_tokens = body.max_tokens or 4096
+
+    # Persona + RAG injection (same as /v1/chat/completions)
+    messages = await _inject_persona(messages)
+    if _rag_enabled():
+        messages = await _inject_rag_context(messages)
+
+    # Build the combined tool list: caller tools + built-in tools.
+    # Deduplicate by function name (caller overrides built-in on conflict).
+    caller_tools: list[Tool] = body.tools or []
+    caller_names = {t.function.name for t in caller_tools}
+    builtin_tools: list[Tool] = []
+    for raw in AVAILABLE_TOOLS:
+        fn = raw["function"]
+        if fn["name"] not in caller_names:
+            builtin_tools.append(
+                Tool(
+                    type="function",
+                    function=ToolFunction(
+                        name=fn["name"],
+                        description=fn.get("description", ""),
+                        parameters=ToolFunctionParameters(
+                            type=fn["parameters"].get("type", "object"),
+                            properties=fn["parameters"].get("properties", {}),
+                            required=fn["parameters"].get("required", []),
+                        ),
+                    ),
+                )
+            )
+    all_tools: list[Tool] = caller_tools + builtin_tools
+
+    # Inject a fallback system message for providers without native tool support.
+    native_tools = _provider_supports_tools(provider)
+    if not native_tools:
+        tool_system_msg = _make_chat_message("system", _tools_to_system_message(all_tools))
+        messages = [tool_system_msg, *messages]
+
+    tool_call_log: list[dict[str, Any]] = []
+    _MAX_ITERS = 5
+
+    # --- Agentic loop -------------------------------------------------------
+    for _iteration in range(_MAX_ITERS):
+        chat_kwargs: dict[str, Any] = {
+            "model": model,
+            "temperature": body.temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        if native_tools:
+            chat_kwargs["tools"] = [t.model_dump() for t in all_tools]
+            if body.tool_choice is not None:
+                chat_kwargs["tool_choice"] = body.tool_choice
+
+        try:
+            response = await provider.chat(messages, **chat_kwargs)
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
+            logger.exception("Tool-augmented chat call failed")
+            raise HTTPException(status_code=502, detail=str(exc))
+
+        # Extract tool calls from the response.
+        raw_tool_calls: list[dict[str, Any]] | None = None
+        if native_tools:
+            raw_tool_calls = getattr(response, "tool_calls", None)
+            if not raw_tool_calls and hasattr(response, "raw"):
+                raw = response.raw
+                if isinstance(raw, dict):
+                    raw_tool_calls = raw.get("tool_calls")
+        else:
+            raw_tool_calls = _parse_tool_call_from_text(response.content)
+
+        if not raw_tool_calls:
+            # No tool calls — this is the final answer.  Stream it.
+            final_text = response.content
+            break
+
+        # Append the assistant message with tool_calls.
+        messages.append(
+            _make_chat_message(
+                "assistant",
+                json.dumps({"tool_calls": raw_tool_calls}),
+            )
+        )
+
+        # Execute each tool call and append tool result messages.
+        for tc in raw_tool_calls:
+            fn_info = tc.get("function", {})
+            fn_name = fn_info.get("name", "")
+            try:
+                fn_args = json.loads(fn_info.get("arguments", "{}"))
+            except json.JSONDecodeError:
+                fn_args = {}
+
+            logger.debug("Executing tool '%s' with args %s", fn_name, fn_args)
+            tool_result = await execute_tool(fn_name, fn_args)
+
+            call_id = tc.get("id", f"call_{uuid.uuid4().hex[:16]}")
+            tool_call_log.append(
+                {
+                    "id": call_id,
+                    "name": fn_name,
+                    "arguments": fn_args,
+                    "result_preview": tool_result[:200],
+                }
+            )
+
+            # Append as a tool-role message so the LLM can see the result.
+            messages.append(
+                _make_chat_message(
+                    "tool",
+                    json.dumps({"tool_call_id": call_id, "name": fn_name, "content": tool_result}),
+                )
+            )
+    else:
+        # Exhausted max iterations — use the last response content.
+        final_text = response.content  # type: ignore[possibly-undefined]
+
+    # --- Stream the final answer --------------------------------------------
+    request_id = _make_id("chatcmpl")
+    model_name = model or getattr(response, "model", provider.name)  # type: ignore[possibly-undefined]
+
+    async def _stream_final(text: str) -> AsyncIterator[str]:
+        """Yield SSE chunks for the accumulated final text."""
+        created = _unix_ts()
+
+        def _chunk(delta: dict, finish: str | None = None) -> str:
+            obj = {
+                "id": request_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model_name,
+                "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+            }
+            return f"data: {json.dumps(obj)}\n\n"
+
+        yield _chunk({"role": "assistant", "content": ""})
+        if text:
+            yield _chunk({"content": text})
+        yield _chunk({}, "stop")
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        _stream_final(final_text),  # type: ignore[possibly-undefined]
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "X-Tool-Calls": json.dumps(tool_call_log),
+        },
+    )
+
+
 @router.get("/v1/models")
 async def list_models():
     """OpenAI-compatible model listing."""
