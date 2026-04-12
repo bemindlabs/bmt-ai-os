@@ -9,9 +9,9 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os/releases/tag/v2026.4.11"><img src="https://img.shields.io/badge/version-2026.4.11-green.svg" alt="Version"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os/releases/tag/v2026.4.12"><img src="https://img.shields.io/badge/version-2026.4.12-green.svg" alt="Version"></a>
   <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/arch-ARM64-orange.svg" alt="Architecture: ARM64"></a>
-  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-100%25_(59%2F59_stories)-brightgreen.svg" alt="Progress: 100%"></a>
+  <a href="https://github.com/bemindlabs/bmt-ai-os"><img src="https://img.shields.io/badge/progress-100%25_(161%2F161_stories)-brightgreen.svg" alt="Progress: 100%"></a>
 </p>
 
 ---
@@ -24,9 +24,13 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 
 - **Boot to AI** — LLM inference + RAG start as system services on boot
 - **Multi-provider** — Ollama, vLLM, llama.cpp locally; OpenAI, Anthropic, Gemini as cloud fallback
+- **AI Workspace** — browser-based IDE with Monaco editor, terminal, file manager, and AI coding assistant
 - **Coding tools** — Claude Code, Aider, Continue, Tabby pre-installed and auto-configured
+- **AI Coding Workflow** — diff preview, slash commands (/fix, /refactor, /explain, /test), tool use, multi-file edits, git integration
 - **On-device training** — LoRA/QLoRA fine-tuning with PyTorch on edge hardware
-- **Native dashboard** — Next.js + shadcn/ui web UI (:9090) and Python Textual TUI
+- **Knowledge Vaults** — per-persona Obsidian-compatible knowledge bases with auto-RAG
+- **Web SSH Terminal** — SSH to fleet devices from the browser with key management
+- **Native dashboard** — Next.js 16 + shadcn/ui web UI (:9090) with AI assistant
 - **Hardware abstraction** — same experience on Jetson, Pi, or RK3588
 - **Fully offline** — operates without cloud after initial setup
 
@@ -36,7 +40,9 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 ┌───────────────────────────────────────────────────┐
 │                   BMT AI OS                       │
 ├───────────────────────────────────────────────────┤
-│  Dashboard (:9090)  │  TUI (bmt_ai_os tui)        │
+│  AI Workspace (:9090)                             │
+│  Monaco Editor │ Terminal │ File Manager │ Chat   │
+│  AI Coding (Claude/Codex/Gemini) │ Knowledge     │
 ├───────────────────────────────────────────────────┤
 │  Coding CLIs        │  IDE Plugins  │  Code Agents│
 │  Claude Code, Aider │  Cursor       │  SWE-agent  │
@@ -46,6 +52,9 @@ Powered by [Bemind Technology Co., Ltd.](https://bemind.tech)
 │  LoRA/QLoRA         │  ChromaDB     │  :8080      │
 │  Jupyter (:8888)    │  :8000        │  OpenAI-    │
 │  TensorBoard (:6006)│               │  compatible │
+├───────────────────────────────────────────────────┤
+│  Persona System     │  Knowledge Vaults (Obsidian)│
+│  SOUL.md presets    │  Per-agent RAG collections  │
 ├───────────────────────────────────────────────────┤
 │         Provider Abstraction Layer                │
 │  Local: Ollama(:11434), vLLM, llama.cpp           │
@@ -128,18 +137,18 @@ ai-first-os/
 │   ├── plugins/              # Plugin system (manifests, lifecycle, sandboxed hooks)
 │   ├── tls/                  # TLS/mTLS (certs, cipher hardening, PKI)
 │   ├── benchmark/            # Performance benchmarks (inference, RAG, system)
-│   ├── dashboard/            # Next.js 15 + shadcn/ui web dashboard (6 pages)
+│   ├── dashboard/            # Next.js 16 + shadcn/ui AI workspace (12+ pages)
 │   └── runtime/              # OpenRC init, containerd, networking, security, monitoring
 ├── bmt-ai-os-build/          # Build infrastructure
 │   ├── base-config.toml      # Base distro config (Alpine, aarch64)
 │   ├── buildroot-external/   # Buildroot packages (containerd, docker, ollama, training)
 │   └── layers/               # BitBake/Yocto layers (NPU drivers, etc.)
 ├── scripts/                  # Build, QEMU test, CI, benchmarking, boot timing
-├── tests/                    # Unit tests (smoke, integration, unit — 950 tests)
-├── docs/                     # Architecture, IDE integration, security policy
-├── .scrum/                   # Backlog (59 stories, 7 epics, 368 pts — all complete)
+├── tests/                    # Unit tests (smoke, integration, unit — 1900+ tests)
+├── docs/                     # MkDocs site (architecture, API, hardware, workspace)
+├── .scrum/                   # Backlog (161 stories, 21 epics, 871 pts — all complete)
 ├── VISION.md                 # Strategic vision
-├── ROADMAP.md                # 8-phase roadmap (Phases 1-5 complete)
+├── ROADMAP.md                # 21-phase roadmap (all complete)
 └── CLAUDE.md                 # Claude Code guidance
 ```
 
@@ -165,24 +174,40 @@ ai-first-os/
 | LLM Inference | Ollama, vLLM, llama.cpp |
 | Vector Database | ChromaDB |
 | Training | PyTorch + HF Transformers + PEFT (LoRA/QLoRA) |
-| Dashboard | Next.js 15 + shadcn/ui + Tailwind CSS |
+| Dashboard | Next.js 16 + shadcn/ui + Tailwind CSS 4 |
 | TUI | Python Textual |
 | Controller | Python + FastAPI + docker-py |
 | Hardware Accel | CUDA (Jetson), RKNN (RK3588), HailoRT (Pi 5) |
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the full 8-phase plan.
+See [ROADMAP.md](ROADMAP.md) for the full 23-phase plan (177 stories, 965 pts — all complete).
 
-| Phase | Epic | Points | Status |
-|-------|------|--------|--------|
+| Phase | Epic | Pts | Status |
+|-------|------|-----|--------|
 | 1 | OS Foundation | 86 | **Complete** |
 | 2 | Multi-Provider | 35 | **Complete** |
 | 3 | Coding Tools | 36 | **Complete** |
 | 4 | Dashboard | 52 | **Complete** |
-| 5 | Training | 36 | **Complete** |
+| 5 | Training (Framework) | 36 | **Complete** |
 | 6 | Hardware BSPs | 29 | **Complete** |
 | 7 | Production Hardening | 76 | **Complete** |
+| 8 | Security Hardening | 68 | **Complete** |
+| 9 | AI Memory & Conversations | 44 | **Complete** |
+| 10 | Dashboard AI Assistant | 39 | **Complete** |
+| 11 | Training Pipeline + Claude | 81 | **Complete** |
+| 12 | AI Persona System | 24 | **Complete** |
+| 13 | Dashboard Integration | 25 | **Complete** |
+| 14 | AI Workspace | 55 | **Complete** |
+| 15 | Dynamic Providers | 22 | **Complete** |
+| 16 | Web SSH Terminal | 22 | **Complete** |
+| 17 | Enhanced Providers | 21 | **Complete** |
+| 18 | Knowledge Vaults | 39 | **Complete** |
+| 19 | IDE Terminal | 16 | **Complete** |
+| 20 | AI Coding & Models | 21 | **Complete** |
+| 21 | AI Coding Workflow | 26 | **Complete** |
+| 22 | Pi 5 Bootable OS Image | 47 | **Complete** |
+| 23 | AI DLC & Custom OS Builder | 47 | **Complete** |
 
 ## Limitations
 

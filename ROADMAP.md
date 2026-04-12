@@ -1,27 +1,42 @@
 # BMT AI OS Roadmap
 
-**Current Version:** `2026.4.11` | **Version Format:** `YYYY.M.D`
+**Current Version:** `2026.4.12` | **Version Format:** `YYYY.M.D`
 
-> 48 stories | 292 points | 6 epics | 8 phases | **48 stories done (292 pts, 100%)**
+> 177 stories | 965 points | 23 epics | **177 stories done (965 pts, 100%)**
 
 ## Overview
 
 ```
-Phase 1 ████████████████████████████████████████████████ ✅ 86 pts  Foundation
-Phase 2 ████████████████████████████████████████████████ ✅ 35 pts  Providers
-Phase 3 ████████████████████████████████████████████████ ✅ 36 pts  Coding Tools
-Phase 4 ████████████████████████████████████████████████ ✅ 52 pts  Dashboard
-Phase 5 ████████████████████████████████████████████████ ✅ 36 pts  Training
-Phase 6 ████████████████████████████████████████████████ ✅ 29 pts  Hardware BSPs
-Phase 7 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   26 pts  Tooling
-Phase 8 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   TBD    Production
+Phase 1  ████████████████████████████████████████████████ ✅  86 pts  Foundation
+Phase 2  ████████████████████████████████████████████████ ✅  35 pts  Providers
+Phase 3  ████████████████████████████████████████████████ ✅  36 pts  Coding Tools
+Phase 4  ████████████████████████████████████████████████ ✅  52 pts  Dashboard
+Phase 5  ████████████████████████████████████████████████ ✅  36 pts  Training (Framework)
+Phase 6  ████████████████████████████████████████████████ ✅  29 pts  Hardware BSPs
+Phase 7  ████████████████████████████████████████████████ ✅  76 pts  Production Hardening
+Phase 8  ████████████████████████████████████████████████ ✅  68 pts  Security Hardening
+Phase 9  ████████████████████████████████████████████████ ✅  44 pts  AI Memory & Conversations
+Phase 10 ████████████████████████████████████████████████ ✅  39 pts  Dashboard AI Assistant
+Phase 11 ████████████████████████████████████████████████ ✅  81 pts  Training Pipeline + Claude
+Phase 12 ████████████████████████████████████████████████ ✅  24 pts  AI Persona System
+Phase 13 ████████████████████████████████████████████████ ✅  25 pts  Dashboard Integration
+Phase 14 ████████████████████████████████████████████████ ✅  55 pts  AI Workspace
+Phase 15 ████████████████████████████████████████████████ ✅  22 pts  Dynamic Providers
+Phase 16 ████████████████████████████████████████████████ ✅  22 pts  Web SSH Terminal
+Phase 17 ████████████████████████████████████████████████ ✅  21 pts  Enhanced Providers
+Phase 18 ████████████████████████████████████████████████ ✅  39 pts  Knowledge Vaults
+Phase 19 ████████████████████████████████████████████████ ✅  16 pts  IDE Terminal
+Phase 20 ████████████████████████████████████████████████ ✅  21 pts  AI Coding & Models
+Phase 21 ████████████████████████████████████████████████ ✅  26 pts  AI Coding Workflow
+Phase 22 ████████████████████████████████████████████████ ✅  47 pts  Pi 5 OS Image
+Phase 23 ████████████████████████████████████████████████ ✅  47 pts  AI DLC & Custom OS Builder
 ```
 
 ---
 
 ## Phase 1 — OS Foundation & Infrastructure
 
-**Epic:** BMTOS-EPIC-3 | **Points:** 86 | **Priority:** Critical | **Status: COMPLETE**
+**Epic:** BMTOS-EPIC-3 | **Points:** 86 | **Status: COMPLETE**
 
 Build the bootable ARM64 base system with containerized AI services.
 
@@ -41,134 +56,322 @@ Build the bootable ARM64 base system with containerized AI services.
 | BMTOS-20 | Implement service discovery and container networking | 5 | Done |
 | BMTOS-21 | Configure container security and secrets management | 5 | Done |
 
-**Milestone:** Bootable ARM64 image that boots on QEMU, starts containerd, launches Ollama + ChromaDB, and serves inference requests.
-
 ---
 
 ## Phase 2 — Multi-Provider LLM Support
 
-**Epic:** BMTOS-EPIC-1 | **Points:** 35 | **Priority:** High | **Status: COMPLETE**
+**Epic:** BMTOS-EPIC-1 | **Points:** 35 | **Status: COMPLETE**
 
-Abstraction layer for multiple LLM backends with local-first fallback chain.
-
-| Story | Title | Pts | Status |
-|-------|-------|-----|--------|
-| BMTOS-6 | Design and implement LLM provider abstraction layer | 8 | Done |
-| BMTOS-9 | Implement provider fallback chain and routing logic | 5 | Done |
-| BMTOS-7a | Implement local LLM provider: vLLM | 5 | Done |
-| BMTOS-7b | Implement local LLM provider: llama.cpp server | 5 | Done |
-| BMTOS-8a | Implement cloud LLM provider: OpenAI | 3 | Done |
-| BMTOS-8b | Implement cloud LLM provider: Anthropic (Claude) | 3 | Done |
-| BMTOS-8c | Implement cloud LLM provider: Google Gemini | 3 | Done |
-| BMTOS-8d | Implement cloud LLM providers: Mistral and Groq | 3 | Done |
-
-**Milestone:** Any coding tool or RAG query can use any backend (Ollama, vLLM, llama.cpp, or cloud) via a unified interface. Automatic failover when a provider goes down.
+8 providers: Ollama, vLLM, llama.cpp (local) + OpenAI, Anthropic, Gemini, Groq, Mistral (cloud).
 
 ---
 
 ## Phase 3 — AI Coding CLI & Agent Support
 
-**Epic:** BMTOS-EPIC-2 | **Points:** 36 | **Priority:** High | **Status: COMPLETE**
+**Epic:** BMTOS-EPIC-2 | **Points:** 36 | **Status: COMPLETE**
 
-Pre-installed, auto-configured AI coding tools for developers.
-
-| Story | Title | Pts | Status |
-|-------|-------|-----|--------|
-| BMTOS-10 | Package coding CLIs (Claude Code, Aider, Continue, Tabby) | 8 | Done |
-| BMTOS-11 | Auto-configure coding CLIs to use local LLM providers | 5 | Done |
-| BMTOS-15 | Create coding model preset manager | 5 | Done |
-| BMTOS-12 | Add IDE AI plugin support (Cursor, Copilot, Cody) | 5 | Done |
-| BMTOS-13 | Add code agent support (SWE-agent, Codex CLI, Mentat) | 5 | Done |
-| BMTOS-14 | Implement workspace and project context management | 8 | Done |
-
-**Milestone:** Boot the OS, plug in a keyboard, run `aider` or `claude` — coding with local AI immediately. IDE plugins connect via `:8080` API.
+Pre-installed coding tools: Claude Code, Aider, Continue, Tabby, SWE-agent, Codex CLI.
 
 ---
 
 ## Phase 4 — Native Dashboard
 
-**Epic:** BMTOS-EPIC-5 | **Points:** 52 | **Priority:** High | **Status: COMPLETE**
+**Epic:** BMTOS-EPIC-5 | **Points:** 52 | **Status: COMPLETE**
 
-Web dashboard (Next.js + shadcn/ui) and terminal UI (Python Textual) for system management.
-
-| Story | Title | Pts | Status |
-|-------|-------|-----|--------|
-| BMTOS-29 | Scaffold Next.js dashboard app with shadcn/ui | 8 | Done |
-| BMTOS-30 | Build system overview dashboard page | 8 | Done |
-| BMTOS-31 | Build model manager dashboard page | 5 | Done |
-| BMTOS-32 | Build RAG console dashboard page | 8 | Done |
-| BMTOS-33 | Build provider configuration dashboard page | 5 | Done |
-| BMTOS-34 | Build logs viewer dashboard page | 5 | Done |
-| BMTOS-35 | Build coding tools status dashboard page | 5 | Done |
-| BMTOS-36 | Build terminal UI (TUI) dashboard with Textual | 8 | Done |
-
-**Milestone:** Open `http://device-ip:9090` — see system health, manage models, query RAG, configure providers. Or SSH in and run `bmt_ai_os tui`.
+Next.js 16 + shadcn/ui web dashboard at `:9090` with 7 pages.
 
 ---
 
-## Phase 5 — On-Device AI Training & Fine-Tuning
+## Phase 5 — On-Device AI Training (Framework)
 
-**Epic:** BMTOS-EPIC-6 | **Points:** 36 | **Priority:** Medium | **Status: COMPLETE**
+**Epic:** BMTOS-EPIC-6 | **Points:** 36 | **Status: COMPLETE**
 
-LoRA/QLoRA fine-tuning pipeline for edge hardware.
-
-| Story | Title | Pts | Status |
-|-------|-------|-----|--------|
-| BMTOS-37 | Install PyTorch and ML training framework for ARM64 | 8 | Done |
-| BMTOS-38 | Implement LoRA/QLoRA fine-tuning pipeline | 8 | Done |
-| BMTOS-39 | Build training data preparation tools | 5 | Done |
-| BMTOS-40 | Add Jupyter Notebook server for interactive training | 5 | Done |
-| BMTOS-41 | Implement training monitoring and TensorBoard integration | 5 | Done |
-| BMTOS-42 | Build model export and deployment pipeline | 5 | Done |
-
-**Milestone:** Prepare data → fine-tune a 1.5B model with LoRA on Jetson → export to GGUF → serve via Ollama. Full loop on one device.
+PyTorch + Hugging Face PEFT framework for LoRA/QLoRA fine-tuning.
 
 ---
 
 ## Phase 6 — Hardware Board Support Packages
 
-**Epic:** BMTOS-EPIC-4 | **Points:** 29 | **Priority:** High | **Status: COMPLETE**
+**Epic:** BMTOS-EPIC-4 | **Points:** 29 | **Status: COMPLETE**
 
-Board-specific support for Tier 1 hardware targets.
+Apple Silicon, Jetson Orin, RK3588, Pi 5 + Hailo AI HAT+ 2.
+
+---
+
+## Phase 7 — Production Hardening
+
+**Epic:** BMTOS-EPIC-7 | **Points:** 76 | **Status: COMPLETE**
 
 | Story | Title | Pts | Status |
 |-------|-------|-----|--------|
-| BMTOS-43 | Add Apple Silicon BSP (Asahi Linux, CPU-first) | 8 | Done |
-| BMTOS-26 | Add Jetson Orin board support package | 8 | Done |
-| BMTOS-27 | Add Rockchip RK3588 board support package | 8 | Done |
-| BMTOS-28 | Add Raspberry Pi 5 + Hailo AI HAT+ 2 board support package | 5 | Done |
-
-**Milestone:** Flash BMT AI OS on any Tier 1 board. Apple Silicon leads with fastest CPU inference (30-50 tok/s). NPU/GPU acceleration on other boards. Performance benchmarks published.
-
----
-
-## Phase 7 — Tooling & Infrastructure
-
-**Standalone stories** | **Points:** 26 | **Priority:** Medium
-
-Cross-cutting tools used by all epics.
-
-| Story | Title | Pts | Priority |
-|-------|-------|-----|----------|
-| BMTOS-22 | Build BMT AI OS CLI tool (bmt_ai_os command) | 8 | Medium |
-| BMTOS-23 | Expose external REST API for AI stack access | 5 | Medium |
-| BMTOS-24 | Build centralized logging and system metrics | 5 | Medium |
-| BMTOS-25 | Implement OS update mechanism with rollback | 8 | Low |
-
-**Milestone:** `bmt_ai_os status`, `bmt_ai_os models install`, `bmt_ai_os update` — one CLI for everything. OTA updates with A/B rollback.
+| BMTOS-44 | OTA update engine with A/B slot switching | 8 | Done |
+| BMTOS-45 | Multi-user authentication and RBAC | 8 | Done |
+| BMTOS-46 | Fleet management agent and central registry | 13 | Done |
+| BMTOS-47 | Performance benchmarking suite with CI | 8 | Done |
+| BMTOS-48 | Plugin and extension system | 8 | Done |
+| BMTOS-49 | Prometheus metrics export and alerting | 5 | Done |
+| BMTOS-50 | Container security (AppArmor/seccomp) | 5 | Done |
+| BMTOS-51 | MkDocs documentation site | 5 | Done |
+| BMTOS-52 | TLS termination and network hardening | 5 | Done |
+| BMTOS-53 | Structured JSON logging and rotation | 3 | Done |
+| BMTOS-25 | OS update mechanism with rollback | 8 | Done |
 
 ---
 
-## Phase 8 — Production Hardening
+## Phase 8 — Security & Production Readiness
 
-**Not yet scoped** | **Priority:** Future
+**Epic:** BMTOS-EPIC-8 | **Points:** 68 | **Status: COMPLETE**
 
-- Fleet management for multi-device deployments
-- Advanced security hardening (AppArmor/seccomp profiles)
-- Performance optimization and benchmarking suite
-- Documentation site and developer portal
-- Community plugin/extension system
-- Multi-user support with access control
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-54 | Enforce JWT secret at startup + password complexity | 5 | Done |
+| BMTOS-55 | Replace bare except clauses with typed exceptions | 5 | Done |
+| BMTOS-56 | Rate limiting on auth and inference endpoints | 5 | Done |
+| BMTOS-57 | Path traversal protection for RAG ingest | 3 | Done |
+| BMTOS-58 | Secrets from /run/secrets/ files | 5 | Done |
+| BMTOS-59 | Add all test categories to CI pipeline | 3 | Done |
+| BMTOS-60 | Token revocation and account lockout | 5 | Done |
+| BMTOS-61 | Fleet registry SQLite persistence | 8 | Done |
+| BMTOS-62 | Container vulnerability scanning (Trivy) | 3 | Done |
+| BMTOS-63 | Fix CI continue-on-error flags | 2 | Done |
+| BMTOS-64 | Password complexity requirements | 2 | Done |
+| BMTOS-65 | Unit tests for 10+ core modules | 13 | Done |
+| BMTOS-66 | Production deployment runbook | 5 | Done |
+| BMTOS-67 | Plugin manager lock fix | 3 | Done |
+| BMTOS-68 | OTA Ed25519 signature verification | 3 | Done |
+
+---
+
+## Phase 9 — AI Memory & Conversations
+
+**Epic:** BMTOS-EPIC-9 | **Points:** 44 | **Status: COMPLETE**
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-69 | Session/conversation persistence (SQLite) | 8 | Done |
+| BMTOS-70 | Context engine with token budget + compaction | 8 | Done |
+| BMTOS-71 | RAG auto-injection into chat completions | 5 | Done |
+| BMTOS-72 | Hybrid BM25 + vector memory search | 5 | Done |
+| BMTOS-73 | Conversation history API | 5 | Done |
+| BMTOS-74 | Memory dreaming/consolidation system | 5 | Done |
+| BMTOS-75 | Multi-channel message delivery | 8 | Done |
+
+---
+
+## Phase 10 — Dashboard AI Assistant Enhancement
+
+**Epic:** BMTOS-EPIC-10 | **Points:** 39 | **Status: COMPLETE**
+
+SSE streaming, session persistence, JWT auth, RAG toggle, slash commands, voice input.
+
+---
+
+## Phase 11 — Training Pipeline + Claude Code Integration
+
+**Epics:** BMTOS-EPIC-10b + BMTOS-EPIC-11 | **Points:** 81 | **Status: COMPLETE**
+
+LoRA/QLoRA training module, training API, model export, MCP server, tool_use support.
+
+---
+
+## Phase 12 — AI Persona & Personality
+
+**Epic:** BMTOS-EPIC-12 | **Points:** 24 | **Status: COMPLETE**
+
+SOUL.md workspace files, persona assembler, preset library (coding/general/creative), dashboard editor.
+
+---
+
+## Phase 13 — Dashboard Integration Sprint
+
+**Epic:** BMTOS-EPIC-13 | **Points:** 25 | **Status: COMPLETE**
+
+Wire all dashboard components into live UI: SSE streaming, session sidebar, slash commands, voice/file input, RAG toggle, source cards, persona editor, agents page.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-101 | Wire SSE streaming into chat-interface.tsx | 3 | Done |
+| BMTOS-102 | Wire session sidebar into chat page | 3 | Done |
+| BMTOS-103 | Wire slash commands into chat input | 3 | Done |
+| BMTOS-104 | Wire voice input and file drop into chat | 3 | Done |
+| BMTOS-105 | Wire RAG toggle and source cards into chat | 3 | Done |
+| BMTOS-106 | Create persona editor component for settings | 3 | Done |
+| BMTOS-107 | Add persona CLI commands (set/get/list) | 2 | Done |
+| BMTOS-108 | Add /agents page for multi-agent management | 3 | Done |
+| BMTOS-109 | Wire auth headers into all dashboard API calls | 2 | Done |
+
+---
+
+## Phase 14 — AI Workspace
+
+**Epic:** BMTOS-EPIC-14 | **Points:** 55 | **Status: COMPLETE**
+
+Transform dashboard into full AI workspace: 3-panel resizable layout, tabbed work areas, terminal emulator (xterm.js), Monaco code editor, file manager, training studio, fleet dashboard.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-110 | Workspace 3-panel resizable layout | 8 | Done |
+| BMTOS-111 | Tabbed work area with split view | 5 | Done |
+| BMTOS-112 | RAG knowledge base manager | 5 | Done |
+| BMTOS-113 | WebSocket notification center | 5 | Done |
+| BMTOS-114 | Terminal emulator (xterm.js) | 8 | Done |
+| BMTOS-115 | Code editor (Monaco) | 8 | Done |
+| BMTOS-116 | File manager with tree view | 5 | Done |
+| BMTOS-117 | Training studio with live metrics | 5 | Done |
+| BMTOS-118 | Fleet dashboard with device grid | 3 | Done |
+| BMTOS-119 | Theme toggle and layout persistence | 3 | Done |
+
+---
+
+## Phase 15 — Dynamic Provider Configuration
+
+**Epic:** BMTOS-EPIC-15 | **Points:** 22 | **Status: COMPLETE**
+
+Provider CRUD API, add/edit/delete UI, connection testing, fallback chain drag-drop, per-provider model lists.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-120 | Provider CRUD API (register/update/delete) | 5 | Done |
+| BMTOS-121 | Add Provider form in dashboard | 3 | Done |
+| BMTOS-122 | Per-provider edit/delete/toggle UI | 3 | Done |
+| BMTOS-123 | Test Connection button | 3 | Done |
+| BMTOS-124 | Fallback chain drag-drop configurator | 5 | Done |
+| BMTOS-125 | Provider model list per provider | 3 | Done |
+
+---
+
+## Phase 16 — Web SSH Terminal
+
+**Epic:** BMTOS-EPIC-16 | **Points:** 22 | **Status: COMPLETE**
+
+SSH to fleet devices from the dashboard via WebSocket proxy with key management and multi-tab terminals.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-126 | SSH WebSocket proxy backend (paramiko) | 8 | Done |
+| BMTOS-127 | Terminal SSH mode with connection form | 5 | Done |
+| BMTOS-128 | Fleet device Connect button opens SSH | 3 | Done |
+| BMTOS-129 | SSH key management API and UI | 3 | Done |
+| BMTOS-130 | Multi-tab terminal with split panes | 3 | Done |
+
+---
+
+## Phase 17 — Enhanced Provider Management
+
+**Epic:** BMTOS-EPIC-17 | **Points:** 21 | **Status: COMPLETE**
+
+Setup wizards, rich model catalog, provider health dashboard, multi-credential profiles, auto-discovery.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-131 | Guided provider setup wizard (multi-step) | 5 | Done |
+| BMTOS-132 | Rich model catalog with cost and context info | 5 | Done |
+| BMTOS-133 | Provider health dashboard with expiry tracking | 5 | Done |
+| BMTOS-134 | Multi-credential profiles per provider | 3 | Done |
+| BMTOS-135 | Provider auto-discovery (scan local ports) | 3 | Done |
+
+---
+
+## Phase 18 — Multi-Agent Persona Knowledge Vaults
+
+**Epic:** BMTOS-EPIC-18 | **Points:** 39 | **Status: COMPLETE**
+
+Per-persona knowledge bases with Obsidian-compatible markdown vaults, wiki-links, auto-ingest RAG, graph view.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-136 | Per-persona workspace directories and RAG collections | 8 | Done |
+| BMTOS-137 | Obsidian-compatible markdown parser | 5 | Done |
+| BMTOS-138 | Persona-scoped Knowledge & Files tab | 5 | Done |
+| BMTOS-139 | Obsidian vault note editor with live preview | 5 | Done |
+| BMTOS-140 | Auto-ingest persona vault into RAG on file changes | 3 | Done |
+| BMTOS-141 | Chat RAG context auto-scoped to active persona | 5 | Done |
+| BMTOS-142 | Vault graph view and backlinks panel | 5 | Done |
+| BMTOS-147 | Workspace directory structure and auto-scaffold | 3 | Done |
+
+---
+
+## Phase 19 — Integrated Editor Terminal (IDE Experience)
+
+**Epic:** BMTOS-EPIC-19 | **Points:** 16 | **Status: COMPLETE**
+
+Embedded terminal in Code Editor with tmux session management, auto-connect, drag-resize.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-143 | Embedded terminal panel in Code Editor | 5 | Done |
+| BMTOS-144 | tmux session management via WebSocket | 5 | Done |
+| BMTOS-145 | Terminal auto-connects on editor page load | 3 | Done |
+| BMTOS-146 | Terminal panel resize with drag handle | 3 | Done |
+
+---
+
+## Phase 20 — Multi-Provider AI Coding & Model Manager
+
+**Epic:** BMTOS-EPIC-20 | **Points:** 21 | **Status: COMPLETE**
+
+Claude/Codex/Gemini in Code Editor, enhanced model catalog with probing, inline API key setup, A/B comparison.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-148 | Multi-provider AI coding integration | 8 | Done |
+| BMTOS-149 | Enhanced Model Manager with catalog and probing | 5 | Done |
+| BMTOS-150 | Provider API key management in Code Editor | 3 | Done |
+| BMTOS-151 | Model comparison and A/B prompt testing | 5 | Done |
+
+---
+
+## Phase 21 — AI Coding Workflow (Claw-Code Inspired)
+
+**Epic:** BMTOS-EPIC-21 | **Points:** 26 | **Status: COMPLETE**
+
+IDE-grade coding workflow: diff preview, slash commands (/fix, /refactor, /explain, /test), tool use, multi-file edits, git integration.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-152 | Diff preview before applying AI-generated code | 5 | Done |
+| BMTOS-153 | Slash commands in AI prompt | 5 | Done |
+| BMTOS-154 | AI tool use: read files, run commands, search code | 8 | Done |
+| BMTOS-155 | Multi-file edit workflow from AI prompt | 5 | Done |
+| BMTOS-156 | Git integration in Code Editor | 3 | Done |
+
+---
+
+## Phase 22 — Raspberry Pi 5 Bootable OS Image
+
+**Epic:** BMTOS-EPIC-22 | **Points:** 47 | **Status: COMPLETE**
+
+Produce a flashable SD card image for Raspberry Pi 5 + AI HAT+ 2 (Hailo-10H, 40 TOPS). Boot to AI in under 90 seconds.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-157 | Genimage partition layout for Pi 5 SD card | 8 | Done |
+| BMTOS-158 | RPi 5 firmware and bootloader staging | 5 | Done |
+| BMTOS-159 | Pi 5 boot config (config.txt) with PCIe Gen3 | 3 | Done |
+| BMTOS-160 | Device tree overlays for AI HAT+ 2 | 5 | Done |
+| BMTOS-161 | First-boot auto-setup OpenRC hook | 8 | Done |
+| BMTOS-162 | Lite AI stack auto-start for Pi 5 (8GB) | 5 | Done |
+| BMTOS-163 | SD card flash tooling and documentation | 3 | Done |
+| BMTOS-164 | QEMU Pi 5 image validation in CI | 5 | Done |
+| BMTOS-165 | Pi 5 image size optimization and compression | 5 | Done |
+
+---
+
+## Phase 23 — AI DLC & Custom OS Builder
+
+**Epic:** BMTOS-EPIC-23 | **Points:** 47 | **Status: COMPLETE**
+
+Downloadable content system: selectable AI tool packages, hardware target selection, build profiles, TUI wizard, and dashboard image builder.
+
+| Story | Title | Pts | Status |
+|-------|-------|-----|--------|
+| BMTOS-166 | AI tool package registry (YAML) | 8 | Done |
+| BMTOS-167 | Build profile schema and presets | 5 | Done |
+| BMTOS-168 | TUI wizard for custom image builds | 8 | Done |
+| BMTOS-169 | Dashboard /image-builder page | 8 | Done |
+| BMTOS-170 | Controller API for build profiles | 5 | Done |
+| BMTOS-171 | Build pipeline --profile integration | 8 | Done |
+| BMTOS-172 | Pre-configured presets (minimal/developer/full) | 5 | Done |
 
 ---
 

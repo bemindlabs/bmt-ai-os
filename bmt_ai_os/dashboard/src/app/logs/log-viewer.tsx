@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -10,122 +10,256 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ScrollText, Search, RefreshCw } from "lucide-react";
+import { fetchLogs, type LogEntry } from "@/lib/api";
 
-interface LogEntry {
-  timestamp: number;
-  method: string;
-  path: string;
-  status: number;
-  elapsed_ms: number;
-  trace_id: string | null;
+function statusVariant(
+  status: number,
+): "default" | "secondary" | "destructive" | "outline" {
+  if (status >= 500) return "destructive";
+  if (status >= 400) return "outline";
+  return "secondary";
+}
+
+function statusClass(status: number): string {
+  if (status >= 500) return "text-red-500";
+  if (status >= 400) return "text-yellow-500";
+  return "text-green-500";
+}
+
+function methodVariant(
+  method: string,
+): "default" | "secondary" | "outline" | "destructive" {
+  switch (method) {
+    case "GET":
+      return "secondary";
+    case "POST":
+      return "default";
+    case "PUT":
+      return "outline";
+    case "DELETE":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
+
+function latencyClass(ms: number): string {
+  if (ms >= 1000) return "text-red-500";
+  if (ms >= 300) return "text-yellow-500";
+  return "text-muted-foreground";
 }
 
 export function LogViewer() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [allLogs, setAllLogs] = useState<LogEntry[]>([]);
+  const [visibleLogs, setVisibleLogs] = useState<LogEntry[]>([]);
+  const [filter, setFilter] = useState("");
+  const [cleared, setCleared] = useState<number>(0);
   const [paused, setPaused] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef(true);
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchLogs();
+      setAllLogs(data.logs ?? []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch logs");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Poll every 5 s while not paused
   useEffect(() => {
     if (paused) return;
-
-    async function fetchLogs() {
-      try {
-        const res = await fetch("/api/v1/logs");
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        setLogs(data.logs ?? []);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch logs");
-      }
-    }
-
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 5000);
+    load();
+    const interval = setInterval(load, 5_000);
     return () => clearInterval(interval);
-  }, [paused]);
+  }, [paused, load]);
 
+  // Apply search filter and cleared watermark
   useEffect(() => {
-    if (!paused) {
+    const term = filter.trim().toLowerCase();
+    const filtered = allLogs.slice(cleared).filter((entry) => {
+      if (!term) return true;
+      return (
+        entry.path.toLowerCase().includes(term) ||
+        entry.method.toLowerCase().includes(term) ||
+        String(entry.status).includes(term)
+      );
+    });
+    setVisibleLogs(filtered);
+  }, [allLogs, filter, cleared]);
+
+  // Auto-scroll to bottom when new logs arrive (unless manually scrolled up)
+  useEffect(() => {
+    if (autoScrollRef.current && !paused) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [logs, paused]);
+  }, [visibleLogs, paused]);
 
-  function statusColor(status: number) {
-    if (status < 300) return "text-green-500";
-    if (status < 400) return "text-yellow-500";
-    return "text-red-500";
+  function handleClear() {
+    setCleared(allLogs.length);
   }
 
-  function methodColor(method: string) {
-    switch (method) {
-      case "GET": return "default" as const;
-      case "POST": return "secondary" as const;
-      case "PUT": return "outline" as const;
-      case "DELETE": return "destructive" as const;
-      default: return "outline" as const;
-    }
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    autoScrollRef.current = atBottom;
   }
 
   return (
     <Card className="flex flex-1 flex-col overflow-hidden">
-      <CardHeader className="shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Request Log</CardTitle>
-            <CardDescription>
-              {logs.length} entries (last 200)
-            </CardDescription>
-          </div>
+      <CardHeader className="shrink-0 border-b">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className={`size-2 rounded-full ${paused ? "bg-yellow-500" : "bg-green-500 animate-pulse"}`} />
+            <ScrollText className="size-4 text-muted-foreground" />
+            <div>
+              <CardTitle>Request Log</CardTitle>
+              <CardDescription>
+                {visibleLogs.length} entr{visibleLogs.length !== 1 ? "ies" : "y"}
+                {filter ? " matching filter" : " (last 200)"}
+              </CardDescription>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Live indicator */}
+            <span
+              className={`size-2 rounded-full ${
+                paused
+                  ? "bg-yellow-500"
+                  : loading
+                    ? "bg-blue-500 animate-pulse"
+                    : "bg-green-500 animate-pulse"
+              }`}
+              role="status"
+              aria-label={paused ? "Log stream paused" : "Log stream live"}
+            />
+
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPaused(!paused)}
+              onClick={load}
+              disabled={loading}
+              aria-label="Refresh logs"
+            >
+              <RefreshCw
+                className={`size-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPaused((p) => !p)}
             >
               {paused ? "Resume" : "Pause"}
             </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClear}
+              disabled={visibleLogs.length === 0}
+              title="Clear visible entries (visual only)"
+            >
+              Clear
+            </Button>
           </div>
         </div>
+
+        {/* Search / filter */}
+        <div className="relative mt-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Filter by path, method or status…"
+            aria-label="Filter logs"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto p-0">
+
+      <CardContent
+        className="flex-1 overflow-y-auto p-0"
+        onScroll={handleScroll}
+      >
         {error && (
           <p className="px-4 py-3 text-sm text-destructive">{error}</p>
         )}
 
-        {logs.length === 0 && !error && (
-          <p className="px-4 py-6 text-sm text-muted-foreground text-center">
-            No log entries yet. Make some API requests to see them here.
+        {visibleLogs.length === 0 && !error && (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {filter
+              ? "No entries match your filter."
+              : "No log entries yet. Make some API requests to see them here."}
           </p>
         )}
 
-        <div className="divide-y divide-border">
-          {logs.map((entry, i) => (
-            <div
-              key={`${entry.timestamp}-${i}`}
-              className="flex items-center gap-3 px-4 py-1.5 text-xs font-mono hover:bg-muted/50"
-            >
-              <span className="shrink-0 text-muted-foreground w-20">
-                {new Date(entry.timestamp * 1000).toLocaleTimeString()}
-              </span>
-              <Badge variant={methodColor(entry.method)} className="shrink-0 text-[10px] px-1.5 py-0">
-                {entry.method}
-              </Badge>
-              <span className="flex-1 truncate text-foreground">
-                {entry.path}
-              </span>
-              <span className={`shrink-0 w-8 text-right ${statusColor(entry.status)}`}>
-                {entry.status}
-              </span>
-              <span className="shrink-0 w-16 text-right text-muted-foreground">
-                {entry.elapsed_ms}ms
-              </span>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
+        {visibleLogs.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-24">Time</TableHead>
+                <TableHead className="w-16">Method</TableHead>
+                <TableHead>Path</TableHead>
+                <TableHead className="w-16 text-right">Status</TableHead>
+                <TableHead className="w-20 text-right">Latency</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleLogs.map((entry, i) => (
+                <TableRow
+                  key={`${entry.timestamp}-${i}`}
+                  className="font-mono text-xs"
+                >
+                  <TableCell className="text-muted-foreground">
+                    {new Date(entry.timestamp * 1000).toLocaleTimeString()}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={methodVariant(entry.method)}
+                      className="text-[10px] px-1.5 py-0"
+                    >
+                      {entry.method}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate text-foreground">
+                    {entry.path}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right font-semibold ${statusClass(entry.status)}`}
+                  >
+                    {entry.status}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right ${latencyClass(entry.elapsed_ms)}`}
+                  >
+                    {entry.elapsed_ms}ms
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        <div ref={bottomRef} />
       </CardContent>
     </Card>
   );

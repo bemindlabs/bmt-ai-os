@@ -72,6 +72,8 @@ _EXEMPT_PREFIXES = (
     "/api/v1/fleet/summary",  # read-only fleet summary
     "/api/v1/fleet/devices",  # read-only device list
     "/api/v1/training",  # training job management (read-only dashboard access)
+    "/ws/terminal",  # browser terminal WebSocket (auth enforced at WS layer)
+    "/ws/ssh",  # SSH WebSocket proxy (auth enforced at WS layer)
 )
 
 
@@ -812,11 +814,10 @@ def validate_startup_security(store: UserStore | None = None) -> None:
 
     if len(jwt_secret) < _MIN_JWT_SECRET_LEN:
         logger.critical(
-            "FATAL: %s is too short (%d chars). "
+            "FATAL: %s is too short. "
             "Minimum length is %d characters. "
             "Use a cryptographically random value (e.g. `openssl rand -hex 32`).",
             _ENV_JWT_SECRET,
-            len(jwt_secret),
             _MIN_JWT_SECRET_LEN,
         )
         sys.exit(1)

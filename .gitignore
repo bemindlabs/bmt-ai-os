@@ -33,6 +33,7 @@ Thumbs.db
 output/
 buildroot-*
 releases/
+reports/
 *.img
 
 # Models (large files)

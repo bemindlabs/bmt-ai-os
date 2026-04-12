@@ -566,22 +566,54 @@ def persona_set(preset: str, workspace: str | None, force: bool) -> None:
 
 
 @persona.command("show")
-@click.argument("preset", type=click.Choice(list(_PERSONA_PRESETS), case_sensitive=False))
-def persona_show(preset: str) -> None:
+@click.argument(
+    "preset",
+    type=click.Choice(list(_PERSONA_PRESETS), case_sensitive=False),
+    required=False,
+    default=None,
+)
+def persona_show(preset: str | None) -> None:
     """Print the content of a preset SOUL.md to stdout.
 
-    Example: bmt-ai-os persona show coding
+    When PRESET is omitted, prints the currently active workspace SOUL.md
+    (resolved via BMT_PERSONA_DIR / BMT_DEFAULT_PERSONA).
+
+    Examples:
+      bmt-ai-os persona show
+      bmt-ai-os persona show coding
     """
     from pathlib import Path
 
-    presets_dir = Path(__file__).parent / "persona" / "presets"
-    src = presets_dir / f"{preset}.md"
+    if preset is not None:
+        # Show a named preset from the package
+        presets_dir = Path(__file__).parent / "persona" / "presets"
+        src = presets_dir / f"{preset}.md"
+        if not src.is_file():
+            click.echo(f"Error: preset file not found: {src}", err=True)
+            sys.exit(1)
+        click.echo(src.read_text(encoding="utf-8"))
+    else:
+        # Show the active workspace SOUL.md
+        env_dir = os.environ.get("BMT_PERSONA_DIR", "").strip()
+        if env_dir:
+            workspace = Path(env_dir)
+        else:
+            name = os.environ.get("BMT_DEFAULT_PERSONA", "").strip() or "default"
+            workspace = Path.home() / ".bmt-ai-os" / "personas" / name
 
-    if not src.is_file():
-        click.echo(f"Error: preset file not found: {src}", err=True)
-        sys.exit(1)
-
-    click.echo(src.read_text(encoding="utf-8"))
+        soul_path = workspace / "SOUL.md"
+        if soul_path.is_file():
+            click.echo(soul_path.read_text(encoding="utf-8"))
+        else:
+            # Fall back to the bundled general preset
+            fallback = Path(__file__).parent / "persona" / "presets" / "general.md"
+            if fallback.is_file():
+                click.echo("(No active SOUL.md found — showing built-in 'general' preset)\n")
+                click.echo(fallback.read_text(encoding="utf-8"))
+            else:
+                msg = "No active persona found. Use 'bmt-ai-os persona set <preset>'"
+                click.echo(msg + " to configure one.", err=True)
+                sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -1923,3 +1955,334 @@ def mcp_serve(host: str, port: int, log_level: str) -> None:
     click.echo("Endpoint: POST /mcp/  (JSON-RPC 2.0)")
     click.echo("Press Ctrl+C to stop.")
     uvicorn.run(create_mcp_app(), host=host, port=port, log_level=log_level.lower())
+
+
+# ---------------------------------------------------------------------------
+# image — DLC image builder
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def image() -> None:
+    """Custom OS image builder — select hardware, tools, and build."""
+
+
+@image.command("list-packages")
+@click.option("--category", "-c", default=None, help="Filter by category.")
+def image_list_packages(category: str | None) -> None:
+    """List available DLC tool packages."""
+    from bmt_ai_os.dlc.registry import PackageRegistry
+
+    reg = PackageRegistry()
+    pkgs = reg.list_packages(category=category)
+
+    if not pkgs:
+        click.echo("No packages found.")
+        return
+
+    # Group by category
+    categories: dict[str, list] = {}
+    for p in pkgs:
+        categories.setdefault(p.category, []).append(p)
+
+    for cat, items in sorted(categories.items()):
+        click.echo(f"\n  {cat.upper().replace('-', ' ')}")
+        click.echo("  " + "-" * 60)
+        for p in items:
+            req = " [required]" if p.required else ""
+            click.echo(f"  {_fmt_col(p.id, 22)} {_fmt_col(str(p.size_mb) + 'MB', 8)} {p.name}{req}")
+            click.echo(f"  {' ' * 22} {p.description}")
+
+
+@image.command("list-targets")
+def image_list_targets() -> None:
+    """List available hardware targets."""
+    from bmt_ai_os.dlc.registry import PackageRegistry
+
+    reg = PackageRegistry()
+    targets = reg.list_targets()
+
+    click.echo("\n  HARDWARE TARGETS")
+    click.echo("  " + "=" * 60)
+    for t in targets:
+        click.echo(f"\n  {t.name} ({t.id})")
+        click.echo(f"    {t.description}")
+        click.echo(f"    CPU:         {t.specs.get('cpu', 'N/A')}")
+        click.echo(f"    RAM:         {t.specs.get('ram', 'N/A')}")
+        click.echo(f"    Accelerator: {t.specs.get('accelerator', 'N/A')}")
+        click.echo(f"    Storage:     {t.specs.get('storage', 'N/A')}")
+        click.echo(f"    Default tier: {t.default_tier}")
+
+
+@image.command("list-presets")
+def image_list_presets() -> None:
+    """List available build presets."""
+    from bmt_ai_os.dlc.registry import PackageRegistry
+
+    reg = PackageRegistry()
+    presets = reg.list_presets()
+
+    click.echo("\n  BUILD PRESETS")
+    click.echo("  " + "=" * 60)
+    for p in presets:
+        click.echo(f"\n  {p.name} ({p.id})")
+        click.echo(f"    {p.description}")
+        click.echo(f"    Packages: {', '.join(p.packages)}")
+
+
+@image.command("configure")
+def image_configure() -> None:
+    """Interactive TUI wizard to configure a custom OS image build profile."""
+    from bmt_ai_os.dlc.profiles import BuildProfile, ProfileManager
+    from bmt_ai_os.dlc.registry import PackageRegistry
+
+    reg = PackageRegistry()
+    mgr = ProfileManager()
+
+    click.echo("")
+    click.secho(
+        "╔══════════════════════════��═══════════════════════════════╗",
+        fg="cyan",
+        bold=True,
+    )
+    click.secho(
+        "║       BMT AI OS — Custom Image Builder Wizard           ║",
+        fg="cyan",
+        bold=True,
+    )
+    click.secho(
+        "╚════���═════════════════════════════════════════════════════╝",
+        fg="cyan",
+        bold=True,
+    )
+    click.echo("")
+
+    # ── Step 1: Hardware Target ──────────────────────────────────────────
+    click.secho("Step 1: Select Hardware Target", fg="yellow", bold=True)
+    click.echo("")
+    targets = reg.list_targets()
+    for i, t in enumerate(targets, 1):
+        accel = t.specs.get("accelerator", "N/A")
+        click.echo(f"  [{i}] {t.name}")
+        click.echo(f"      {t.specs.get('cpu', '')} | {t.specs.get('ram', '')} | {accel}")
+    click.echo("")
+
+    target_idx = click.prompt(
+        "  Select target",
+        type=click.IntRange(1, len(targets)),
+        default=1,
+    )
+    selected_target = targets[target_idx - 1]
+    click.secho(f"  -> {selected_target.name}", fg="green")
+    click.echo("")
+
+    # ── Step 2: Device Tier ──────────────────────────────────────────────
+    click.secho("Step 2: Select Device Tier", fg="yellow", bold=True)
+    click.echo("")
+    tiers = reg.list_tiers()
+    default_tier_idx = 1
+    for i, t in enumerate(tiers, 1):
+        marker = " (recommended)" if t.id == selected_target.default_tier else ""
+        if t.id == selected_target.default_tier:
+            default_tier_idx = i
+        click.echo(f"  [{i}] {t.name} — {t.description}{marker}")
+    click.echo("")
+
+    tier_idx = click.prompt(
+        "  Select tier",
+        type=click.IntRange(1, len(tiers)),
+        default=default_tier_idx,
+    )
+    selected_tier = tiers[tier_idx - 1]
+    click.secho(f"  -> {selected_tier.name}", fg="green")
+    click.echo("")
+
+    # ── Step 3: Preset or Custom ─────────────────────────────────────────
+    click.secho("Step 3: Choose Package Selection Method", fg="yellow", bold=True)
+    click.echo("")
+    presets = reg.list_presets()
+    click.echo("  [0] Custom — pick individual packages")
+    for i, p in enumerate(presets, 1):
+        click.echo(f"  [{i}] {p.name} — {p.description}")
+    click.echo("")
+
+    preset_idx = click.prompt(
+        "  Select preset (0 for custom)",
+        type=click.IntRange(0, len(presets)),
+        default=2,  # developer preset
+    )
+
+    selected_packages: list[str] = []
+
+    if preset_idx == 0:
+        # ── Custom package selection ─────────────────────────────────────
+        click.echo("")
+        click.secho("  Select packages (toggle with number, 'done' to finish):", fg="yellow")
+        click.echo("")
+
+        available = reg.get_packages_for_tier(selected_tier.id)
+        selected_set: set[str] = set()
+
+        # Pre-select required packages
+        for p in available:
+            if p.required:
+                selected_set.add(p.id)
+
+        categories = {}
+        for p in available:
+            categories.setdefault(p.category, []).append(p)
+
+        pkg_list: list = []
+        for cat in sorted(categories.keys()):
+            click.echo(f"  {cat.upper().replace('-', ' ')}:")
+            for p in categories[cat]:
+                pkg_list.append(p)
+                idx = len(pkg_list)
+                marker = "x" if p.id in selected_set else " "
+                req = " (required)" if p.required else ""
+                click.echo(f"    [{marker}] {idx:>2}. {_fmt_col(p.name, 24)} {p.size_mb:>5}MB{req}")
+            click.echo("")
+
+        while True:
+            choice = click.prompt(
+                "  Toggle package # (or 'done')",
+                type=str,
+                default="done",
+            )
+            if choice.lower() == "done":
+                break
+            try:
+                num = int(choice)
+                if 1 <= num <= len(pkg_list):
+                    pkg = pkg_list[num - 1]
+                    if pkg.required:
+                        click.echo(f"    {pkg.name} is required and cannot be removed.")
+                    elif pkg.id in selected_set:
+                        selected_set.discard(pkg.id)
+                        click.echo(f"    - Removed {pkg.name}")
+                    else:
+                        selected_set.add(pkg.id)
+                        click.echo(f"    + Added {pkg.name}")
+            except ValueError:
+                click.echo("    Invalid input. Enter a number or 'done'.")
+
+        selected_packages = list(selected_set)
+    else:
+        preset = presets[preset_idx - 1]
+        selected_packages = list(preset.packages)
+        click.secho(f"  -> Using preset: {preset.name}", fg="green")
+
+    click.echo("")
+
+    # ── Step 4: Resolve and Validate ──────��──────────────────────────────
+    resolved = reg.resolve_dependencies(selected_packages)
+    warnings = reg.validate_packages_for_target(resolved, selected_target.id, selected_tier.id)
+    est_mb = reg.estimate_image_size_mb(resolved)
+
+    click.secho("Step 4: Build Summary", fg="yellow", bold=True)
+    click.echo("")
+    click.echo(f"  Target:     {selected_target.name}")
+    click.echo(f"  Tier:       {selected_tier.name}")
+    click.echo(f"  Packages:   {len(resolved)}")
+    click.echo(f"  Est. size:  {est_mb}MB ({est_mb / 1024:.1f}GB)")
+    click.echo(f"  Packages:   {', '.join(resolved)}")
+
+    if warnings:
+        click.echo("")
+        click.secho("  Warnings:", fg="yellow")
+        for w in warnings:
+            click.secho(f"    ! {w}", fg="yellow")
+
+    click.echo("")
+
+    # ── Step 5: Save Profile ���────────────────────────────────────────────
+    profile_name = click.prompt(
+        "  Profile name",
+        default=f"{selected_target.id}-{selected_tier.id}",
+    )
+
+    profile = BuildProfile(
+        id="",
+        name=profile_name,
+        target=selected_target.id,
+        tier=selected_tier.id,
+        packages=selected_packages,
+        preset=presets[preset_idx - 1].id if preset_idx > 0 else None,
+    )
+    saved = mgr.save_profile(profile)
+
+    click.echo("")
+    click.secho(f"  Profile saved: {saved.id}", fg="green", bold=True)
+    click.echo(f"  Build with: bmt-ai-os image build --profile {saved.id}")
+    click.echo("")
+
+
+@image.command("build")
+@click.option("--profile", "profile_id", required=True, help="Profile ID to build.")
+@click.option("--clean", is_flag=True, help="Clean before building.")
+def image_build(profile_id: str, clean: bool) -> None:
+    """Build a custom OS image from a saved profile."""
+
+    from bmt_ai_os.dlc.profiles import ProfileManager
+    from bmt_ai_os.dlc.registry import PackageRegistry
+
+    reg = PackageRegistry()
+    mgr = ProfileManager()
+
+    profile = mgr.get_profile(profile_id)
+    if not profile:
+        click.secho(f"Profile not found: {profile_id}", fg="red")
+        sys.exit(1)
+
+    # Export manifest
+    manifest_path = mgr.export_build_manifest(profile_id, reg)
+    if not manifest_path:
+        click.secho("Failed to export build manifest", fg="red")
+        sys.exit(1)
+
+    click.echo(f"  Profile:  {profile.name}")
+    click.echo(f"  Target:   {profile.target}")
+    click.echo(f"  Tier:     {profile.tier}")
+    click.echo(f"  Manifest: {manifest_path}")
+    click.echo("")
+
+    # Run build.sh
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    build_script = os.path.join(project_root, "scripts", "build.sh")
+    cmd = [build_script, "--target", profile.target, "--profile", str(manifest_path)]
+    if clean:
+        cmd.append("--clean")
+
+    click.echo("Starting image build...")
+    click.echo(f"  Command: {' '.join(cmd)}")
+    click.echo("")
+
+    rc = subprocess.run(cmd).returncode
+    if rc == 0:
+        click.secho("Build completed successfully!", fg="green", bold=True)
+    else:
+        click.secho(f"Build failed with exit code {rc}", fg="red")
+        sys.exit(rc)
+
+
+@image.command("profiles")
+def image_profiles() -> None:
+    """List saved build profiles."""
+    from bmt_ai_os.dlc.profiles import ProfileManager
+
+    mgr = ProfileManager()
+    profiles = mgr.list_profiles()
+
+    if not profiles:
+        click.echo("  No saved profiles. Run: bmt-ai-os image configure")
+        return
+
+    click.echo("\n  SAVED PROFILES")
+    click.echo("  " + "=" * 60)
+    for p in profiles:
+        click.echo(f"\n  {p.name} (id: {p.id})")
+        click.echo(f"    Target: {p.target} | Tier: {p.tier}")
+        click.echo(f"    Packages: {', '.join(p.packages[:5])}")
+        if len(p.packages) > 5:
+            click.echo(f"    ... and {len(p.packages) - 5} more")
+        click.echo(f"    Created: {p.created_at}")

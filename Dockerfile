@@ -2,12 +2,12 @@
 # Lightweight AI stack controller with multi-provider LLM support and RAG.
 #
 # Usage:
-#   docker pull bemindlabs/bmt-ai-os
-#   docker run -p 8080:8080 --network bmt-ai-net bemindlabs/bmt-ai-os
+#   docker pull bemindlab/bmt-ai-os
+#   docker run -p 8080:8080 --network bmt-ai-net bemindlab/bmt-ai-os
 #
 # With AI stack:
 #   docker compose -f bmt_ai_os/ai-stack/docker-compose.yml up -d
-#   docker run -p 8080:8080 --network bmt-ai-net bemindlabs/bmt-ai-os
+#   docker run -p 8080:8080 --network bmt-ai-net bemindlab/bmt-ai-os
 
 # --- Stage 1: Build dependencies ---
 # Digest pinned 2026-04-11 — python:3.12-alpine
@@ -24,9 +24,12 @@ RUN pip install --no-cache-dir --prefix=/install \
     cryptography>=43.0 \
     docker>=7.0 \
     fastapi>=0.115 \
+    httpx>=0.27 \
     prometheus-client>=0.21 \
+    psutil>=5.9 \
     pydantic>=2.0 \
     pyjwt>=2.8 \
+    python-multipart>=0.0.9 \
     pyyaml>=6.0 \
     requests>=2.31 \
     uvicorn>=0.34
@@ -48,7 +51,8 @@ COPY --from=builder /install /usr/local
 
 # Minimal runtime deps
 RUN apk upgrade --no-cache \
-    && apk add --no-cache curl libffi openssl docker-cli docker-cli-compose \
+    && apk add --no-cache bash curl libffi openssl docker-cli docker-cli-compose \
+       build-base file rsync bc cpio unzip wget perl \
     && adduser -D -s /bin/false bmt
 
 WORKDIR /app
@@ -57,17 +61,26 @@ WORKDIR /app
 COPY bmt_ai_os/__init__.py /app/bmt_ai_os/__init__.py
 COPY bmt_ai_os/cli.py /app/bmt_ai_os/cli.py
 COPY bmt_ai_os/logging.py /app/bmt_ai_os/logging.py
+COPY bmt_ai_os/secret_files.py /app/bmt_ai_os/secret_files.py
 COPY bmt_ai_os/controller/ /app/bmt_ai_os/controller/
 COPY bmt_ai_os/providers/ /app/bmt_ai_os/providers/
 COPY bmt_ai_os/rag/ /app/bmt_ai_os/rag/
 COPY bmt_ai_os/ota/ /app/bmt_ai_os/ota/
+COPY bmt_ai_os/update/ /app/bmt_ai_os/update/
 COPY bmt_ai_os/fleet/ /app/bmt_ai_os/fleet/
 COPY bmt_ai_os/plugins/ /app/bmt_ai_os/plugins/
 COPY bmt_ai_os/tls/ /app/bmt_ai_os/tls/
+COPY bmt_ai_os/persona/ /app/bmt_ai_os/persona/
 COPY bmt_ai_os/benchmark/ /app/bmt_ai_os/benchmark/
+COPY bmt_ai_os/mcp/ /app/bmt_ai_os/mcp/
+COPY bmt_ai_os/memory/ /app/bmt_ai_os/memory/
+COPY bmt_ai_os/messaging/ /app/bmt_ai_os/messaging/
+COPY bmt_ai_os/training/ /app/bmt_ai_os/training/
+COPY bmt_ai_os/dlc/ /app/bmt_ai_os/dlc/
+COPY scripts/build.sh /app/scripts/build.sh
 COPY bmt_ai_os/ai-stack/docker-compose.yml /app/ai-stack/docker-compose.yml
 COPY pyproject.toml /app/pyproject.toml
-RUN pip install --no-cache-dir -e /app 2>/dev/null || true
+RUN pip install --no-cache-dir -e /app
 
 ENV PYTHONPATH=/app \
     BMT_COMPOSE_FILE=/app/ai-stack/docker-compose.yml \

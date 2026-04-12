@@ -35,6 +35,22 @@ class ChromaStorage:
         resp.raise_for_status()
         return resp.json()
 
+    def delete_collection(self, name: str) -> None:
+        """Delete a collection by name."""
+        # First get the collection ID
+        resp = requests.get(f"{self.base_url}/api/v1/collections", timeout=10)
+        resp.raise_for_status()
+        collections = resp.json()
+        col_id = None
+        for c in collections:
+            if c.get("name") == name:
+                col_id = c.get("id")
+                break
+        if col_id is None:
+            raise ValueError(f"Collection '{name}' not found")
+        resp = requests.delete(f"{self.base_url}/api/v1/collections/{col_id}", timeout=10)
+        resp.raise_for_status()
+
     def get_or_create_collection(self, name: str) -> str:
         """Ensure a collection exists and return its id."""
         url = f"{self.base_url}/api/v1/collections"

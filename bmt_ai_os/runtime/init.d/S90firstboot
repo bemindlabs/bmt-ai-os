@@ -1,0 +1,156 @@
+#!/sbin/openrc-run
+# BMT AI OS — First-boot initialization script
+#
+# Runs once on first boot to:
+#   1. Detect hardware platform (BCM2712 / Pi 5)
+#   2. Run BSP setup (HailoRT, udev rules, groups)
+#   3. Generate SSH host keys
+#   4. Resize rootfs to fill SD card
+#   5. Pull default lite AI model via Ollama
+#   6. Disable itself after successful completion
+#
+# BMTOS-161 | Epic: BMTOS-EPIC-22
+
+description="BMT AI OS first-boot initialization"
+
+FIRSTBOOT_MARKER="/var/lib/bmt-ai-os/.firstboot-done"
+FIRSTBOOT_LOG="/var/log/bmt-firstboot.log"
+
+depend() {
+    need localmount
+    after bootmisc
+    before networking
+}
+
+start() {
+    # Skip if already completed
+    if [ -f "${FIRSTBOOT_MARKER}" ]; then
+        return 0
+    fi
+
+    ebegin "Running BMT AI OS first-boot initialization"
+
+    mkdir -p "$(dirname "${FIRSTBOOT_LOG}")"
+    mkdir -p "$(dirname "${FIRSTBOOT_MARKER}")"
+
+    {
+        echo "=== BMT AI OS First Boot ==="
+        echo "Date: $(date -Iseconds)"
+        echo ""
+
+        # ─── Step 1: Detect hardware ────────────────────────────────────
+        echo ">>> Step 1: Hardware detection"
+
+        PLATFORM="unknown"
+        if grep -q "BCM2712" /proc/cpuinfo 2>/dev/null; then
+            PLATFORM="pi5"
+            echo "    Detected: Raspberry Pi 5 (BCM2712)"
+        elif grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
+            PLATFORM="pi5"
+            echo "    Detected: Raspberry Pi (from device-tree)"
+        fi
+        echo "    Platform: ${PLATFORM}"
+        echo ""
+
+        # ─── Step 2: Run BSP setup ──────────────────────────────────────
+        echo ">>> Step 2: BSP setup"
+
+        if [ "${PLATFORM}" = "pi5" ]; then
+            BSP_SETUP="/usr/lib/bmt-ai-os/pi5-hailo/setup.sh"
+            if [ -x "${BSP_SETUP}" ]; then
+                echo "    Running Pi 5 + Hailo BSP setup..."
+                "${BSP_SETUP}" 2>&1 || echo "    WARNING: BSP setup exited with code $?"
+            else
+                echo "    BSP setup script not found at ${BSP_SETUP}"
+            fi
+
+            # Ensure hailo group exists
+            if ! getent group hailo >/dev/null 2>&1; then
+                addgroup -S hailo
+                echo "    Created 'hailo' group"
+            fi
+        fi
+        echo ""
+
+        # ─── Step 3: SSH host keys ──────────────────────────────────────
+        echo ">>> Step 3: Generate SSH host keys"
+
+        if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+            ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" 2>&1
+            echo "    Generated ed25519 host key"
+        fi
+        if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+            ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" 2>&1
+            echo "    Generated RSA host key"
+        fi
+        echo ""
+
+        # ─── Step 4: Resize rootfs ──────────────────────────────────────
+        echo ">>> Step 4: Resize rootfs to fill SD card"
+
+        ROOT_DEV=$(findmnt -n -o SOURCE / 2>/dev/null || echo "")
+        if [ -n "${ROOT_DEV}" ]; then
+            # Get the disk and partition number
+            DISK_DEV=$(echo "${ROOT_DEV}" | sed 's/p\?[0-9]*$//')
+            PART_NUM=$(echo "${ROOT_DEV}" | grep -o '[0-9]*$')
+
+            if [ -n "${DISK_DEV}" ] && [ -n "${PART_NUM}" ]; then
+                # Grow partition to fill available space
+                if command -v growpart >/dev/null 2>&1; then
+                    growpart "${DISK_DEV}" "${PART_NUM}" 2>&1 || true
+                elif command -v parted >/dev/null 2>&1; then
+                    parted -s "${DISK_DEV}" resizepart "${PART_NUM}" 100% 2>&1 || true
+                fi
+
+                # Resize ext4 filesystem
+                if command -v resize2fs >/dev/null 2>&1; then
+                    resize2fs "${ROOT_DEV}" 2>&1
+                    echo "    Rootfs resized successfully"
+                fi
+            fi
+        else
+            echo "    Could not determine root device — skipping resize"
+        fi
+        echo ""
+
+        # ─── Step 5: Pull default model (deferred to after network) ─────
+        echo ">>> Step 5: Default model pull (deferred)"
+        echo "    Model pull will happen after networking + Ollama start"
+
+        # Create a helper script that runs after Ollama starts
+        cat > /usr/lib/bmt-ai-os/pull-default-model.sh << 'PULLEOF'
+#!/bin/sh
+# Pull default lite model after Ollama is ready
+OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
+MAX_RETRIES=30
+RETRY=0
+
+while [ $RETRY -lt $MAX_RETRIES ]; do
+    if curl -sf "${OLLAMA_HOST}/api/tags" >/dev/null 2>&1; then
+        echo "Ollama ready — pulling default model..."
+        curl -sf "${OLLAMA_HOST}/api/pull" \
+            -d '{"name":"qwen2.5:1.5b"}' || true
+        echo "Default model pull complete"
+        exit 0
+    fi
+    RETRY=$((RETRY + 1))
+    sleep 5
+done
+echo "Ollama not ready after ${MAX_RETRIES} retries — skipping model pull"
+PULLEOF
+        chmod +x /usr/lib/bmt-ai-os/pull-default-model.sh
+        echo ""
+
+        # ─── Step 6: Mark complete ──────────────────────────────────────
+        echo ">>> Step 6: Mark first-boot complete"
+
+        date -Iseconds > "${FIRSTBOOT_MARKER}"
+        echo "    First-boot marker written to ${FIRSTBOOT_MARKER}"
+
+        echo ""
+        echo "=== First-boot complete ==="
+
+    } >> "${FIRSTBOOT_LOG}" 2>&1
+
+    eend $?
+}

@@ -39,6 +39,7 @@ BR2_OUTPUT_DIR="${OUTPUT_DIR}/buildroot"
 TARGET="${TARGET:-qemu}"
 DO_CLEAN=false
 DO_MENUCONFIG=false
+PROFILE_PATH=""
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ Options:
                         apple-silicon  Apple Silicon via Asahi Linux (CPU-only)
   --clean             Remove Buildroot output directory before building
   --menuconfig        Open Buildroot menuconfig (do not build)
+  --profile <path>    DLC build profile manifest JSON (overrides --target with profile target)
   --help              Show this help message
 
 Environment Variables:
@@ -104,6 +106,10 @@ while [[ $# -gt 0 ]]; do
         --menuconfig)
             DO_MENUCONFIG=true
             shift
+            ;;
+        --profile)
+            PROFILE_PATH="${2:?--profile requires a path argument}"
+            shift 2
             ;;
         --help|-h)
             usage
@@ -243,7 +249,7 @@ BR2_TARGET_ROOTFS_EXT2_SIZE="4096M"
 FRAG
             ;;
         pi5)
-            cat >"${frag_file}" <<'FRAG'
+            cat >"${frag_file}" <<FRAG
 # Raspberry Pi 5 + Hailo AI HAT+ 2
 BR2_aarch64=y
 BR2_TARGET_GENERIC_GETTY_PORT="ttyAMA10"
@@ -253,6 +259,28 @@ BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="6.6"
 BR2_TARGET_ROOTFS_EXT2=y
 BR2_TARGET_ROOTFS_EXT2_4=y
 BR2_TARGET_ROOTFS_EXT2_SIZE="4096M"
+
+# Genimage for partitioned SD card image
+BR2_ROOTFS_POST_IMAGE_SCRIPT="${EXTERNAL_TREE}/board/pi5/post-image.sh"
+BR2_PACKAGE_HOST_GENIMAGE=y
+BR2_PACKAGE_HOST_DOSFSTOOLS=y
+BR2_PACKAGE_HOST_MTOOLS=y
+
+# Pi 5 kernel config fragment
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="${PROJECT_ROOT}/bmt_ai_os/kernel/pi5-hailo.config"
+
+# Pi 5 + Hailo BSP package
+BR2_PACKAGE_PI5_HAILO_BSP=y
+BR2_PACKAGE_PI5_HAILO_BSP_HAILORT_VERSION="4.20.0"
+BR2_PACKAGE_PI5_HAILO_BSP_INSTALL_DKMS=y
+BR2_PACKAGE_PI5_HAILO_BSP_INSTALL_PYTHON_BINDINGS=y
+BR2_PACKAGE_PI5_HAILO_BSP_POWER_MODE="performance"
+# Image size optimization: strip binaries, remove static libs
+BR2_STRIP_strip=y
+BR2_ENABLE_LOCALE_PURGE=y
+BR2_ENABLE_LOCALE_WHITELIST="C en_US"
+BR2_PACKAGE_HOST_ZSTD=y
+
 # Enable HailoRT stubs (BSP must supply actual blobs)
 # BR2_PACKAGE_HAILO_RUNTIME=y
 FRAG
@@ -271,6 +299,113 @@ BR2_TARGET_ROOTFS_EXT2_SIZE="4096M"
 FRAG
             ;;
     esac
+}
+
+# ─── DLC Profile Handling ────────────────────────────────────────────────────
+
+apply_dlc_profile() {
+    local profile_json="$1"
+    local br2_defconfig="$2"
+
+    if [[ ! -f "${profile_json}" ]]; then
+        log_error "Profile manifest not found: ${profile_json}"
+        exit 1
+    fi
+
+    log_section "Applying DLC build profile"
+    log_info "Profile: ${profile_json}"
+
+    # Requires jq for JSON parsing
+    if ! command -v jq &>/dev/null; then
+        log_error "jq is required for --profile support. Install: apt-get install jq"
+        exit 1
+    fi
+
+    # Extract target from profile (overrides --target)
+    local profile_target
+    profile_target="$(jq -r '.target // empty' "${profile_json}")"
+    if [[ -n "${profile_target}" ]]; then
+        TARGET="${profile_target}"
+        log_info "Target overridden by profile: ${TARGET}"
+    fi
+
+    # Extract profile metadata
+    local profile_name profile_tier est_size
+    profile_name="$(jq -r '.profile_name // "custom"' "${profile_json}")"
+    profile_tier="$(jq -r '.tier // "standard"' "${profile_json}")"
+    est_size="$(jq -r '.estimated_size_mb // 0' "${profile_json}")"
+    log_info "Profile: ${profile_name} | Tier: ${profile_tier} | Est. size: ${est_size}MB"
+
+    # Extract and append Buildroot packages
+    local br2_packages
+    br2_packages="$(jq -r '.buildroot_packages[]? // empty' "${profile_json}")"
+    if [[ -n "${br2_packages}" ]]; then
+        log_info "Adding Buildroot packages from profile:"
+        local frag_file
+        frag_file="$(mktemp /tmp/bmt-dlc-XXXXXX.config)"
+        echo "# DLC profile packages — ${profile_name}" > "${frag_file}"
+        while IFS= read -r pkg; do
+            local pkg_upper
+            pkg_upper="$(echo "${pkg}" | tr '[:lower:]-' '[:upper:]_')"
+            echo "BR2_PACKAGE_${pkg_upper}=y" >> "${frag_file}"
+            log_info "  + ${pkg}"
+        done <<< "${br2_packages}"
+        cat "${frag_file}" >> "${br2_defconfig}"
+        rm -f "${frag_file}"
+        log_ok "Buildroot packages appended"
+    fi
+
+    # Extract container images to pre-pull list
+    local container_images
+    container_images="$(jq -r '.container_images[]? // empty' "${profile_json}")"
+    if [[ -n "${container_images}" ]]; then
+        local pull_list="${OUTPUT_DIR}/container-pull-list.txt"
+        mkdir -p "${OUTPUT_DIR}"
+        echo "${container_images}" > "${pull_list}"
+        log_info "Container images to pre-pull saved to: ${pull_list}"
+    fi
+
+    # Extract install commands to first-boot script
+    local install_commands
+    install_commands="$(jq -r '.install_commands[]? // empty' "${profile_json}")"
+    if [[ -n "${install_commands}" ]]; then
+        local firstboot_dir="${PROJECT_ROOT}/bmt_ai_os/runtime/init.d"
+        local firstboot_script="${firstboot_dir}/S90firstboot"
+        mkdir -p "${firstboot_dir}"
+
+        cat > "${firstboot_script}" <<'HEADER'
+#!/bin/sh
+# Auto-generated by build.sh --profile: DLC first-boot tool installation
+# This script runs once on first boot to install selected DLC packages.
+
+MARKER="/data/.dlc-installed"
+if [ -f "$MARKER" ]; then
+    exit 0
+fi
+
+echo "[DLC] Installing selected tool packages..."
+HEADER
+        while IFS= read -r cmd; do
+            echo "${cmd}" >> "${firstboot_script}"
+        done <<< "${install_commands}"
+
+        cat >> "${firstboot_script}" <<'FOOTER'
+
+touch "$MARKER"
+echo "[DLC] Tool installation complete."
+FOOTER
+        chmod +x "${firstboot_script}"
+        log_ok "First-boot install script generated: ${firstboot_script}"
+    fi
+
+    # Extract ports for firewall config
+    local ports
+    ports="$(jq -r '.ports[]? // empty' "${profile_json}")"
+    if [[ -n "${ports}" ]]; then
+        local fw_file="${OUTPUT_DIR}/dlc-ports.txt"
+        echo "${ports}" > "${fw_file}"
+        log_info "DLC ports saved to: ${fw_file}"
+    fi
 }
 
 # ─── Apply Configuration ───────────────────────────────────────────────────────
@@ -299,6 +434,11 @@ apply_config() {
         BR2_EXTERNAL="${EXTERNAL_TREE}" \
         bmt_ai_os_defconfig
     log_ok "Buildroot defconfig applied"
+
+    # Apply DLC profile if specified
+    if [[ -n "${PROFILE_PATH}" ]]; then
+        apply_dlc_profile "${PROFILE_PATH}" "${br2_defconfig}"
+    fi
 
     # Apply kernel config fragment if it exists
     if [[ -f "${KERNEL_CONFIG_FRAGMENT}" ]]; then
@@ -395,8 +535,9 @@ stage_image() {
     local br2_images="${BR2_OUTPUT_DIR}/images"
     local source_img=""
 
-    # Prefer ext4 disk image, fall back to sdcard, then any .img
+    # Prefer target-specific image, then ext4, then sdcard, then any .img
     for candidate in \
+        "${br2_images}/bmt-ai-os-pi5.img" \
         "${br2_images}/rootfs.ext4" \
         "${br2_images}/rootfs.ext2" \
         "${br2_images}/sdcard.img" \
@@ -429,6 +570,9 @@ stage_image() {
     echo -e "${BOLD}╠══════════════════════════════════════════════╣${RESET}"
     printf  "${BOLD}║${RESET}  %-18s  %-23s ${BOLD}║${RESET}\n" "Target:"      "${TARGET}"
     printf  "${BOLD}║${RESET}  %-18s  %-23s ${BOLD}║${RESET}\n" "Buildroot:"   "${BUILDROOT_VERSION}"
+    if [[ -n "${PROFILE_PATH}" ]]; then
+    printf  "${BOLD}║${RESET}  %-18s  %-23s ${BOLD}║${RESET}\n" "DLC Profile:" "$(basename "${PROFILE_PATH}")"
+    fi
     printf  "${BOLD}║${RESET}  %-18s  %-23s ${BOLD}║${RESET}\n" "Image size:"  "${img_size}"
     printf  "${BOLD}║${RESET}  %-18s  %-23s ${BOLD}║${RESET}\n" "Build time:"  "${build_time}"
     printf  "${BOLD}║${RESET}  %-18s  %-23s ${BOLD}║${RESET}\n" "Output:"      "output/images/"

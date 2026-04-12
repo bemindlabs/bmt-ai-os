@@ -134,6 +134,26 @@ async def list_collections() -> list[dict]:
         raise HTTPException(status_code=500, detail="Failed to list collections") from exc
 
 
+@router.delete("/collections/{name}")
+async def delete_collection(name: str) -> dict:
+    """Delete a ChromaDB collection by name."""
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid collection name")
+    try:
+        _storage.delete_collection(name)
+        return {"status": "deleted", "name": name}
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.exception("Storage error deleting collection %s", name)
+        raise HTTPException(status_code=502, detail="Vector store unavailable") from exc
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=404, detail=f"Collection '{name}' not found") from exc
+    except RuntimeError as exc:
+        logger.exception("Failed to delete collection %s", name)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 def _resolve_and_check_path(raw_path: str) -> Path:
     """Resolve *raw_path* and verify it sits inside an allowed directory.
 
@@ -174,6 +194,27 @@ async def ingest(req: IngestRequest) -> dict:
     ``Path.resolve()``.
     """
     safe_path = _resolve_and_check_path(req.path)
+
+    try:
+        from bmt_ai_os.rag.ingest import DocumentIngester  # noqa: E402
+
+        ingester = DocumentIngester(_config)
+        if safe_path.is_file():
+            chunks = ingester.ingest_file(safe_path)
+        else:
+            result = ingester.ingest_directory(safe_path, recursive=req.recursive)
+            chunks = sum(v for k, v in result.items() if k != "_errors")
+        return {
+            "status": "completed",
+            "path": str(safe_path),
+            "collection": req.collection,
+            "chunks_ingested": chunks,
+        }
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.warning("Ingest accepted but storage unavailable: %s", exc)
+    except Exception as exc:
+        logger.debug("Ingest pipeline unavailable, accepting request: %s", exc)
+
     return {
         "status": "accepted",
         "path": str(safe_path),

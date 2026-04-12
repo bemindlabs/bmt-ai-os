@@ -169,6 +169,7 @@
       "status": "completed",
       "priority": "high",
       "points": 68,
+      "total_points": 68,
       "stories": [
         "BMTOS-44",
         "BMTOS-45",
@@ -188,6 +189,7 @@
       "description": "Address critical and high-priority findings from the production readiness evaluation. Fix auth defaults, error handling, input validation, CI gaps, secrets management, and test coverage.",
       "status": "completed",
       "priority": "critical",
+      "total_points": 68,
       "stories": [
         "BMTOS-54",
         "BMTOS-55",
@@ -212,6 +214,7 @@
       "description": "Transform BMT AI OS from a stateless LLM proxy into a conversational AI assistant with persistent sessions, context engine, memory search, and RAG-integrated chat. Inspired by OpenClaw's memory architecture.",
       "status": "completed",
       "priority": "high",
+      "total_points": 44,
       "stories": [
         "BMTOS-69",
         "BMTOS-70",
@@ -233,8 +236,9 @@
       "id": "BMTOS-EPIC-10",
       "title": "Dashboard AI Assistant Enhancement",
       "description": "Upgrade the Next.js dashboard chat page from a basic request-response interface to a production-grade AI assistant with streaming, session persistence, context awareness, and rich interaction features. Inspired by OpenClaw UI patterns.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
+      "total_points": 39,
       "stories": [
         "BMTOS-76",
         "BMTOS-77",
@@ -251,55 +255,276 @@
         "Context usage meter shows token budget consumption",
         "Dashboard requires JWT login before accessing protected pages",
         "RAG can be toggled per conversation"
-      ]
+      ],
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-EPIC-10",
+      "id": "BMTOS-EPIC-10b",
       "title": "On-Device Training Pipeline (Implementation)",
       "description": "Implement the actual training code \u2014 LoRA/QLoRA pipeline, TensorBoard integration, data prep, model export, training API, and dashboard UI.",
-      "status": "planned",
+      "status": "completed",
       "priority": "high",
       "stories": [
-        "BMTOS-76",
-        "BMTOS-77",
-        "BMTOS-78",
-        "BMTOS-79",
-        "BMTOS-80",
-        "BMTOS-81",
-        "BMTOS-82",
-        "BMTOS-83",
-        "BMTOS-84"
+        "BMTOS-92",
+        "BMTOS-93",
+        "BMTOS-94",
+        "BMTOS-95",
+        "BMTOS-96",
+        "BMTOS-97",
+        "BMTOS-98",
+        "BMTOS-99",
+        "BMTOS-100"
       ],
       "total_points": 60,
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-EPIC-11",
       "title": "Claude Code Deep Integration",
       "description": "Native Claude Code integration via MCP server and tool_use support in the OpenAI-compatible API.",
-      "status": "planned",
+      "status": "completed",
       "priority": "medium",
       "stories": [
         "BMTOS-85",
         "BMTOS-86"
       ],
       "total_points": 21,
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-EPIC-12",
       "title": "AI Assistant Persona & Personality",
       "description": "Add configurable AI persona via SOUL.md workspace files, system prompt assembly, multi-agent personality support, and dashboard persona editor. Inspired by OpenClaw's context file architecture.",
-      "status": "planned",
+      "status": "completed",
       "priority": "medium",
+      "total_points": 24,
       "stories": [
         "BMTOS-87",
         "BMTOS-88",
         "BMTOS-89",
         "BMTOS-90",
         "BMTOS-91"
+      ],
+      "completed_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-EPIC-13",
+      "title": "Dashboard Integration Sprint",
+      "description": "Wire all existing dashboard components into the live UI. Connect SSE streaming, session sidebar, slash commands, voice/file input, RAG toggle, and source cards into chat-interface.tsx. Add persona editor and agents page.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 25,
+      "stories": [
+        "BMTOS-101",
+        "BMTOS-102",
+        "BMTOS-103",
+        "BMTOS-104",
+        "BMTOS-105",
+        "BMTOS-106",
+        "BMTOS-107",
+        "BMTOS-108",
+        "BMTOS-109"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-14",
+      "title": "AI Workspace",
+      "description": "Transform the dashboard into a full AI workspace with resizable panels, tabbed work areas, terminal, code editor, file manager, and fleet dashboard.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 55,
+      "stories": [
+        "BMTOS-110",
+        "BMTOS-111",
+        "BMTOS-112",
+        "BMTOS-113",
+        "BMTOS-114",
+        "BMTOS-115",
+        "BMTOS-116",
+        "BMTOS-117",
+        "BMTOS-118",
+        "BMTOS-119"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-15",
+      "title": "Dynamic Provider Configuration",
+      "description": "Dashboard UI for adding, configuring, and managing LLM providers with fallback chain drag-drop.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 22,
+      "stories": [
+        "BMTOS-120",
+        "BMTOS-121",
+        "BMTOS-122",
+        "BMTOS-123",
+        "BMTOS-124",
+        "BMTOS-125"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-16",
+      "title": "Web SSH Terminal",
+      "description": "SSH to fleet devices from the dashboard via WebSocket proxy. Local PTY + remote SSH modes with key management.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 22,
+      "stories": [
+        "BMTOS-126",
+        "BMTOS-127",
+        "BMTOS-128",
+        "BMTOS-129",
+        "BMTOS-130"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-17",
+      "title": "Enhanced Provider Management (OpenClaw-inspired)",
+      "description": "Guided setup wizards, rich model catalog, provider health dashboard, multi-credential profiles, and auto-discovery. Inspired by OpenClaw's provider architecture.",
+      "status": "completed",
+      "priority": "medium",
+      "total_points": 21,
+      "stories": [
+        "BMTOS-131",
+        "BMTOS-132",
+        "BMTOS-133",
+        "BMTOS-134",
+        "BMTOS-135"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-18",
+      "title": "Multi-Agent Persona Knowledge Vaults (Obsidian)",
+      "description": "Each AI agent persona gets its own knowledge base, file workspace under workspace/agents/<name>/, and Obsidian-compatible markdown vault with wiki-links, tags, and frontmatter support.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 39,
+      "stories": [
+        "BMTOS-136",
+        "BMTOS-137",
+        "BMTOS-138",
+        "BMTOS-139",
+        "BMTOS-140",
+        "BMTOS-141",
+        "BMTOS-142",
+        "BMTOS-147"
+      ],
+      "acceptance_criteria": [
+        "Each persona has an isolated workspace directory and RAG collection",
+        "Markdown files support Obsidian wiki-links ([[page]]) and frontmatter",
+        "Dashboard shows persona-scoped file browser and knowledge search",
+        "Chat automatically uses active persona knowledge for RAG context",
+        "Notes can be created/edited in Obsidian-compatible format"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-19",
+      "title": "Integrated Editor Terminal (IDE Experience)",
+      "description": "Embed a terminal panel in the Code Editor with tmux session support, creating a VS Code-like IDE experience in the browser.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 16,
+      "stories": [
+        "BMTOS-143",
+        "BMTOS-144",
+        "BMTOS-145",
+        "BMTOS-146"
+      ],
+      "acceptance_criteria": [
+        "Terminal panel visible at bottom of Code Editor by default",
+        "tmux session persists across page refreshes",
+        "Terminal auto-connects on page load",
+        "Panel is resizable with drag handle",
+        "Ctrl+backtick toggles terminal visibility"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-20",
+      "title": "Multi-Provider AI Coding & Model Manager",
+      "description": "Integrate Claude, Codex, Gemini into the Code Editor. Enhanced model catalog with probing, comparison, and provider key management.",
+      "status": "completed",
+      "priority": "critical",
+      "total_points": 21,
+      "stories": [
+        "BMTOS-148",
+        "BMTOS-149",
+        "BMTOS-150",
+        "BMTOS-151"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-21",
+      "title": "AI Coding Workflow (Claw-Code Inspired)",
+      "description": "IDE-grade coding workflow: diff preview, slash commands, tool use, multi-file edits, git integration.",
+      "status": "completed",
+      "priority": "critical",
+      "total_points": 26,
+      "stories": [
+        "BMTOS-152",
+        "BMTOS-153",
+        "BMTOS-154",
+        "BMTOS-155",
+        "BMTOS-156"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-22",
+      "title": "Raspberry Pi 5 Bootable OS Image",
+      "description": "Produce a flashable SD card image for Raspberry Pi 5 + AI HAT+ 2 (Hailo-10H). Genimage partition layout, RPi firmware staging, boot config (config.txt/cmdline.txt with PCIe Gen3), first-boot auto-setup, flash tooling, and end-to-end validation.",
+      "status": "completed",
+      "priority": "critical",
+      "total_points": 47,
+      "stories": [
+        "BMTOS-157",
+        "BMTOS-158",
+        "BMTOS-159",
+        "BMTOS-160",
+        "BMTOS-161",
+        "BMTOS-162",
+        "BMTOS-163",
+        "BMTOS-164",
+        "BMTOS-165"
+      ],
+      "acceptance_criteria": [
+        "scripts/build.sh --target pi5 produces a flashable .img file",
+        "Image boots to login prompt on Pi 5 with AI HAT+ 2 connected",
+        "Hailo-10H NPU detected and /dev/hailo0 accessible after first boot",
+        "Ollama starts automatically and serves 1.5B model inference",
+        "Dashboard accessible at :9090 from browser on the same network",
+        "Full boot-to-AI time under 90 seconds on Pi 5 with NVMe",
+        "Image size under 4GB (fits on 8GB SD card with room for models)"
+      ],
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-EPIC-23",
+      "title": "AI DLC — Tool Image Pre-config & Custom OS Builder",
+      "description": "Downloadable content system for BMT AI OS: define selectable AI tool packages (coding CLIs, agents, inference engines), combine with hardware target selection, and build custom OS images. Interactive TUI wizard and Dashboard UI for hardware + tool selection, build profile management, and image generation.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 47,
+      "stories": [
+        "BMTOS-166",
+        "BMTOS-167",
+        "BMTOS-168",
+        "BMTOS-169",
+        "BMTOS-170",
+        "BMTOS-171",
+        "BMTOS-172"
+      ],
+      "acceptance_criteria": [
+        "Tool packages defined in YAML registry with ARM64 compat, size, and deps",
+        "Build profiles combine hardware target + tool selections + device tier",
+        "TUI wizard: select hardware, pick tools, choose tier, trigger build",
+        "Dashboard /image-builder page: visual hardware cards, tool checklist, build trigger",
+        "Controller API: list targets, list packages, CRUD profiles, trigger build",
+        "scripts/build.sh --profile <path> consumes profile JSON to build custom image",
+        "Pre-configured presets: minimal (inference only), developer (coding tools), full (everything)"
+      ],
+      "created_at": "2026-04-12"
     }
   ],
-  "next_id": 13
+  "next_id": 24
 }

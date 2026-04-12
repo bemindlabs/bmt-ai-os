@@ -15,8 +15,48 @@
       "completion_rate": 1.0,
       "start_date": "2026-04-11",
       "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 2,
+      "planned_points": 25,
+      "completed_points": 25,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 3,
+      "planned_points": 55,
+      "completed_points": 55,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 4,
+      "planned_points": 22,
+      "completed_points": 22,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 6,
+      "planned_points": 21,
+      "completed_points": 21,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-11",
+      "end_date": "2026-04-11"
+    },
+    {
+      "sprint_number": 7,
+      "planned_points": 55,
+      "completed_points": 55,
+      "completion_rate": 1.0,
+      "start_date": "2026-04-12",
+      "end_date": "2026-04-12"
     }
   ],
-  "average_velocity": 94,
-  "total_completed_points": 188
+  "average_velocity": 52,
+  "total_completed_points": 366
 }

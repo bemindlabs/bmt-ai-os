@@ -2005,7 +2005,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2018,7 +2018,8 @@
         "Fallback to non-streaming if SSE connection fails"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-77",
@@ -2027,7 +2028,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2044,7 +2045,8 @@
         "BMTOS-69"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-78",
@@ -2053,7 +2055,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2066,7 +2068,8 @@
         "Per-message token badge (input/output tokens)"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-79",
@@ -2075,7 +2078,7 @@
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "auth",
@@ -2090,7 +2093,8 @@
         "Logout button that revokes token"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-80",
@@ -2099,7 +2103,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2116,7 +2120,8 @@
         "BMTOS-71"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-81",
@@ -2125,7 +2130,7 @@
       "type": "story",
       "priority": "medium",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2139,7 +2144,8 @@
         "Copy button on code blocks"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-82",
@@ -2148,7 +2154,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2162,7 +2168,8 @@
         "/export downloads conversation as Markdown"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-83",
@@ -2171,7 +2178,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "dashboard",
         "chat",
@@ -2185,16 +2192,17 @@
         "Voice input uses Web Speech API (browser native)"
       ],
       "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-76",
+      "id": "BMTOS-92",
       "title": "Implement LoRA/QLoRA fine-tuning training module",
       "description": "Create bmt_ai_os/training/ module with LoRA fine-tuning pipeline using PyTorch + PEFT. Support dataset loading, training loop with SummaryWriter, checkpoint saving, and progress reporting via API.",
       "type": "story",
       "priority": "high",
       "points": 13,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "ai"
@@ -2207,17 +2215,18 @@
         "Configurable hyperparameters (lr, epochs, rank, alpha)"
       ],
       "dependencies": [],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-77",
+      "id": "BMTOS-93",
       "title": "Add training CLI commands (train, data-prepare, export)",
       "description": "Add CLI subcommands: bmt-ai-os train lora, bmt-ai-os data-prepare, bmt-ai-os export-model. Wire to the training module.",
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "cli"
@@ -2228,19 +2237,20 @@
         "bmt-ai-os export-model converts adapter to GGUF for Ollama"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-78",
+      "id": "BMTOS-94",
       "title": "Add training job management API endpoints",
       "description": "Create /api/v1/training/ routes: POST /jobs (start), GET /jobs (list), GET /jobs/{id}/status (progress), DELETE /jobs/{id} (cancel). Background job execution with status tracking.",
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "api"
@@ -2252,19 +2262,20 @@
         "Training runs in background thread/process"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-79",
+      "id": "BMTOS-95",
       "title": "Wire TensorBoard to training pipeline with SummaryWriter",
       "description": "Integrate torch.utils.tensorboard.SummaryWriter into the training loop. Log loss, eval_loss, learning_rate, GPU memory, throughput (tok/s) to the training_runs volume.",
       "type": "story",
       "priority": "high",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "tensorboard"
@@ -2276,19 +2287,20 @@
         "Logs persist across container restarts (named volume)"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-80",
+      "id": "BMTOS-96",
       "title": "Add training dashboard page with job status and TensorBoard embed",
       "description": "Create /training dashboard page showing: active/completed jobs, progress bars, loss curves (inline chart or TensorBoard iframe), start new training form.",
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "dashboard"
@@ -2300,19 +2312,20 @@
         "Start new training form with model/data selector"
       ],
       "dependencies": [
-        "BMTOS-78"
+        "BMTOS-94"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-81",
+      "id": "BMTOS-97",
       "title": "Build data preparation and dataset tools",
       "description": "Create bmt_ai_os/training/data_prep.py with tools to convert text, JSONL, CSV into training format. Support instruction tuning format (alpaca, sharegpt).",
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "data"
@@ -2324,17 +2337,18 @@
         "CLI: bmt-ai-os data-prepare --input X --format alpaca"
       ],
       "dependencies": [],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-82",
+      "id": "BMTOS-98",
       "title": "Add model export pipeline (adapter merge + GGUF conversion)",
       "description": "After LoRA training, merge adapter weights back into base model and convert to GGUF format for Ollama. Auto-register the exported model.",
       "type": "story",
       "priority": "medium",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "models"
@@ -2346,19 +2360,20 @@
         "CLI: bmt-ai-os export-model --adapter X --output Y"
       ],
       "dependencies": [
-        "BMTOS-76"
+        "BMTOS-92"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-83",
+      "id": "BMTOS-99",
       "title": "Add training metrics to Prometheus and Grafana",
       "description": "Expose training metrics (loss, throughput, GPU memory) as Prometheus metrics. Add training panel to Grafana dashboard.",
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "monitoring"
@@ -2369,19 +2384,20 @@
         "Alerting on training failure or stalled jobs"
       ],
       "dependencies": [
-        "BMTOS-79"
+        "BMTOS-95"
       ],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
-      "id": "BMTOS-84",
+      "id": "BMTOS-100",
       "title": "Create training documentation (guides + API reference)",
       "description": "Write docs/training/ with: overview, LoRA guide, data preparation guide, model export guide, TensorBoard usage.",
       "type": "story",
       "priority": "low",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "training",
         "docs"
@@ -2393,8 +2409,9 @@
         "docs/training/model-export.md"
       ],
       "dependencies": [],
-      "epic_id": "BMTOS-EPIC-10",
-      "created_at": "2026-04-11"
+      "epic_id": "BMTOS-EPIC-10b",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-85",
@@ -2403,7 +2420,7 @@
       "type": "story",
       "priority": "medium",
       "points": 13,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "integration",
         "claude-code"
@@ -2416,7 +2433,8 @@
       ],
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-11",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-86",
@@ -2425,7 +2443,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "api",
         "integration"
@@ -2438,7 +2456,8 @@
       ],
       "dependencies": [],
       "epic_id": "BMTOS-EPIC-11",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-87",
@@ -2447,7 +2466,7 @@
       "type": "story",
       "priority": "high",
       "points": 8,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "agents"
@@ -2460,7 +2479,8 @@
         "Budget constraints: 20K chars per file, 150K total"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-88",
@@ -2469,7 +2489,7 @@
       "type": "story",
       "priority": "high",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "api"
@@ -2484,7 +2504,8 @@
         "BMTOS-87"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-89",
@@ -2493,7 +2514,7 @@
       "type": "story",
       "priority": "medium",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "dashboard"
@@ -2509,7 +2530,8 @@
         "BMTOS-87"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-90",
@@ -2518,7 +2540,7 @@
       "type": "story",
       "priority": "low",
       "points": 5,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "agents",
@@ -2534,7 +2556,8 @@
         "BMTOS-87"
       ],
       "epic_id": "BMTOS-EPIC-12",
-      "created_at": "2026-04-11"
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
     },
     {
       "id": "BMTOS-91",
@@ -2543,7 +2566,7 @@
       "type": "story",
       "priority": "low",
       "points": 3,
-      "status": "backlog",
+      "status": "done",
       "labels": [
         "persona",
         "content"
@@ -2556,8 +2579,1147 @@
         "CLI command to apply preset: bmt-ai-os persona set <preset>"
       ],
       "epic_id": "BMTOS-EPIC-12",
+      "created_at": "2026-04-11",
+      "completed_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-101",
+      "title": "Wire SSE streaming into chat-interface.tsx",
+      "description": "Import streamChat from api.ts, add AbortController, parse SSE chunks, render tokens incrementally, add Stop button and typing indicator.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-102",
+      "title": "Wire session sidebar into chat page",
+      "description": "Import SessionSidebar, add to chat layout, connect session load/save/switch/delete to chat state, auto-save on every message.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-103",
+      "title": "Wire slash commands into chat input",
+      "description": "Import SlashCommandMenu and commands, detect / prefix in input, show/hide menu, execute commands (clear, model, rag, export, system).",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-104",
+      "title": "Wire voice input and file drop into chat",
+      "description": "Import VoiceInput and FileDropZone, wrap textarea, handle file attachments and voice transcription, show previews.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "chat"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-105",
+      "title": "Wire RAG toggle and source cards into chat",
+      "description": "Import SourceCard, add RAG toggle switch to chat header, call queryRag before sendChat when enabled, display sources below assistant messages.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "chat",
+        "rag"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-106",
+      "title": "Create persona editor component for settings",
+      "description": "Build PersonaEditor with editor/presets/preview tabs. Add persona API functions to api.ts. Render in settings page.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "persona"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-107",
+      "title": "Add persona CLI commands (set/get/list)",
+      "description": "Add persona group to cli.py with set/get/list subcommands. Set copies preset SOUL.md to workspace.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "done",
+      "labels": [
+        "cli",
+        "persona"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-108",
+      "title": "Add /agents page for multi-agent management",
+      "description": "Create agents dashboard page listing configured agent personas, their workspaces, and default models. Allow switching active agent.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "agents"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-109",
+      "title": "Wire auth headers into all dashboard API calls",
+      "description": "Ensure apiFetch includes Authorization Bearer header from stored JWT. Handle 401 redirect to /login on all pages.",
+      "type": "story",
+      "priority": "high",
+      "points": 2,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "auth"
+      ],
+      "epic_id": "BMTOS-EPIC-13",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-110",
+      "title": "Workspace 3-panel resizable layout",
+      "description": "Resizable 3-panel layout (left sidebar, center content, right context panel) with CSS Grid + ResizeObserver. Left: agent/session browser. Center: tabbed work area. Right: RAG sources/memory/tools.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-111",
+      "title": "Tabbed work area with split view",
+      "description": "Tab system for multiple chat sessions, code files, docs. Drag-drop reordering, close buttons, split view (horizontal/vertical). Active tab persistence in localStorage.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-112",
+      "title": "RAG knowledge base manager",
+      "description": "Visual collection browser at /knowledge. Ingest files/folders with progress bar. Search across collections. View ingested document chunks. Delete collections.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-113",
+      "title": "WebSocket notification center",
+      "description": "Real-time notifications via WebSocket. Toast component for alerts. Training job completion, fleet status changes, OTA updates. Bell icon in header with unread count.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-114",
+      "title": "Terminal emulator (xterm.js)",
+      "description": "WebSocket-based terminal in browser using xterm.js. Run CLI commands on the device. Split terminal panes. New WebSocket endpoint in controller.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-115",
+      "title": "Code editor (Monaco)",
+      "description": "Monaco editor integration for in-browser code editing. AI-assisted inline completions via provider. File save to device filesystem. Syntax highlighting.",
+      "type": "story",
+      "priority": "medium",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-116",
+      "title": "File manager with tree view",
+      "description": "Browse device filesystem. Upload/download files. Drag files into chat for context. File preview (code, markdown, images). New /api/v1/files endpoint.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-117",
+      "title": "Training studio with live metrics",
+      "description": "Visual training pipeline builder. Live TensorBoard embedding (iframe). Dataset preview and validation. Real-time training metrics via WebSocket.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-118",
+      "title": "Fleet dashboard with device grid",
+      "description": "Grid view of all fleet devices with health status. Per-device monitoring cards. Remote model deployment button. Fleet-wide command broadcast.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-119",
+      "title": "Theme toggle and layout persistence",
+      "description": "Dark/light theme toggle with next-themes. Save panel sizes and layout per user in localStorage. Collapsible panels with memory.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "workspace"
+      ],
+      "epic_id": "BMTOS-EPIC-14",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-120",
+      "title": "Provider CRUD API (register/update/delete)",
+      "description": "Add POST/PUT/DELETE /api/v1/providers endpoints. Persist config to providers.yml. Dynamic provider registration without restart.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-121",
+      "title": "Add Provider form in dashboard",
+      "description": "Modal form: provider type dropdown, base URL, API key (masked), default model, Test Connection. Calls POST /api/v1/providers.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-122",
+      "title": "Per-provider edit/delete/toggle UI",
+      "description": "Each provider card gets Edit (inline form), Enable/Disable toggle, Delete (with confirm). Updates via PUT/DELETE API.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-123",
+      "title": "Test Connection button",
+      "description": "Button in Add/Edit form that calls provider health_check and shows result. Green check or red X with error message.",
+      "type": "story",
+      "priority": "medium",
+      "points": 2,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-124",
+      "title": "Fallback chain drag-drop configurator",
+      "description": "Visual fallback chain editor. Drag-drop to reorder provider priority. Shows: provider1 \u2192 provider2 \u2192 provider3. Saves order to config.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-125",
+      "title": "Provider model list per provider",
+      "description": "Expandable section in provider card showing models available from that provider. Calls list_models on the provider.",
+      "type": "story",
+      "priority": "low",
+      "points": 2,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "providers"
+      ],
+      "epic_id": "BMTOS-EPIC-15",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-126",
+      "title": "SSH WebSocket proxy backend with paramiko",
+      "description": "New controller/ssh_ws.py: WebSocket endpoint /ws/ssh that accepts host, port, username, key_id params. Uses paramiko to establish SSH, pipes stdin/stdout between WebSocket and SSH channel. Supports resize, keepalive, and graceful disconnect.",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-127",
+      "title": "Terminal page SSH mode with connection form",
+      "description": "Update /terminal page: add connection form (host, port, username, auth method). Toggle between Local (PTY) and SSH modes. SSH mode connects to /ws/ssh with params. Show connection status indicator.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-128",
+      "title": "Fleet device Connect button opens SSH terminal",
+      "description": "Add 'SSH' button to each fleet device card. Click opens /terminal?host={ip}&user=root pre-filled. Auto-connects if device is online.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-129",
+      "title": "SSH key management API and UI",
+      "description": "CRUD API for SSH keys: POST /api/v1/ssh-keys (upload), GET (list), DELETE. Keys stored encrypted in SQLite. UI in settings page to manage keys.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-130",
+      "title": "Multi-tab terminal with split panes",
+      "description": "Multiple terminal tabs (like workspace tabs). Each tab is an independent xterm instance. Split horizontal/vertical. Tab persistence in localStorage.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "dashboard",
+        "terminal",
+        "ssh"
+      ],
+      "epic_id": "BMTOS-EPIC-16",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-131",
+      "title": "Guided provider setup wizard (multi-step)",
+      "description": "Multi-step wizard: 1) Select provider type 2) Choose auth method (API key/OAuth) 3) Enter credentials 4) Test connection 5) Select default model. Stepper UI with back/next.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-132",
+      "title": "Rich model catalog with cost and context info",
+      "description": "Unified model catalog showing: model name, provider, context window size, max tokens, cost per 1M tokens (input/output), quantization. Sortable/filterable table on a /models/catalog page.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-133",
+      "title": "Provider health dashboard with expiry tracking",
+      "description": "Enhanced provider cards: credential freshness indicator, API key last-used timestamp, error count with cooldown timer, response latency trend (last 10 checks), auto-refresh every 30s.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-134",
+      "title": "Multi-credential profiles per provider",
+      "description": "Support multiple API keys per provider for load balancing. Round-robin or failover selection. Per-profile usage stats. Cooldown on rate-limit errors.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-135",
+      "title": "Provider auto-discovery (scan local ports)",
+      "description": "Scan common local ports (11434 Ollama, 8001 vLLM, 8002 llama.cpp) on startup. Auto-register discovered providers. Show 'Discovered' badge in dashboard.",
+      "type": "story",
+      "priority": "low",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "providers",
+        "dashboard"
+      ],
+      "epic_id": "BMTOS-EPIC-17",
+      "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-136",
+      "title": "Per-persona workspace directories and RAG collections",
+      "description": "Each persona (coding, general, creative, custom) gets its own workspace directory under workspace/agents/<persona_name>/ with subdirs for notes/, files/, and SOUL.md. Backend: extend persona_routes to return workspace path, auto-create dirs on persona switch, scope RAG ingest/query to persona collection. Directory structure: workspace/agents/coding/, workspace/agents/general/, workspace/agents/creative/, etc.",
+      "type": "story",
+      "priority": "critical",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "backend",
+        "persona",
+        "rag"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "GET /api/v1/persona/presets returns workspace_path per persona",
+        "workspace/agents/<name>/ auto-created with SOUL.md, notes/, files/ subdirs",
+        "RAG ingest scopes to persona-named ChromaDB collection",
+        "RAG query accepts collection param to scope results",
+        "Switching persona updates active workspace path in session",
+        "Tests: unit test for workspace creation and collection scoping"
+      ]
+    },
+    {
+      "id": "BMTOS-137",
+      "title": "Obsidian-compatible markdown parser (wiki-links, frontmatter, tags)",
+      "description": "Add markdown processing that understands Obsidian format: parse [[wiki-links]] into navigable links, extract YAML frontmatter metadata, support #tags inline, handle ![[embeds]] for images/notes. Backend: new chunker strategy for Obsidian vault files that preserves link graph. Frontend: render wiki-links as clickable navigation.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "frontend",
+        "markdown"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "[[wiki-link]] syntax parsed into navigable links in rendered markdown",
+        "YAML frontmatter extracted and displayed as metadata",
+        "#tag syntax extracted and displayed as badges",
+        "![[embed]] syntax renders referenced note/image inline",
+        "RAG chunker preserves wiki-link references in chunk metadata",
+        "Tests: parser correctly handles nested links, missing targets, edge cases"
+      ]
+    },
+    {
+      "id": "BMTOS-138",
+      "title": "Persona-scoped Knowledge & Files tab in dashboard",
+      "description": "Update the Knowledge page to show files/collections filtered by active persona. Add persona selector dropdown. File browser defaults to persona workspace. RAG search scopes to persona collection. Collections tab shows only persona collections.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "dashboard"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Knowledge page shows active persona name in header",
+        "Persona selector dropdown switches workspace and collection",
+        "Files tab defaults to workspace/agents/<active>/files/",
+        "Collections tab shows only active persona collection",
+        "Search tab scopes queries to active persona collection",
+        "Switching persona refreshes all tabs"
+      ]
+    },
+    {
+      "id": "BMTOS-139",
+      "title": "Obsidian vault note editor with live preview",
+      "description": "Add a markdown note editor to the Knowledge page that supports Obsidian features: split view (edit + preview), wiki-link autocomplete from vault files, frontmatter form, tag input, backlinks panel showing which notes link to current note.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Split view: markdown source (left) and rendered preview (right)",
+        "Wiki-link autocomplete suggests existing vault files on [[ trigger",
+        "Frontmatter form editor for title, tags, date fields",
+        "Backlinks panel shows list of notes that link to current note",
+        "New note button creates file in workspace/agents/<name>/notes/",
+        "Ctrl+S saves and auto-ingests into persona RAG collection"
+      ]
+    },
+    {
+      "id": "BMTOS-140",
+      "title": "Auto-ingest persona vault into RAG on file changes",
+      "description": "When files are created/edited/deleted in a persona workspace, automatically re-ingest affected files into the persona RAG collection. Backend: file watcher or post-write hook in file_routes that triggers ingest for the owning persona. Debounce to avoid excessive re-indexing.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "backend",
+        "rag"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "File write/create in persona workspace triggers re-ingest of that file",
+        "File delete removes corresponding chunks from persona collection",
+        "Debounce: max 1 ingest per file per 5 seconds",
+        "Ingest runs async (does not block file save response)",
+        "Logs ingest activity with file path and chunk count"
+      ]
+    },
+    {
+      "id": "BMTOS-141",
+      "title": "Chat RAG context auto-scoped to active persona",
+      "description": "When chatting, the RAG query automatically uses the active persona collection instead of default. System prompt includes persona SOUL.md + relevant vault context. If no persona-specific results, fall back to default collection.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "backend",
+        "chat",
+        "rag"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Chat completion auto-queries active persona RAG collection",
+        "System prompt includes active persona SOUL.md content",
+        "RAG results from persona collection injected as context",
+        "Falls back to shared/ collection if persona collection has no results",
+        "No persona active: uses default collection as before"
+      ]
+    },
+    {
+      "id": "BMTOS-142",
+      "title": "Vault graph view and backlinks panel",
+      "description": "Build a simple graph visualization showing connections between notes via wiki-links (like Obsidian graph view). Display as an interactive canvas with nodes (notes) and edges (links). Add a backlinks panel in the note editor showing incoming links. Use a lightweight graph library or CSS/SVG-based rendering.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "visualization"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Graph canvas renders notes as nodes, wiki-links as edges",
+        "Nodes are clickable to navigate to note",
+        "Graph auto-layouts with force-directed algorithm",
+        "Backlinks panel in note editor shows incoming link count + list",
+        "Graph filters: by tag, by date range, by connection depth",
+        "Works with 100+ notes without lag"
+      ]
+    },
+    {
+      "id": "BMTOS-143",
+      "title": "Embedded terminal panel in Code Editor (bottom split)",
+      "description": "Add a resizable terminal panel at the bottom of the Code Editor page, like VS Code. Toggle with a button or Ctrl+`. Uses the existing useTerminal hook and WebSocket /ws/terminal endpoint. Panel is collapsible with drag handle. Shares the editor flex layout: FileTree (left) | Editor+Terminal (right, vertical split).",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor",
+        "terminal"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Terminal panel visible at bottom of Code Editor page",
+        "Toggle with Ctrl+backtick keyboard shortcut",
+        "Uses existing useTerminal hook and /ws/terminal WebSocket",
+        "Shares flex layout with editor: vertical split",
+        "Terminal panel has its own status bar (connected/disconnected)",
+        "Panel hidden by default, toggle button in editor toolbar"
+      ]
+    },
+    {
+      "id": "BMTOS-144",
+      "title": "tmux session management via WebSocket",
+      "description": "Backend: modify terminal_ws.py to spawn tmux instead of plain /bin/sh. If tmux is available, run \"tmux new-session -A -s bmt\" so the session persists across reconnects. Add BMT_TERMINAL_CMD env var (default: auto-detect tmux, fallback to sh). Frontend: show session name in status bar, add \"New Tab\" button that creates tmux windows.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "terminal",
+        "tmux"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Backend spawns tmux new-session -A -s bmt instead of plain sh",
+        "Falls back to /bin/sh if tmux not available",
+        "tmux session persists across WebSocket reconnects",
+        "BMT_TERMINAL_CMD env var overrides default command",
+        "Frontend shows session name in terminal status bar",
+        "Tests: unit test for tmux detection and fallback"
+      ]
+    },
+    {
+      "id": "BMTOS-145",
+      "title": "Terminal auto-connects on editor page load",
+      "description": "When the Code Editor page opens, automatically connect the embedded terminal to the local WebSocket (no click required). Reconnect on disconnect. Terminal starts in the current workspace directory (cd to workspace path). Show connection status dot in the terminal toolbar.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "terminal"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Terminal connects automatically when editor page loads",
+        "No click required to establish connection",
+        "Auto-reconnects on disconnect (max 3 attempts, exponential backoff)",
+        "Terminal starts in workspace directory (cd workspace)",
+        "Connection status dot visible in terminal toolbar"
+      ]
+    },
+    {
+      "id": "BMTOS-146",
+      "title": "Terminal panel resize with drag handle",
+      "description": "Add a draggable resize handle between editor and terminal panels. Persist panel height in localStorage. Double-click handle to toggle terminal open/closed. Minimum height 100px, maximum 60% of container.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Drag handle between editor and terminal panels",
+        "Drag to resize: min 100px, max 60% of container",
+        "Double-click handle toggles terminal open/closed",
+        "Panel height persisted in localStorage",
+        "Resize triggers xterm.js fit() to adjust columns/rows"
+      ]
+    },
+    {
+      "id": "BMTOS-147",
+      "title": "Workspace directory structure convention and auto-scaffold",
+      "description": "Define and auto-create the standard workspace layout on first boot or workspace init. Backend: GET /api/v1/settings/workspace returns the structure, POST /api/v1/workspace/init creates it. Directory convention:\n\nworkspace/\n\u251c\u2500\u2500 agents/                  # Per-persona isolated environments\n\u2502   \u251c\u2500\u2500 coding/\n\u2502   \u2502   \u251c\u2500\u2500 SOUL.md          # Persona definition\n\u2502   \u2502   \u251c\u2500\u2500 notes/           # Obsidian vault (markdown knowledge base)\n\u2502   \u2502   \u251c\u2500\u2500 files/           # Working files for this persona\n\u2502   \u2502   \u2514\u2500\u2500 .chroma/         # Persona-scoped vector collection name\n\u2502   \u251c\u2500\u2500 general/\n\u2502   \u2514\u2500\u2500 creative/\n\u251c\u2500\u2500 projects/                # User project directories\n\u2502   \u2514\u2500\u2500 <project-name>/     # Cloned repos, code projects\n\u251c\u2500\u2500 data/                    # Datasets, training data, exports\n\u2502   \u251c\u2500\u2500 datasets/            # Training datasets (JSONL, CSV, Parquet)\n\u2502   \u251c\u2500\u2500 models/              # Fine-tuned model exports (GGUF, LoRA adapters)\n\u2502   \u2514\u2500\u2500 exports/             # Benchmark reports, conversation exports\n\u251c\u2500\u2500 uploads/                 # File upload landing zone\n\u251c\u2500\u2500 shared/                  # Shared knowledge across all personas\n\u2502   \u251c\u2500\u2500 notes/               # Global Obsidian vault\n\u2502   \u2514\u2500\u2500 documents/           # Reference documents for RAG\n\u2514\u2500\u2500 .config/                 # Workspace config\n    \u251c\u2500\u2500 workspace.json       # Workspace metadata (created_at, version)\n    \u2514\u2500\u2500 preferences.json     # User preferences (theme, defaults)\n\nAuto-scaffold on first access. Dashboard Settings shows the layout. File browser and editor default to workspace root. Each persona auto-creates its subdirs on first switch.",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "workspace",
+        "convention"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "GET /api/v1/workspace/structure returns full directory tree",
+        "POST /api/v1/workspace/init creates all standard directories",
+        "Auto-scaffold on first GET /api/v1/settings/workspace if dirs missing",
+        "Creates: agents/, projects/, data/{datasets,models,exports}, uploads/, shared/{notes,documents}, .config/",
+        "workspace.json created with version, created_at metadata",
+        "Settings page shows workspace layout with descriptions",
+        "Tests: unit test for scaffold idempotency"
+      ]
+    },
+    {
+      "id": "BMTOS-148",
+      "title": "Multi-provider AI coding integration (Claude, Codex, Gemini)",
+      "description": "Extend the Code Editor AI panel to support multiple AI providers beyond the default Ollama. Add provider selector (Claude/Anthropic, OpenAI/Codex, Gemini, local Ollama). Each provider uses existing provider registry. Route AI requests through the selected provider.",
+      "type": "story",
+      "priority": "critical",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor",
+        "providers"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "AI panel shows provider selector (Claude, OpenAI, Gemini, Ollama)",
+        "Each provider lists its available models",
+        "Selected provider+model persisted in localStorage",
+        "Streaming works with all providers via /v1/chat/completions",
+        "Provider with no API key shows setup prompt"
+      ]
+    },
+    {
+      "id": "BMTOS-149",
+      "title": "Enhanced Model Manager with provider catalog and probing",
+      "description": "Clone OpenClaw model catalog pattern: rich model cards with context window, pricing, capabilities. Add model probe (test connectivity with simple prompt). Group models by provider. Show model status (available/unavailable).",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "models"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "Model catalog shows cards with context window, pricing tier, capabilities",
+        "Models grouped by provider (Local, Cloud)",
+        "Probe button tests model connectivity",
+        "Model status: available (green), unavailable (red), untested (gray)",
+        "Search/filter by provider, capability, name"
+      ]
+    },
+    {
+      "id": "BMTOS-150",
+      "title": "Provider API key management in Code Editor",
+      "description": "Quick-setup flow when user selects a provider without API key. Inline key input in the AI panel. Link to Settings for full key management. Show key status (valid/invalid/missing) per provider.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor",
+        "auth"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "Provider without key shows inline setup prompt",
+        "API key input saves to provider config API",
+        "Key validation on save (test with probe)",
+        "Link to Settings page for advanced key management"
+      ]
+    },
+    {
+      "id": "BMTOS-151",
+      "title": "Model comparison and A/B prompt testing",
+      "description": "Send the same prompt to 2+ models side by side. Show responses in split columns. Compare speed, token count, output quality. Useful for evaluating which model works best for a coding task.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "Compare button sends prompt to 2 selected models simultaneously",
+        "Split view shows both responses side by side",
+        "Shows latency, token count per response",
+        "User can apply either response to editor"
+      ]
+    },
+    {
+      "id": "BMTOS-152",
+      "title": "Diff preview before applying AI-generated code",
+      "description": "Show a unified diff view between current file content and AI-generated code before applying. User reviews changes (green=added, red=removed), then clicks Apply or Reject. Uses a simple side-by-side or inline diff renderer.",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-153",
+      "title": "Slash commands in AI prompt (/fix, /refactor, /explain, /test)",
+      "description": "Add slash command support in the AI prompt textarea. Typing / shows a command palette with coding actions. Each command pre-fills a specialized system prompt. Commands: /fix (fix bugs), /refactor (improve code), /explain (explain code), /test (generate tests), /doc (add documentation), /optimize (performance).",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-154",
+      "title": "AI tool use: read files, run commands, search code",
+      "description": "Enable the AI to use tools during code generation. Backend: extend the chat endpoint to support function calling with tools: read_file, write_file, run_command, search_code. Frontend: show tool invocations inline in the response (collapsible tool call blocks).",
+      "type": "story",
+      "priority": "high",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "backend",
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-155",
+      "title": "Multi-file edit workflow from AI prompt",
+      "description": "AI can suggest edits across multiple files from a single prompt. Response shows a file tree of changes with per-file diffs. User can apply all or select individual files. Uses structured output format with file paths and content.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-156",
+      "title": "Git integration in Code Editor (status, diff, commit)",
+      "description": "Add git panel to the editor: show file status (modified/staged/untracked), view diffs, stage files, commit with message. Backend: add git endpoints for status, diff, stage, commit. Uses the workspace directory as git root.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "frontend",
+        "editor",
+        "git"
+      ],
+      "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-157",
+      "title": "Genimage partition layout for Pi 5 SD card",
+      "description": "Create genimage configuration that produces a partitioned .img file: FAT32 boot partition (firmware, kernel, DTBs, config.txt, cmdline.txt) + ext4 rootfs partition. Integrate into scripts/build.sh --target pi5 so the pipeline outputs a ready-to-flash image.",
+      "type": "story",
+      "points": 8,
+      "priority": "critical",
+      "status": "done",
+      "labels": ["pi5", "build", "image"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-158",
+      "title": "RPi 5 firmware and bootloader staging",
+      "description": "Stage official Raspberry Pi 5 firmware files (start4.elf, fixup4.dat, bcm2712 DTBs) into the boot partition. Download from raspberrypi/firmware repo or bundle in buildroot-external. Ensure EEPROM-compatible boot flow (no U-Boot needed for Pi 5).",
+      "type": "story",
+      "points": 5,
+      "priority": "critical",
+      "status": "done",
+      "labels": ["pi5", "firmware", "boot"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-159",
+      "title": "Pi 5 boot config (config.txt, cmdline.txt) with PCIe Gen3",
+      "description": "Create config.txt with: arm_64bit=1, dtoverlay=hailo-8l (AI HAT+), dtparam=pciex1_gen=3 (PCIe Gen3 for Hailo), gpu_mem=256, enable_uart=1. Create cmdline.txt with root partition UUID, console=ttyAMA10, rootwait. Template variables for customization.",
+      "type": "story",
+      "points": 3,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "boot", "config"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-160",
+      "title": "Device tree overlays for AI HAT+ 2 (Hailo-10H)",
+      "description": "Add or bundle device tree overlays for the AI HAT+ 2 board: hailo-8l.dtbo for PCIe detection, fan control overlay, GPIO pinout. Place in boot partition /overlays/. Verify DT overlay loading with dtoverlay= in config.txt.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "device-tree", "hailo"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-161",
+      "title": "First-boot auto-setup OpenRC hook",
+      "description": "Create OpenRC init script (S90firstboot) that runs once on first boot: detect hardware (BCM2712), run pi5-hailo setup.sh (install HailoRT, create hailo group, udev rules), pull default lite model via Ollama, generate SSH host keys, resize rootfs to fill SD card, disable itself after completion.",
+      "type": "story",
+      "points": 8,
+      "priority": "critical",
+      "status": "done",
+      "labels": ["pi5", "init", "firstboot"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-162",
+      "title": "Lite AI stack auto-start for Pi 5 (8GB)",
+      "description": "Configure the AI stack to auto-start with the lite profile on Pi 5: Ollama constrained to 2 CPU / 4GB RAM / 1 model max, ChromaDB with reduced workers. OpenRC service dependencies: network → containerd → ai-stack → controller → dashboard. Validate total memory usage stays under 6GB to leave headroom.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "ai-stack", "lite"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-163",
+      "title": "SD card flash tooling and documentation",
+      "description": "Create scripts/flash-pi5.sh wrapper around dd/bmaptool for safe SD card flashing with progress bar. Write docs/hardware/pi5-image-flash.md with: prerequisites, download link, flash steps (Linux/macOS/Windows via Raspberry Pi Imager), first-boot walkthrough, WiFi/SSH setup, troubleshooting.",
+      "type": "story",
+      "points": 3,
+      "priority": "medium",
+      "status": "done",
+      "labels": ["pi5", "tooling", "docs"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-164",
+      "title": "QEMU Pi 5 image validation in CI",
+      "description": "Add CI job that boots the Pi 5 image in QEMU (aarch64 virt machine with BCM2712 approximation), validates: kernel boots, init completes, containerd starts, controller healthcheck passes, dashboard responds on :9090. Timeout 120s. Add to .github/workflows/ci.yml.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "ci", "testing"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-165",
+      "title": "Pi 5 image size optimization and compression",
+      "description": "Optimize image size: strip debug symbols, remove unused kernel modules, compress rootfs with zstd, generate bmap for sparse flashing. Target: raw image <4GB, compressed <1.5GB. Add image size check to CI (fail if >4GB).",
+      "type": "story",
+      "points": 5,
+      "priority": "medium",
+      "status": "done",
+      "labels": ["pi5", "optimization", "image"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-166",
+      "title": "Create DLC tool package registry (YAML)",
+      "description": "Define bmt_ai_os/dlc/packages.yml with all selectable AI tool packages. Each entry: id, name, description, category (coding-cli/agent/ide-plugin/inference/utility), size_mb, arm64_compatible, dependencies, buildroot_packages list, container_images list.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "in_progress",
+      "labels": ["dlc", "config"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-167",
+      "title": "Implement image profile config and preset system",
+      "description": "Create bmt_ai_os/dlc/profiles.py for build profiles combining hardware target, selected tool packages, device tier, and custom options. Include presets: minimal, developer, full. Profiles saved as JSON.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "config"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-168",
+      "title": "Add controller API routes for image builder",
+      "description": "Add bmt_ai_os/controller/image_routes.py: GET /api/image/targets, GET /api/image/packages, GET/POST /api/image/profiles, POST /api/image/build, GET /api/image/builds/:id.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "api"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-169",
+      "title": "Add TUI hardware selector and tool picker wizard",
+      "description": "Add CLI commands: bmt-ai-os image configure (interactive TUI), bmt-ai-os image build, bmt-ai-os image list-packages. Use rich library for TUI rendering.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "cli", "tui"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-170",
+      "title": "Extend build.sh to accept DLC build profile",
+      "description": "Add --profile flag to scripts/build.sh that reads a build manifest JSON and includes selected tool packages in the Buildroot config.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "build"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-171",
+      "title": "Add Dashboard image builder page with hardware selector",
+      "description": "Create /image-builder page: hardware target cards, tool package checklist, device tier dropdown, profile save/load, build trigger with progress stream. Add to sidebar nav.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "dashboard", "ui"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-172",
+      "title": "Add DLC build profile validation and dependency resolution",
+      "description": "Validate tool package compatibility with selected hardware. Resolve dependencies automatically. Warn on size constraints. Estimate final image size.",
+      "type": "story",
+      "points": 5,
+      "priority": "medium",
+      "status": "backlog",
+      "labels": ["dlc", "validation"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
     }
   ],
-  "next_id": 92
+  "next_id": 173
 }

@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FeatureFlags } from "./feature-flags";
+import { SshKeyManager } from "./ssh-keys";
+import { WorkspaceConfig } from "./workspace-config";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -31,6 +33,12 @@ export default async function SettingsPage() {
           Configuration, feature flags, and system information.
         </p>
       </div>
+
+      {/* Workspace directory */}
+      <WorkspaceConfig />
+
+      {/* SSH Key Management (BMTOS-129) */}
+      <SshKeyManager />
 
       {/* Feature flags */}
       <Card>

@@ -1,0 +1,94 @@
+#!/sbin/openrc-run
+# BMT AI OS — Pi 5 environment setup
+#
+# Detects Raspberry Pi 5 hardware and configures the AI stack
+# with the lite profile (constrained for 8GB RAM).
+#
+# Boot chain: S90firstboot → bmt-pi5-env → networking → containerd →
+#             docker → ai-stack → bmt-controller → dashboard
+#
+# BMTOS-162 | Epic: BMTOS-EPIC-22
+
+description="BMT AI OS Pi 5 environment configuration"
+
+BMT_ENV_FILE="/etc/bmt-ai-os/env"
+BMT_COMPOSE_DIR="/etc/bmt-ai-os/ai-stack"
+LITE_PROFILE="/opt/bmt-ai-os/profiles/lite.yml"
+
+depend() {
+    need localmount
+    before docker ai-stack bmt-controller
+    after bmt-firstboot
+}
+
+start() {
+    ebegin "Configuring Pi 5 AI environment"
+
+    # Only apply on Pi 5 hardware
+    if ! _is_pi5; then
+        einfo "Not a Pi 5 — skipping lite profile"
+        eend 0
+        return 0
+    fi
+
+    mkdir -p "$(dirname "${BMT_ENV_FILE}")"
+    mkdir -p "${BMT_COMPOSE_DIR}"
+
+    # Write environment file with lite profile constraints
+    cat > "${BMT_ENV_FILE}" << 'EOF'
+# BMT AI OS — Pi 5 Lite Profile (auto-generated)
+# Target: Raspberry Pi 5 + AI HAT+ 2, 8GB RAM
+# Memory budget: ~6GB for AI stack, ~2GB for OS/dashboard
+
+BMT_DEVICE_TIER=lite
+
+# Ollama: constrained for 8GB
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_CPU_LIMIT=2.0
+OLLAMA_MEM_LIMIT=4g
+OLLAMA_NUM_PARALLEL=1
+OLLAMA_MAX_LOADED_MODELS=1
+OLLAMA_KEEP_ALIVE=2m
+OLLAMA_DEFAULT_MODEL=qwen2.5:1.5b
+
+# ChromaDB: minimal footprint
+CHROMADB_CPU_LIMIT=1.0
+CHROMADB_MEM_LIMIT=512m
+
+# Controller
+BMT_ENV=production
+BMT_LOG_LEVEL=warning
+
+# Hailo NPU
+HAILO_DEVICE=/dev/hailo0
+EOF
+
+    # Apply Hailo compose override if device exists
+    if [ -e /dev/hailo0 ]; then
+        local hailo_override="/opt/bmt-ai-os/runtime/npu/pi5-hailo/docker-compose.override.pi5-hailo.yml"
+        if [ -f "${hailo_override}" ]; then
+            cp "${hailo_override}" "${BMT_COMPOSE_DIR}/docker-compose.override.yml"
+            einfo "Hailo NPU detected — applied compose override"
+        fi
+    fi
+
+    # Source env into OpenRC's default env for dependent services
+    if [ -f "${BMT_ENV_FILE}" ]; then
+        set -a
+        . "${BMT_ENV_FILE}"
+        set +a
+    fi
+
+    # Run deferred model pull in background (after Ollama is up)
+    local pull_script="/usr/lib/bmt-ai-os/pull-default-model.sh"
+    if [ -x "${pull_script}" ]; then
+        (sleep 30 && "${pull_script}" >> /var/log/bmt-ai-os/model-pull.log 2>&1) &
+    fi
+
+    eend 0
+}
+
+_is_pi5() {
+    grep -q "BCM2712" /proc/cpuinfo 2>/dev/null \
+        || grep -q "Raspberry Pi 5" /proc/device-tree/model 2>/dev/null
+}
