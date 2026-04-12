@@ -513,3 +513,50 @@ class TestInferenceRateLimit:
 
         assert resp.status_code == 429
         assert "retry-after" in resp.headers
+
+
+# ---------------------------------------------------------------------------
+# Sensitive rate-limiter singleton
+# ---------------------------------------------------------------------------
+
+
+class TestSensitiveRateLimiter:
+    """Verify the sensitive_rate_limit dependency works like login/inference."""
+
+    def test_get_sensitive_limiter_returns_singleton(self, monkeypatch):
+        monkeypatch.setenv("BMT_SENSITIVE_RATE_LIMIT", "10:30")
+        from bmt_ai_os.controller.rate_limit import _reset_singletons, get_sensitive_limiter
+
+        _reset_singletons()
+        a = get_sensitive_limiter()
+        b = get_sensitive_limiter()
+        assert a is b
+        assert a.limit == 10
+        assert a.window_seconds == 30
+
+    def test_sensitive_rate_limit_default(self):
+        from bmt_ai_os.controller.rate_limit import get_sensitive_limiter
+
+        limiter = get_sensitive_limiter()
+        assert limiter.limit == 20
+        assert limiter.window_seconds == 60
+
+    def test_sensitive_dep_returns_429(self):
+        # Override the singleton with a strict 1-per-minute limiter
+        import bmt_ai_os.controller.rate_limit as rl_mod
+        from bmt_ai_os.controller.rate_limit import (
+            SlidingWindowRateLimiter,
+            sensitive_rate_limit,
+        )
+
+        rl_mod._sensitive_limiter = SlidingWindowRateLimiter(limit=1, window_seconds=60)
+
+        app = FastAPI()
+
+        @app.post("/keys", dependencies=[Depends(sensitive_rate_limit)])
+        def create_key():
+            return {"ok": True}
+
+        client = TestClient(app)
+        assert client.post("/keys").status_code == 200
+        assert client.post("/keys").status_code == 429

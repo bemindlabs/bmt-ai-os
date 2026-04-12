@@ -794,3 +794,75 @@ class TestAuthEndpoints:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# ws_authenticate
+# ---------------------------------------------------------------------------
+
+
+class TestWsAuthenticate:
+    """Test the shared WebSocket authentication helper."""
+
+    @pytest.mark.asyncio
+    async def test_allows_when_no_secret(self, monkeypatch):
+        monkeypatch.delenv("BMT_JWT_SECRET", raising=False)
+        from bmt_ai_os.controller.auth import ws_authenticate
+
+        class FakeWS:
+            closed = False
+
+            async def close(self, code):
+                self.closed = True
+
+        ws = FakeWS()
+        assert await ws_authenticate(ws, "", label="test") is True
+        assert not ws.closed
+
+    @pytest.mark.asyncio
+    async def test_rejects_missing_token(self, monkeypatch):
+        monkeypatch.setenv("BMT_JWT_SECRET", "a" * 32)
+        from bmt_ai_os.controller.auth import ws_authenticate
+
+        class FakeWS:
+            close_code = None
+
+            async def close(self, code):
+                self.close_code = code
+
+        ws = FakeWS()
+        assert await ws_authenticate(ws, "", label="test") is False
+        assert ws.close_code == 1008
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_token(self, monkeypatch):
+        monkeypatch.setenv("BMT_JWT_SECRET", "a" * 32)
+        from bmt_ai_os.controller.auth import ws_authenticate
+
+        class FakeWS:
+            close_code = None
+
+            async def close(self, code):
+                self.close_code = code
+
+        ws = FakeWS()
+        assert await ws_authenticate(ws, "bad.token.here", label="test") is False
+        assert ws.close_code == 1008
+
+    @pytest.mark.asyncio
+    async def test_allows_valid_token(self, monkeypatch, store):
+        monkeypatch.setenv("BMT_JWT_SECRET", "a" * 32)
+        from bmt_ai_os.controller.auth import create_token, ws_authenticate
+
+        user = store.create_user("wsuser", "WsPassWord123!", "viewer")
+        token = create_token(user)
+
+        class FakeWS:
+            closed = False
+
+            async def close(self, code):
+                self.closed = True
+
+        ws = FakeWS()
+        assert await ws_authenticate(ws, token, label="test") is True
+        assert not ws.closed
