@@ -44,16 +44,15 @@ def read_secret(name: str, default: str | None = None) -> str | None:
             value = secret_file.read_text(encoding="utf-8").strip()
             if value:
                 return value
-        except OSError as exc:
-            logger.warning("Could not read secret file %s: %s", secret_file, exc)
+        except OSError:
+            logger.warning("Could not read secret file for '%s'", name)
 
     # 2. Env-var fallback — warn in production contexts
     env_value = os.environ.get(name)
     if env_value is not None:
         logger.warning(
-            "Secret '%s' resolved from environment variable. "
-            "For production deployments mount it as /run/secrets/%s instead.",
-            name,
+            "Secret '%s' resolved from environment variable — "
+            "mount as /run/secrets/ in production.",
             name,
         )
         return env_value

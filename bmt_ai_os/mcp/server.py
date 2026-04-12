@@ -524,10 +524,10 @@ async def mcp_endpoint(request: Request) -> JSONResponse:
 
     try:
         result = await handler(rpc_id, params)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.exception("MCP dispatch error for method %r", method)
         return JSONResponse(
-            _err(rpc_id, _INTERNAL_ERROR, f"Internal error: {exc}"),
+            _err(rpc_id, _INTERNAL_ERROR, "Internal error"),
             status_code=200,
         )
 

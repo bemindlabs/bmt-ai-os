@@ -137,6 +137,10 @@ async def list_collections() -> list[dict]:
 @router.delete("/collections/{name}")
 async def delete_collection(name: str) -> dict:
     """Delete a ChromaDB collection by name."""
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid collection name")
     try:
         _storage.delete_collection(name)
         return {"status": "deleted", "name": name}

@@ -814,11 +814,10 @@ def validate_startup_security(store: UserStore | None = None) -> None:
 
     if len(jwt_secret) < _MIN_JWT_SECRET_LEN:
         logger.critical(
-            "FATAL: %s is too short (%d chars). "
+            "FATAL: %s is too short. "
             "Minimum length is %d characters. "
             "Use a cryptographically random value (e.g. `openssl rand -hex 32`).",
             _ENV_JWT_SECRET,
-            len(jwt_secret),
             _MIN_JWT_SECRET_LEN,
         )
         sys.exit(1)
