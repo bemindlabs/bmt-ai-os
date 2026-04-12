@@ -1,4 +1,6 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useEffect, useState, useCallback, use } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -9,79 +11,82 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
-  TableHeader,
   TableRow,
+  TableHeader,
 } from "@/components/ui/table";
 import { LossChart } from "@/components/loss-chart";
 import { TensorBoardEmbed } from "@/components/tensorboard-embed";
-import { ArrowLeft, Clock, Cpu, Database, Layers } from "lucide-react";
-import type {
-  TrainingJob,
-  TrainingMetricPoint,
-  TrainingMetricsResponse,
+import {
+  ArrowLeft,
+  Clock,
+  Cpu,
+  Database,
+  Layers,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  CircleDot,
+  Ban,
+} from "lucide-react";
+import {
+  fetchTrainingJob,
+  fetchTrainingMetrics,
+  cancelTrainingJob,
+  type TrainingJob,
+  type TrainingMetricPoint,
 } from "@/lib/api";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-async function getJob(id: string): Promise<TrainingJob | null> {
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1/training/jobs/${id}`, {
-      cache: "no-store",
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) return null;
-    return res.json() as Promise<TrainingJob>;
-  } catch {
-    return null;
-  }
-}
-
-async function getMetrics(id: string): Promise<TrainingMetricPoint[]> {
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1/training/jobs/${id}/metrics`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as TrainingMetricsResponse;
-    return data.metrics ?? [];
-  } catch {
-    return [];
-  }
-}
+// ---- Status badge -------------------------------------------------------
 
 function StatusBadge({ status }: { status: TrainingJob["status"] }) {
   switch (status) {
     case "pending":
-      return <Badge variant="outline">Pending</Badge>;
+      return (
+        <Badge variant="outline" className="gap-1.5">
+          <Clock className="size-3 opacity-70" />
+          Pending
+        </Badge>
+      );
     case "running":
       return (
-        <Badge className="animate-pulse bg-blue-600 text-white hover:bg-blue-600">
+        <Badge className="gap-1.5 bg-blue-600 text-white hover:bg-blue-600">
+          <Loader2 className="size-3 animate-spin" />
           Running
         </Badge>
       );
     case "completed":
       return (
-        <Badge className="bg-green-600 text-white hover:bg-green-600">
+        <Badge className="gap-1.5 bg-green-600 text-white hover:bg-green-600">
+          <CheckCircle2 className="size-3" />
           Completed
         </Badge>
       );
     case "failed":
       return (
-        <Badge className="bg-red-600 text-white hover:bg-red-600">
+        <Badge className="gap-1.5 bg-red-600 text-white hover:bg-red-600">
+          <XCircle className="size-3" />
           Failed
         </Badge>
       );
     case "cancelled":
-      return <Badge variant="secondary">Cancelled</Badge>;
+      return (
+        <Badge variant="secondary" className="gap-1.5">
+          <CircleDot className="size-3 opacity-70" />
+          Cancelled
+        </Badge>
+      );
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 }
+
+// ---- Helpers ------------------------------------------------------------
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -92,10 +97,6 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-/**
- * Estimate seconds remaining given current progress (0-100) and elapsed seconds.
- * Returns null when there is not enough data.
- */
 function estimateSecondsRemaining(
   progress: number,
   startedAt: string | null | undefined,
@@ -113,38 +114,137 @@ function formatDuration(seconds: number): string {
   const s = seconds % 60;
   if (m < 60) return `${m}m ${s}s`;
   const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return `${h}h ${rm}m`;
+  return `${h}h ${m % 60}m`;
 }
 
-export default async function TrainingJobPage({
+const ACTIVE_STATUSES: TrainingJob["status"][] = ["running", "pending"];
+
+// ---- Page ---------------------------------------------------------------
+
+export default function TrainingJobPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const [jobOrNull, metrics] = await Promise.all([getJob(id), getMetrics(id)]);
+  const { id } = use(params);
 
-  if (!jobOrNull) notFound();
+  const [job, setJob] = useState<TrainingJob | null>(null);
+  const [metrics, setMetrics] = useState<TrainingMetricPoint[]>([]);
+  const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  // notFound() throws — TypeScript does not narrow through it, so we assert here.
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const job: TrainingJob = jobOrNull!;
+  const load = useCallback(async () => {
+    try {
+      const [jobData, metricsData] = await Promise.all([
+        fetchTrainingJob(id),
+        fetchTrainingMetrics(id),
+      ]);
+      setJob(jobData);
+      setMetrics(metricsData.metrics ?? []);
+      setLoadError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("404")) {
+        setNotFound(true);
+      } else {
+        setLoadError(msg);
+      }
+    }
+  }, [id]);
+
+  // Initial load
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Auto-refresh every 5 s for active jobs
+  useEffect(() => {
+    if (!job) return;
+    if (!ACTIVE_STATUSES.includes(job.status)) return;
+
+    const interval = setInterval(load, 5_000);
+    return () => clearInterval(interval);
+  }, [job, load]);
+
+  async function handleCancel() {
+    if (!job) return;
+    setCancelError(null);
+    setCancelling(true);
+    try {
+      await cancelTrainingJob(id);
+      await load();
+    } catch (err) {
+      setCancelError(
+        err instanceof Error ? err.message : "Failed to cancel job",
+      );
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  // ---- Loading / error states -------------------------------------------
+
+  if (notFound) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-24 text-muted-foreground">
+        <XCircle className="size-12 opacity-30" />
+        <p className="text-sm">Training job not found.</p>
+        <Link href="/training">
+          <Button variant="outline" size="sm">
+            <ArrowLeft className="size-4" />
+            Back to Jobs
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-24 text-muted-foreground">
+        <XCircle className="size-12 opacity-30 text-red-500" />
+        <p className="text-sm text-red-500">{loadError}</p>
+        <Button variant="outline" size="sm" onClick={load}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!job) {
+    return (
+      <div className="space-y-6">
+        {/* Skeleton header */}
+        <div className="h-8 w-64 animate-pulse rounded-lg bg-muted" />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
+  }
+
+  // ---- Derived values ---------------------------------------------------
 
   const eta = estimateSecondsRemaining(job.progress, job.started_at);
   const lastMetric = metrics.length > 0 ? metrics[metrics.length - 1] : null;
+  const isActive = ACTIVE_STATUSES.includes(job.status);
 
   return (
     <div className="space-y-6">
-      {/* Back link + header */}
+      {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link href="/training" aria-label="Back to training jobs">
+            <Link href="/training" aria-label="Back to training jobs">
+              <Button variant="ghost" size="icon-sm">
                 <ArrowLeft className="size-4" />
-              </Link>
-            </Button>
+              </Button>
+            </Link>
             <h1 className="text-xl font-semibold">
               Job{" "}
               <span className="font-mono text-base text-muted-foreground">
@@ -158,7 +258,57 @@ export default async function TrainingJobPage({
             <span className="font-mono">{job.dataset}</span>
           </p>
         </div>
+
+        {/* Cancel button — only for active jobs */}
+        {isActive && (
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Ban className="size-4" />
+              )}
+              {cancelling ? "Cancelling…" : "Cancel Job"}
+            </Button>
+            {cancelError && (
+              <p className="text-xs text-red-500">{cancelError}</p>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Progress bar — visible for running and completed */}
+      {(job.status === "running" || job.status === "completed") && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {job.current_epoch != null && job.epochs != null
+                ? `Epoch ${job.current_epoch} / ${job.epochs}`
+                : "Progress"}
+              {job.current_step != null && job.total_steps != null &&
+                ` · Step ${job.current_step} / ${job.total_steps}`}
+            </span>
+            <span className="tabular-nums">{job.progress.toFixed(1)}%</span>
+          </div>
+          <Progress value={job.progress} className="h-2" />
+        </div>
+      )}
+
+      {/* Error message for failed jobs */}
+      {job.status === "failed" && job.error_message && (
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span className="font-medium">Error: </span>
+          {job.error_message}
+        </div>
+      )}
 
       {/* Key metrics row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -234,11 +384,7 @@ export default async function TrainingJobPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LossChart
-            data={metrics}
-            height={220}
-            className="text-foreground"
-          />
+          <LossChart data={metrics} height={220} className="text-foreground" />
         </CardContent>
       </Card>
 
@@ -252,40 +398,42 @@ export default async function TrainingJobPage({
           <CardContent className="p-0">
             <Table>
               <TableBody>
-                {[
-                  { label: "ID", value: job.id },
-                  { label: "Model", value: job.model },
-                  { label: "Dataset", value: job.dataset },
-                  {
-                    label: "Epoch",
-                    value:
-                      job.current_epoch != null && job.epochs != null
-                        ? `${job.current_epoch} / ${job.epochs}`
-                        : "—",
-                  },
-                  {
-                    label: "Step",
-                    value:
-                      job.current_step != null && job.total_steps != null
-                        ? `${job.current_step} / ${job.total_steps}`
-                        : "—",
-                  },
-                  {
-                    label: "Learning Rate",
-                    value:
-                      job.learning_rate != null
-                        ? job.learning_rate.toExponential(2)
-                        : lastMetric?.learning_rate != null
-                          ? lastMetric.learning_rate.toExponential(2)
+                {(
+                  [
+                    { label: "ID", value: job.id },
+                    { label: "Model", value: job.model },
+                    { label: "Dataset", value: job.dataset },
+                    {
+                      label: "Epoch",
+                      value:
+                        job.current_epoch != null && job.epochs != null
+                          ? `${job.current_epoch} / ${job.epochs}`
                           : "—",
-                  },
-                  { label: "Created", value: formatDate(job.created_at) },
-                  { label: "Started", value: formatDate(job.started_at) },
-                  { label: "Finished", value: formatDate(job.completed_at) },
-                  ...(job.error_message
-                    ? [{ label: "Error", value: job.error_message }]
-                    : []),
-                ].map(({ label, value }) => (
+                    },
+                    {
+                      label: "Step",
+                      value:
+                        job.current_step != null && job.total_steps != null
+                          ? `${job.current_step} / ${job.total_steps}`
+                          : "—",
+                    },
+                    {
+                      label: "Learning Rate",
+                      value:
+                        job.learning_rate != null
+                          ? job.learning_rate.toExponential(2)
+                          : lastMetric?.learning_rate != null
+                            ? lastMetric.learning_rate.toExponential(2)
+                            : "—",
+                    },
+                    { label: "Created", value: formatDate(job.created_at) },
+                    { label: "Started", value: formatDate(job.started_at) },
+                    { label: "Finished", value: formatDate(job.completed_at) },
+                    ...(job.error_message
+                      ? [{ label: "Error", value: job.error_message }]
+                      : []),
+                  ] as { label: string; value: string }[]
+                ).map(({ label, value }) => (
                   <TableRow key={label}>
                     <TableHead className="w-32 py-2 text-xs font-medium">
                       {label}
@@ -328,7 +476,7 @@ export default async function TrainingJobPage({
                   <TableBody>
                     {job.dataset_preview.slice(0, 5).map((row, ri) => (
                       <TableRow key={ri}>
-                        {row.map((cell, ci) => (
+                        {(row as string[]).map((cell, ci) => (
                           <TableCell
                             key={ci}
                             className="max-w-[200px] truncate font-mono text-xs text-muted-foreground"
@@ -360,7 +508,7 @@ export default async function TrainingJobPage({
             <code className="font-mono text-xs">localhost:6006</code>
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0 pb-4 px-4">
+        <CardContent className="px-4 pb-4">
           <TensorBoardEmbed url="http://localhost:6006" />
         </CardContent>
       </Card>

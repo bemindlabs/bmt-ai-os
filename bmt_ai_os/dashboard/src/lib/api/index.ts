@@ -12,3 +12,4 @@ export * from "./persona";
 export * from "./workspace";
 export * from "./settings";
 export * from "./utils";
+export * from "./logs";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -19,33 +20,93 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Terminal, Cpu, MemoryStick, HardDrive, RefreshCw } from "lucide-react";
-import { fetchFleetDevices, FleetDevice } from "@/lib/api";
+import {
+  Terminal,
+  Cpu,
+  MemoryStick,
+  HardDrive,
+  RefreshCw,
+  Server,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { fetchFleetDevices } from "@/lib/api";
+import type { FleetDevice } from "@/lib/api";
+
+const REFRESH_INTERVAL_MS = 30_000;
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ online }: { online: boolean }) {
   return online ? (
-    <Badge className="bg-green-600 text-white hover:bg-green-600">Online</Badge>
+    <Badge className="bg-green-600 text-white hover:bg-green-600">
+      <Wifi className="mr-1 size-3" />
+      Online
+    </Badge>
   ) : (
-    <Badge variant="secondary">Offline</Badge>
+    <Badge variant="secondary">
+      <WifiOff className="mr-1 size-3" />
+      Offline
+    </Badge>
   );
 }
 
-function PercentBar({ value, label }: { value: number; label: string }) {
-  const color =
-    value > 90 ? "bg-red-500" : value > 70 ? "bg-yellow-500" : "bg-green-500";
+function ResourceBar({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+}) {
+  const pct = Math.min(Math.max(value, 0), 100);
+  const indicatorClass =
+    pct > 90
+      ? "[&>div]:bg-red-500"
+      : pct > 70
+        ? "[&>div]:bg-yellow-500"
+        : "[&>div]:bg-green-500";
+
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <Icon className="size-3 shrink-0" />
       <span className="w-8 shrink-0">{label}</span>
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-        <div
-          className={`h-full ${color} transition-all`}
-          style={{ width: `${Math.min(value, 100)}%` }}
-        />
-      </div>
-      <span className="w-8 text-right">{value.toFixed(0)}%</span>
+      <Progress value={pct} className={cn("h-1.5 w-20", indicatorClass)} />
+      <span className="w-8 text-right tabular-nums">{pct.toFixed(0)}%</span>
     </div>
   );
 }
+
+function SkeletonRow() {
+  return (
+    <TableRow>
+      {Array.from({ length: 7 }).map((_, i) => (
+        <TableCell key={i}>
+          <div className="h-4 animate-pulse rounded bg-muted" />
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <div className="flex size-14 items-center justify-center rounded-full bg-muted">
+        <Server className="size-7 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium">No devices registered</p>
+      <p className="max-w-xs text-xs text-muted-foreground">
+        Fleet agents running on edge devices will appear here once they send
+        their first heartbeat.
+      </p>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FleetPage() {
   const router = useRouter();
@@ -54,8 +115,9 @@ export default function FleetPage() {
   const [online, setOnline] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -63,18 +125,21 @@ export default function FleetPage() {
       setDevices(data.devices);
       setTotal(data.total);
       setOnline(data.online);
+      setLastRefresh(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch fleet data");
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch fleet data",
+      );
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 15_000);
+    void load();
+    const interval = setInterval(() => void load(), REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [load]);
 
   function openSsh(device: FleetDevice) {
     const host = device.hostname || device.device_id;
@@ -82,19 +147,32 @@ export default function FleetPage() {
     router.push(`/terminal?${params.toString()}`);
   }
 
+  const isInitialLoad = loading && devices.length === 0;
+
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Fleet</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Registered edge devices and their current status.
+            Registered edge devices and their current status. Auto-refreshes
+            every 30s.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {lastRefresh && (
+            <span className="text-xs text-muted-foreground">
+              {lastRefresh.toLocaleTimeString()}
+            </span>
+          )}
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw
+              className={cn("mr-1.5 size-3.5", loading && "animate-spin")}
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -102,20 +180,36 @@ export default function FleetPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Devices</CardDescription>
-            <CardTitle className="text-3xl">{total}</CardTitle>
+            <CardTitle className="text-3xl">
+              {isInitialLoad ? (
+                <div className="h-9 w-12 animate-pulse rounded bg-muted" />
+              ) : (
+                total
+              )}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Online</CardDescription>
-            <CardTitle className="text-3xl text-green-500">{online}</CardTitle>
+            <CardTitle className="text-3xl text-green-500">
+              {isInitialLoad ? (
+                <div className="h-9 w-12 animate-pulse rounded bg-muted" />
+              ) : (
+                online
+              )}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Offline</CardDescription>
             <CardTitle className="text-3xl text-muted-foreground">
-              {total - online}
+              {isInitialLoad ? (
+                <div className="h-9 w-12 animate-pulse rounded bg-muted" />
+              ) : (
+                total - online
+              )}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -128,17 +222,43 @@ export default function FleetPage() {
           <CardDescription>
             {error
               ? "Could not reach fleet API."
-              : loading && devices.length === 0
+              : isInitialLoad
                 ? "Loading devices…"
-                : devices.length === 0
-                  ? "No devices registered yet."
-                  : `${devices.length} device${devices.length !== 1 ? "s" : ""} registered`}
+                : `${devices.length} device${devices.length !== 1 ? "s" : ""} registered`}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
+          {/* Error banner */}
           {error && (
             <p className="px-6 py-4 text-sm text-red-500">{error}</p>
           )}
+
+          {/* Skeleton rows on initial load */}
+          {isInitialLoad && !error && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Device</TableHead>
+                  <TableHead>Board / Arch</TableHead>
+                  <TableHead>OS</TableHead>
+                  <TableHead>Resources</TableHead>
+                  <TableHead>Models</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow />
+              </TableBody>
+            </Table>
+          )}
+
+          {/* Empty state */}
+          {!isInitialLoad && !error && devices.length === 0 && <EmptyState />}
+
+          {/* Device rows */}
           {devices.length > 0 && (
             <Table>
               <TableHeader>
@@ -155,30 +275,62 @@ export default function FleetPage() {
               <TableBody>
                 {devices.map((device) => (
                   <TableRow key={device.device_id}>
+                    {/* Device identity */}
                     <TableCell>
-                      <div className="font-medium">{device.hostname || device.device_id}</div>
-                      <div className="font-mono text-xs text-muted-foreground">
-                        {device.device_id}
+                      <div className="flex items-center gap-2">
+                        <Server className="size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">
+                            {device.hostname || device.device_id}
+                          </div>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {device.device_id}
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
+
+                    {/* Board / Arch */}
                     <TableCell className="text-sm">
                       <div>{device.board || "—"}</div>
-                      <div className="text-xs text-muted-foreground">{device.arch || "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {device.arch || "—"}
+                      </div>
                     </TableCell>
+
+                    {/* OS */}
                     <TableCell className="text-xs text-muted-foreground">
                       {device.os_version || "—"}
                     </TableCell>
+
+                    {/* Resource bars */}
                     <TableCell>
-                      <div className="space-y-0.5">
-                        <PercentBar value={device.cpu_percent ?? 0} label="CPU" />
-                        <PercentBar value={device.memory_percent ?? 0} label="RAM" />
-                        <PercentBar value={device.disk_percent ?? 0} label="Disk" />
+                      <div className="space-y-1">
+                        <ResourceBar
+                          icon={Cpu}
+                          label="CPU"
+                          value={device.cpu_percent ?? 0}
+                        />
+                        <ResourceBar
+                          icon={MemoryStick}
+                          label="RAM"
+                          value={device.memory_percent ?? 0}
+                        />
+                        <ResourceBar
+                          icon={HardDrive}
+                          label="Disk"
+                          value={device.disk_percent ?? 0}
+                        />
                       </div>
                     </TableCell>
+
+                    {/* Loaded models */}
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {(device.loaded_models ?? []).length === 0 ? (
-                          <span className="text-xs text-muted-foreground">none</span>
+                          <span className="text-xs text-muted-foreground">
+                            none
+                          </span>
                         ) : (
                           (device.loaded_models ?? []).slice(0, 3).map((m) => (
                             <Badge key={m} variant="outline" className="text-xs">
@@ -193,9 +345,13 @@ export default function FleetPage() {
                         )}
                       </div>
                     </TableCell>
+
+                    {/* Status */}
                     <TableCell>
                       <StatusBadge online={device.online ?? false} />
                     </TableCell>
+
+                    {/* Actions */}
                     <TableCell className="text-right">
                       {device.online && (
                         <Button
