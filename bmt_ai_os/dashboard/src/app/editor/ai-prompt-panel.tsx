@@ -22,8 +22,10 @@ import {
   FilePlus,
   AlertTriangle,
   ChevronDown,
+  GitCompare,
 } from "lucide-react";
 import { ProviderKeySetup } from "./provider-key-setup";
+import { ModelCompare } from "./model-compare";
 
 // ---------------------------------------------------------------------------
 // SSE parser
@@ -222,6 +224,9 @@ export function AiPromptPanel({
 
   /** Show the inline key-setup widget for the selected cloud provider */
   const [showKeySetup, setShowKeySetup] = useState(false);
+
+  // Compare mode
+  const [compareMode, setCompareMode] = useState(false);
 
   // Options
   const [showOptions, setShowOptions] = useState(false);
@@ -725,6 +730,17 @@ export function AiPromptPanel({
               </>
             )}
           </Button>
+          <Button
+            size="sm"
+            variant={compareMode ? "default" : "outline"}
+            onClick={() => setCompareMode((v) => !v)}
+            disabled={loading}
+            className="h-7 gap-1.5 text-xs"
+            title="Compare two models side by side"
+          >
+            <GitCompare className="size-3" />
+            Compare
+          </Button>
           {loading && (
             <Button
               size="sm"
@@ -770,96 +786,111 @@ export function AiPromptPanel({
         </div>
       </div>
 
-      {/* Response area */}
-      <div className="flex min-h-0 flex-1 flex-col">
-        {response ? (
-          <>
-            <div className="flex-1 overflow-auto p-3">
-              <pre className="whitespace-pre-wrap font-mono text-xs text-foreground">
-                {response}
-              </pre>
-            </div>
-            <div className="shrink-0 border-t border-border px-3 py-2 space-y-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleApply}
-                  disabled={loading}
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  <Replace className="size-3" />
-                  Apply
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setShowSaveAs(!showSaveAs);
-                    setSaveAsPath(
-                      currentDir ? `${currentDir}/new-file.${language === "plaintext" ? "txt" : language}` : "",
-                    );
-                  }}
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  <FilePlus className="size-3" />
-                  Save As
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCopy}
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  {copied ? (
-                    <Check className="size-3" />
-                  ) : (
-                    <Copy className="size-3" />
-                  )}
-                </Button>
+      {/* Response area — compare mode or normal */}
+      {compareMode ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ModelCompare
+            prompt={prompt}
+            fileContent={fileContent}
+            filePath={filePath}
+            language={language}
+            temperature={temperature}
+            maxTokens={maxTokens}
+            onApply={onApply}
+            onClose={() => setCompareMode(false)}
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {response ? (
+            <>
+              <div className="flex-1 overflow-auto p-3">
+                <pre className="whitespace-pre-wrap font-mono text-xs text-foreground">
+                  {response}
+                </pre>
               </div>
-
-              {/* Save As file path input */}
-              {showSaveAs && (
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    value={saveAsPath}
-                    onChange={(e) => setSaveAsPath(e.target.value)}
-                    placeholder="path/to/new-file.py"
-                    className="flex-1 h-7 text-xs font-mono"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleSaveAs();
-                      if (e.key === "Escape") setShowSaveAs(false);
-                    }}
-                    autoFocus
-                  />
+              <div className="shrink-0 border-t border-border px-3 py-2 space-y-2">
+                <div className="flex items-center gap-2">
                   <Button
                     size="sm"
-                    onClick={() => void handleSaveAs()}
-                    disabled={!saveAsPath.trim() || saveAsStatus === "saving"}
-                    className="h-7 text-xs shrink-0"
+                    onClick={handleApply}
+                    disabled={loading}
+                    className="h-7 gap-1.5 text-xs"
                   >
-                    {saveAsStatus === "saving"
-                      ? "Saving..."
-                      : saveAsStatus === "done"
-                        ? "Created!"
-                        : saveAsStatus === "error"
-                          ? "Failed"
-                          : "Create"}
+                    <Replace className="size-3" />
+                    Apply
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowSaveAs(!showSaveAs);
+                      setSaveAsPath(
+                        currentDir ? `${currentDir}/new-file.${language === "plaintext" ? "txt" : language}` : "",
+                      );
+                    }}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    <FilePlus className="size-3" />
+                    Save As
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopy}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    {copied ? (
+                      <Check className="size-3" />
+                    ) : (
+                      <Copy className="size-3" />
+                    )}
                   </Button>
                 </div>
-              )}
+
+                {/* Save As file path input */}
+                {showSaveAs && (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={saveAsPath}
+                      onChange={(e) => setSaveAsPath(e.target.value)}
+                      placeholder="path/to/new-file.py"
+                      className="flex-1 h-7 text-xs font-mono"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleSaveAs();
+                        if (e.key === "Escape") setShowSaveAs(false);
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => void handleSaveAs()}
+                      disabled={!saveAsPath.trim() || saveAsStatus === "saving"}
+                      className="h-7 text-xs shrink-0"
+                    >
+                      {saveAsStatus === "saving"
+                        ? "Saving..."
+                        : saveAsStatus === "done"
+                          ? "Created!"
+                          : saveAsStatus === "error"
+                            ? "Failed"
+                            : "Create"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-4">
+              <p className="text-center text-xs text-muted-foreground whitespace-pre-line">
+                {loading
+                  ? "Generating code..."
+                  : "Describe what you want to code.\nThe AI will use the current file as context."}
+              </p>
             </div>
-          </>
-        ) : (
-          <div className="flex flex-1 items-center justify-center p-4">
-            <p className="text-center text-xs text-muted-foreground whitespace-pre-line">
-              {loading
-                ? "Generating code..."
-                : "Describe what you want to code.\nThe AI will use the current file as context."}
-            </p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
