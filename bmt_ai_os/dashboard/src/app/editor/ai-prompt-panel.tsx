@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { streamChat, fetchModels } from "@/lib/api";
+import { streamChat, fetchModels, writeFile, createDirectory } from "@/lib/api";
 import type { ChatMessage, OllamaModel } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,8 @@ import {
   Check,
   Replace,
   Loader2,
-  ChevronDown,
-  ChevronRight,
   Settings2,
+  FilePlus,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -57,6 +56,14 @@ interface AiPromptPanelProps {
   language: string;
   onApply: (code: string) => void;
   onClose: () => void;
+  /** Prompt history from session (most recent first) */
+  promptHistory?: string[];
+  /** Callback when a prompt is submitted (to persist to session) */
+  onPromptSubmit?: (prompt: string) => void;
+  /** Current directory for creating new files */
+  currentDir?: string;
+  /** Called after a file is created so the tree can refresh */
+  onFileCreated?: () => void;
 }
 
 export function AiPromptPanel({
@@ -65,11 +72,18 @@ export function AiPromptPanel({
   language,
   onApply,
   onClose,
+  promptHistory = [],
+  onPromptSubmit,
+  currentDir = "",
+  onFileCreated,
 }: AiPromptPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveAsPath, setSaveAsPath] = useState("");
+  const [saveAsStatus, setSaveAsStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const abortRef = useRef<AbortController | null>(null);
 
   // Model selection
@@ -115,6 +129,7 @@ export function AiPromptPanel({
 
     setLoading(true);
     setResponse("");
+    onPromptSubmit?.(prompt);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -127,7 +142,9 @@ export function AiPromptPanel({
         "Respond ONLY with the code — no markdown fences, no explanations, no preamble.",
         "If the user asks to modify existing code, return the complete modified file content.",
         "If the user asks to generate new code, return just the code.",
+        "The user can save your output as a new file using the 'Save As' button.",
         filePath ? `Current file: ${filePath} (${language})` : "",
+        currentDir ? `Current directory: ${currentDir}` : "",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -196,6 +213,33 @@ export function AiPromptPanel({
     if (fenceMatch) code = fenceMatch[1];
     onApply(code);
   }, [response, onApply]);
+
+  const handleSaveAs = useCallback(async () => {
+    if (!saveAsPath.trim() || !response.trim()) return;
+    setSaveAsStatus("saving");
+    try {
+      let code = response;
+      const fenceMatch = code.match(/^```[\w]*\n([\s\S]*?)\n```$/);
+      if (fenceMatch) code = fenceMatch[1];
+
+      const fullPath = saveAsPath.startsWith("/")
+        ? saveAsPath
+        : currentDir
+          ? `${currentDir}/${saveAsPath}`
+          : saveAsPath;
+
+      await writeFile(fullPath, code);
+      setSaveAsStatus("done");
+      onFileCreated?.();
+      setTimeout(() => {
+        setSaveAsStatus("idle");
+        setShowSaveAs(false);
+      }, 1500);
+    } catch {
+      setSaveAsStatus("error");
+      setTimeout(() => setSaveAsStatus("idle"), 2000);
+    }
+  }, [saveAsPath, response, currentDir, onFileCreated]);
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
@@ -308,6 +352,29 @@ export function AiPromptPanel({
           rows={3}
           spellCheck={false}
         />
+        {/* Prompt history */}
+        {promptHistory.length > 0 && (
+          <div className="mt-1.5">
+            <select
+              onChange={(e) => {
+                if (e.target.value) setPrompt(e.target.value);
+                e.target.value = "";
+              }}
+              className="w-full h-6 rounded border border-input bg-background px-1.5 text-[10px] text-muted-foreground focus:outline-none"
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Prompt history ({promptHistory.length})...
+              </option>
+              {promptHistory.map((p, i) => (
+                <option key={i} value={p}>
+                  {p.length > 60 ? p.slice(0, 60) + "..." : p}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="mt-2 flex items-center gap-2">
           <Button
             size="sm"
@@ -354,34 +421,75 @@ export function AiPromptPanel({
                 {response}
               </pre>
             </div>
-            <div className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
-              <Button
-                size="sm"
-                onClick={handleApply}
-                disabled={loading}
-                className="h-7 gap-1.5 text-xs"
-              >
-                <Replace className="size-3" />
-                Apply to Editor
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCopy}
-                className="h-7 gap-1.5 text-xs"
-              >
-                {copied ? (
-                  <>
+            <div className="shrink-0 border-t border-border px-3 py-2 space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleApply}
+                  disabled={loading}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Replace className="size-3" />
+                  Apply
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowSaveAs(!showSaveAs);
+                    setSaveAsPath(
+                      currentDir ? `${currentDir}/new-file.${language === "plaintext" ? "txt" : language}` : "",
+                    );
+                  }}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <FilePlus className="size-3" />
+                  Save As
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopy}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  {copied ? (
                     <Check className="size-3" />
-                    Copied
-                  </>
-                ) : (
-                  <>
+                  ) : (
                     <Copy className="size-3" />
-                    Copy
-                  </>
-                )}
-              </Button>
+                  )}
+                </Button>
+              </div>
+
+              {/* Save As file path input */}
+              {showSaveAs && (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    value={saveAsPath}
+                    onChange={(e) => setSaveAsPath(e.target.value)}
+                    placeholder="path/to/new-file.py"
+                    className="flex-1 h-7 text-xs font-mono"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void handleSaveAs();
+                      if (e.key === "Escape") setShowSaveAs(false);
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => void handleSaveAs()}
+                    disabled={!saveAsPath.trim() || saveAsStatus === "saving"}
+                    className="h-7 text-xs shrink-0"
+                  >
+                    {saveAsStatus === "saving"
+                      ? "Saving..."
+                      : saveAsStatus === "done"
+                        ? "Created!"
+                        : saveAsStatus === "error"
+                          ? "Failed"
+                          : "Create"}
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         ) : (

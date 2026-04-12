@@ -5,8 +5,10 @@ import { listFiles, readFile, writeFile } from "@/lib/api";
 import type { FileEntry } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Sparkles, TerminalSquare } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, TerminalSquare, History, X } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useEditorSession } from "@/hooks/use-editor-session";
 import { CodeEditor } from "./code-editor";
 import { FileTree } from "./file-tree";
 import { AiPromptPanel } from "./ai-prompt-panel";
@@ -14,13 +16,12 @@ import { EditorTerminal } from "./editor-terminal";
 
 export default function EditorPage() {
   const { workspace, loading: wsLoading } = useWorkspace();
+  const { session, update, addRecentFile, addPromptHistory } = useEditorSession();
 
-  const [dirPath, setDirPath] = useState("");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [dirError, setDirError] = useState<string | null>(null);
   const [loadingDir, setLoadingDir] = useState(false);
 
-  const [openFilePath, setOpenFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState("");
   const [editorContent, setEditorContent] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
@@ -30,59 +31,126 @@ export default function EditorPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "ok" | "error">("idle");
 
   const [pathInput, setPathInput] = useState("");
-  const [showAi, setShowAi] = useState(false);
-  const [showTerminal, setShowTerminal] = useState(false);
+  const [showRecent, setShowRecent] = useState(false);
 
   const editorRef = useRef<{ setValue: (v: string) => void } | null>(null);
+  const initialLoadDone = useRef(false);
 
-  // Ctrl+` keyboard shortcut to toggle the terminal panel
+  // Derive from session
+  const dirPath = session.dirPath;
+  const openFilePath = session.openFilePath;
+  const showAi = session.showAi;
+  const showTerminal = session.showTerminal;
+
+  // Ctrl+` keyboard shortcut to toggle terminal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "`") {
         e.preventDefault();
-        setShowTerminal((prev) => !prev);
+        update({ showTerminal: !session.showTerminal });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [session.showTerminal, update]);
 
-  const loadDir = useCallback(async (path: string) => {
-    setLoadingDir(true);
-    setDirError(null);
-    try {
-      const data = await listFiles(path);
-      setEntries(data.entries);
-      setDirPath(path);
-      setPathInput(path);
-    } catch (err) {
-      setDirError(err instanceof Error ? err.message : "Failed to list directory");
-    } finally {
-      setLoadingDir(false);
-    }
-  }, []);
+  // Load directory
+  const loadDir = useCallback(
+    async (path: string) => {
+      setLoadingDir(true);
+      setDirError(null);
+      try {
+        const data = await listFiles(path);
+        setEntries(data.entries);
+        update({ dirPath: path });
+        setPathInput(path);
+      } catch (err) {
+        setDirError(
+          err instanceof Error ? err.message : "Failed to list directory",
+        );
+      } finally {
+        setLoadingDir(false);
+      }
+    },
+    [update],
+  );
 
+  // Initial load: restore session directory or fall back to workspace
   useEffect(() => {
-    if (!wsLoading) void loadDir(workspace);
-  }, [loadDir, workspace, wsLoading]);
+    if (wsLoading || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    const initialDir = session.dirPath || workspace;
+    setPathInput(initialDir);
+    void loadDir(initialDir);
+  }, [wsLoading, workspace, session.dirPath, loadDir]);
 
-  const openFile = useCallback(async (entry: FileEntry) => {
-    setLoadingFile(true);
-    setFileError(null);
-    setOpenFilePath(entry.path);
-    try {
-      const data = await readFile(entry.path);
-      setFileContent(data.content);
-      setEditorContent(data.content);
-    } catch (err) {
-      setFileError(err instanceof Error ? err.message : "Failed to read file");
-      setFileContent("");
-      setEditorContent("");
-    } finally {
-      setLoadingFile(false);
+  // Restore last open file after directory loads
+  useEffect(() => {
+    if (
+      initialLoadDone.current &&
+      session.openFilePath &&
+      entries.length > 0 &&
+      !fileContent &&
+      !loadingFile
+    ) {
+      const entry = entries.find((e) => e.path === session.openFilePath);
+      if (entry && !entry.is_dir) {
+        void openFileByPath(session.openFilePath);
+      }
     }
-  }, []);
+    // Only run once after entries load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries]);
 
+  // Open file
+  const openFile = useCallback(
+    async (entry: FileEntry) => {
+      setLoadingFile(true);
+      setFileError(null);
+      update({ openFilePath: entry.path });
+      addRecentFile(entry.path);
+      try {
+        const data = await readFile(entry.path);
+        setFileContent(data.content);
+        setEditorContent(data.content);
+      } catch (err) {
+        setFileError(
+          err instanceof Error ? err.message : "Failed to read file",
+        );
+        setFileContent("");
+        setEditorContent("");
+      } finally {
+        setLoadingFile(false);
+      }
+    },
+    [update, addRecentFile],
+  );
+
+  // Open file by path (for recent files and session restore)
+  const openFileByPath = useCallback(
+    async (path: string) => {
+      setLoadingFile(true);
+      setFileError(null);
+      update({ openFilePath: path });
+      addRecentFile(path);
+      try {
+        const data = await readFile(path);
+        setFileContent(data.content);
+        setEditorContent(data.content);
+      } catch (err) {
+        setFileError(
+          err instanceof Error ? err.message : "Failed to read file",
+        );
+        setFileContent("");
+        setEditorContent("");
+      } finally {
+        setLoadingFile(false);
+      }
+    },
+    [update, addRecentFile],
+  );
+
+  // Save file
   const saveFile = useCallback(
     async (content: string) => {
       if (!openFilePath) return;
@@ -113,6 +181,7 @@ export default function EditorPage() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header */}
       <div className="flex shrink-0 items-center justify-between pb-4">
         <div>
           <h1 className="text-xl font-semibold">Code Editor</h1>
@@ -127,10 +196,74 @@ export default function EditorPage() {
           {saveStatus === "error" && (
             <span className="text-xs text-red-500">Save failed</span>
           )}
+
+          {/* Recent files */}
+          <div className="relative">
+            <Button
+              size="sm"
+              variant={showRecent ? "default" : "outline"}
+              onClick={() => setShowRecent(!showRecent)}
+              className="h-7 gap-1.5 text-xs"
+              title="Recent files"
+              disabled={session.recentFiles.length === 0}
+            >
+              <History className="size-3" />
+              Recent
+              {session.recentFiles.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                  {session.recentFiles.length}
+                </Badge>
+              )}
+            </Button>
+            {showRecent && session.recentFiles.length > 0 && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-lg border border-border bg-popover p-1 shadow-lg">
+                <div className="flex items-center justify-between px-2 py-1">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    Recent Files
+                  </span>
+                  <button
+                    onClick={() => setShowRecent(false)}
+                    className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {session.recentFiles.map((path) => {
+                    const name = path.split("/").pop() ?? path;
+                    const dir = path.substring(0, path.lastIndexOf("/")) || "/";
+                    const isActive = path === openFilePath;
+                    return (
+                      <button
+                        key={path}
+                        onClick={() => {
+                          void openFileByPath(path);
+                          setShowRecent(false);
+                        }}
+                        className={`flex w-full flex-col rounded px-2 py-1.5 text-left transition-colors ${
+                          isActive
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <span className="truncate font-mono text-xs font-medium">
+                          {name}
+                        </span>
+                        <span className="truncate text-[10px] text-muted-foreground">
+                          {dir}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           <Button
             size="sm"
             variant={showTerminal ? "default" : "outline"}
-            onClick={() => setShowTerminal(!showTerminal)}
+            onClick={() => update({ showTerminal: !showTerminal })}
             className="h-7 gap-1.5 text-xs"
             title="Toggle terminal (Ctrl+`)"
             aria-pressed={showTerminal}
@@ -141,7 +274,7 @@ export default function EditorPage() {
           <Button
             size="sm"
             variant={showAi ? "default" : "outline"}
-            onClick={() => setShowAi(!showAi)}
+            onClick={() => update({ showAi: !showAi })}
             className="h-7 gap-1.5 text-xs"
           >
             <Sparkles className="size-3" />
@@ -150,6 +283,7 @@ export default function EditorPage() {
         </div>
       </div>
 
+      {/* Path bar */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -170,6 +304,7 @@ export default function EditorPage() {
         </Button>
       </form>
 
+      {/* Main layout */}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-border">
         {/* File tree sidebar */}
         <aside className="w-56 shrink-0 border-r border-border bg-sidebar">
@@ -209,14 +344,16 @@ export default function EditorPage() {
               />
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                Select a file from the sidebar to open it.
+                {session.recentFiles.length > 0
+                  ? "Select a file or open a recent one."
+                  : "Select a file from the sidebar to open it."}
               </div>
             )}
           </div>
 
           <EditorTerminal
             visible={showTerminal}
-            onClose={() => setShowTerminal(false)}
+            onClose={() => update({ showTerminal: false })}
           />
         </div>
 
@@ -228,7 +365,11 @@ export default function EditorPage() {
               fileContent={editorContent}
               language={language}
               onApply={handleAiApply}
-              onClose={() => setShowAi(false)}
+              onClose={() => update({ showAi: false })}
+              promptHistory={session.promptHistory}
+              onPromptSubmit={addPromptHistory}
+              currentDir={dirPath}
+              onFileCreated={() => void loadDir(dirPath)}
             />
           </div>
         )}
@@ -237,7 +378,6 @@ export default function EditorPage() {
   );
 }
 
-// Simple language detection for AI context
 function detectLanguageSimple(filePath: string): string {
   const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
   const map: Record<string, string> = {
