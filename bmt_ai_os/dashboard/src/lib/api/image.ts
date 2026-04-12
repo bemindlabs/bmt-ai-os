@@ -135,6 +135,13 @@ export async function validateSelection(req: {
   });
 }
 
+export async function fetchBuildReady(): Promise<{
+  ready: boolean;
+  build_script: string | null;
+}> {
+  return apiFetch("/api/v1/image/build/ready");
+}
+
 export async function triggerBuild(
   profileId: string,
 ): Promise<{ build_id: string; status: string; manifest_path: string }> {

@@ -233,8 +233,22 @@ async def validate_selection(req: ValidateRequest):
 # ---------------------------------------------------------------------------
 
 
+@router.get("/build/ready")
+async def build_ready():
+    """Check whether the build environment is available."""
+    script = _find_build_script()
+    return {"ready": script is not None, "build_script": script}
+
+
 @router.post("/build", status_code=202)
 async def trigger_build(req: BuildRequest):
+    if not _find_build_script():
+        raise HTTPException(
+            503,
+            "Image builds are not available in this environment. "
+            "Set BMT_BUILD_SCRIPT or BMT_PROJECT_ROOT, or run the controller on a Linux host.",
+        )
+
     mgr = _get_profile_mgr()
     reg = _get_registry()
 
@@ -273,20 +287,39 @@ async def get_build_status(build_id: str):
     return build
 
 
+def _find_build_script() -> str | None:
+    """Locate scripts/build.sh, checking env override and common paths."""
+    # Explicit override (e.g. host-mounted path in Docker)
+    explicit = os.environ.get("BMT_BUILD_SCRIPT")
+    if explicit and os.path.isfile(explicit):
+        return explicit
+
+    # Derive from BMT_PROJECT_ROOT or from this file's location
+    project_root = os.environ.get(
+        "BMT_PROJECT_ROOT",
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    )
+    candidate = os.path.join(project_root, "scripts", "build.sh")
+    if os.path.isfile(candidate):
+        return candidate
+
+    return None
+
+
 async def _run_build(build_id: str, target: str, manifest_path: str) -> None:
     """Run scripts/build.sh --target <target> --profile <manifest> in background."""
     build = _builds[build_id]
     build["status"] = "running"
 
-    project_root = os.environ.get(
-        "BMT_PROJECT_ROOT",
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    )
-    build_script = os.path.join(project_root, "scripts", "build.sh")
+    build_script = _find_build_script()
 
-    if not os.path.isfile(build_script):
+    if not build_script:
         build["status"] = "failed"
-        build["error"] = f"Build script not found: {build_script}"
+        build["error"] = (
+            "Build script not found. Image builds require a Linux host with Buildroot. "
+            "Set BMT_BUILD_SCRIPT or BMT_PROJECT_ROOT to the path containing scripts/build.sh, "
+            "or volume-mount the project root into the container."
+        )
         return
 
     cmd = [build_script, "--target", target, "--profile", manifest_path]

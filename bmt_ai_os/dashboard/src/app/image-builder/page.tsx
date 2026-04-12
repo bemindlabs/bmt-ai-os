@@ -43,6 +43,7 @@ import {
   fetchProfiles,
   createProfile,
   validateSelection,
+  fetchBuildReady,
   triggerBuild,
   fetchBuildStatus,
   type HardwareTarget,
@@ -231,6 +232,9 @@ export default function ImageBuilderPage() {
   const [profileName,      setProfileName]      = useState("");
   const [profileDesc,      setProfileDesc]      = useState("");
 
+  // Build readiness
+  const [buildReady, setBuildReady] = useState(true);
+
   // Validation & build
   const [validation,  setValidation]  = useState<ValidationResult | null>(null);
   const [validating,  setValidating]  = useState(false);
@@ -245,13 +249,15 @@ export default function ImageBuilderPage() {
     setLoadState("loading");
     setLoadError(null);
     try {
-      const [tRes, pRes, tiRes, prRes, profRes] = await Promise.all([
+      const [tRes, pRes, tiRes, prRes, profRes, readyRes] = await Promise.all([
         fetchTargets(),
         fetchPackages(),
         fetchTiers(),
         fetchPresets(),
         fetchProfiles(),
+        fetchBuildReady().catch(() => ({ ready: false, build_script: null })),
       ]);
+      setBuildReady(readyRes.ready);
       setTargets(tRes.targets);
       setPackages(pRes.packages);
       setCategories(pRes.categories);
@@ -533,6 +539,21 @@ export default function ImageBuilderPage() {
           </Button>
         )}
       </div>
+
+      {/* Build environment warning */}
+      {!buildReady && (
+        <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-yellow-500" />
+          <div>
+            <p className="font-medium">Build environment not available</p>
+            <p className="mt-0.5 text-xs text-yellow-200/70">
+              Image builds require a Linux host with Buildroot. You can still configure
+              and save profiles. Set <code className="rounded bg-yellow-500/20 px-1">BMT_PROJECT_ROOT</code> or
+              run the controller on the target host to enable builds.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Step indicator */}
       <nav aria-label="Build steps" className="flex items-center gap-2 overflow-x-auto">
