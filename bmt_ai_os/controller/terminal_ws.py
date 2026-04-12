@@ -38,10 +38,9 @@ import shutil
 import struct
 import termios
 
-import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from bmt_ai_os.controller.auth import verify_token
+from bmt_ai_os.controller.auth import ws_authenticate
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +64,6 @@ else:
 _READ_SIZE = 4096
 
 
-def _ws_auth_required() -> bool:
-    """Return True when a JWT secret is configured and auth should be enforced."""
-    return bool(os.environ.get("BMT_JWT_SECRET"))
-
-
 def _set_winsize(fd: int, rows: int, cols: int) -> None:
     """Set terminal window size on a file descriptor."""
     winsize = struct.pack("HHHH", rows, cols, 0, 0)
@@ -88,17 +82,8 @@ async def terminal_ws(websocket: WebSocket, token: str = "") -> None:
 
         ws://host:8080/ws/terminal?token=<jwt>
     """
-    if _ws_auth_required():
-        if not token:
-            await websocket.close(1008)
-            logger.warning("terminal: rejected connection — missing token")
-            return
-        try:
-            verify_token(token)
-        except jwt.PyJWTError as exc:
-            await websocket.close(1008)
-            logger.warning("terminal: rejected connection — invalid token: %s", exc)
-            return
+    if not await ws_authenticate(websocket, token, label="terminal"):
+        return
 
     await websocket.accept()
     logger.info("terminal: WebSocket connection accepted")

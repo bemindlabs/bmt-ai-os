@@ -43,11 +43,10 @@ except ImportError:  # pragma: no cover
     paramiko = None  # type: ignore[assignment]
     _PARAMIKO_AVAILABLE = False
 
-import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 
-from bmt_ai_os.controller.auth import verify_token
+from bmt_ai_os.controller.auth import ws_authenticate  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -58,16 +57,6 @@ _KEEPALIVE_INTERVAL = 30  # seconds
 _CONNECT_TIMEOUT = 15  # seconds
 
 _DEFAULT_KEY_PATH = os.path.expanduser(os.environ.get("BMT_SSH_KEY_PATH", "~/.ssh/id_rsa"))
-
-
-# ---------------------------------------------------------------------------
-# Auth helper
-# ---------------------------------------------------------------------------
-
-
-def _ws_auth_required() -> bool:
-    """Return True when a JWT secret is configured and auth should be enforced."""
-    return bool(os.environ.get("BMT_JWT_SECRET"))
 
 
 # ---------------------------------------------------------------------------
@@ -161,17 +150,8 @@ async def ssh_ws(
     4. Server connects via Paramiko and opens a PTY channel.
     5. Bidirectional data piping begins.
     """
-    if _ws_auth_required():
-        if not token:
-            await websocket.close(1008)
-            logger.warning("ssh_ws: rejected connection — missing token")
-            return
-        try:
-            verify_token(token)
-        except jwt.PyJWTError as exc:
-            await websocket.close(1008)
-            logger.warning("ssh_ws: rejected connection — invalid token: %s", exc)
-            return
+    if not await ws_authenticate(websocket, token, label="ssh_ws"):
+        return
 
     await websocket.accept()
     logger.info(

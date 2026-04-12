@@ -623,6 +623,27 @@ def verify_token(token: str, store: UserStore | None = None) -> dict:
     return payload
 
 
+async def ws_authenticate(websocket, token: str, label: str = "ws") -> bool:
+    """Verify a WebSocket ``token`` query parameter when JWT auth is enabled.
+
+    Returns ``True`` if the connection is authorized (or auth is disabled).
+    On failure, closes the WebSocket with code 1008 and returns ``False``.
+    """
+    if not os.environ.get("BMT_JWT_SECRET"):
+        return True
+    if not token:
+        await websocket.close(1008)
+        logger.warning("%s: rejected connection — missing token", label)
+        return False
+    try:
+        verify_token(token)
+        return True
+    except jwt.PyJWTError as exc:
+        await websocket.close(1008)
+        logger.warning("%s: rejected connection — invalid token: %s", label, exc)
+        return False
+
+
 def revoke_token(token: str, store: UserStore | None = None) -> None:
     """Revoke a JWT by adding its ``jti`` to the blacklist.
 
