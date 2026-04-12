@@ -41,12 +41,18 @@ from typing import Any, Generator
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from bmt_ai_os.controller.rate_limit import sensitive_rate_limit
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/providers/config", tags=["provider-keys"])
+router = APIRouter(
+    prefix="/api/v1/providers/config",
+    tags=["provider-keys"],
+    dependencies=[Depends(sensitive_rate_limit)],
+)
 
 
 # ---------------------------------------------------------------------------

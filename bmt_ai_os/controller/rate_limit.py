@@ -8,6 +8,8 @@ Configuration via environment variables:
                                 (default: "5:300"  →  5 per 5 minutes)
     BMT_INFERENCE_RATE_LIMIT  — "requests:window_seconds" for inference endpoints
                                 (default: "60:60"  →  60 per minute)
+    BMT_SENSITIVE_RATE_LIMIT  — "requests:window_seconds" for sensitive endpoints
+                                (default: "20:60"  →  20 per minute)
 """
 
 from __future__ import annotations
@@ -110,6 +112,7 @@ class SlidingWindowRateLimiter:
 
 _DEFAULT_LOGIN_RATE = "5:300"  # 5 attempts per 5 minutes
 _DEFAULT_INFERENCE_RATE = "60:60"  # 60 requests per minute
+_DEFAULT_SENSITIVE_RATE = "20:60"  # 20 requests per minute
 
 
 def _parse_rate(env_value: str) -> tuple[int, int]:
@@ -143,6 +146,7 @@ def _build_limiter(env_var: str, default: str) -> SlidingWindowRateLimiter:
 
 _login_limiter: SlidingWindowRateLimiter | None = None
 _inference_limiter: SlidingWindowRateLimiter | None = None
+_sensitive_limiter: SlidingWindowRateLimiter | None = None
 _singleton_lock = Lock()
 
 
@@ -168,11 +172,24 @@ def get_inference_limiter() -> SlidingWindowRateLimiter:
     return _inference_limiter
 
 
+def get_sensitive_limiter() -> SlidingWindowRateLimiter:
+    """Return the module-level sensitive-endpoint rate-limiter singleton."""
+    global _sensitive_limiter
+    if _sensitive_limiter is None:
+        with _singleton_lock:
+            if _sensitive_limiter is None:
+                _sensitive_limiter = _build_limiter(
+                    "BMT_SENSITIVE_RATE_LIMIT", _DEFAULT_SENSITIVE_RATE
+                )
+    return _sensitive_limiter
+
+
 def _reset_singletons() -> None:
     """Reset module-level singletons (test helper only)."""
-    global _login_limiter, _inference_limiter
+    global _login_limiter, _inference_limiter, _sensitive_limiter
     _login_limiter = None
     _inference_limiter = None
+    _sensitive_limiter = None
 
 
 def _set_login_limiter(limiter: SlidingWindowRateLimiter) -> None:
@@ -290,3 +307,4 @@ class RateLimitDep:
 # Singleton dependency instances — import these directly in route modules
 login_rate_limit = RateLimitDep(get_login_limiter)
 inference_rate_limit = RateLimitDep(get_inference_limiter)
+sensitive_rate_limit = RateLimitDep(get_sensitive_limiter)

@@ -23,12 +23,18 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Generator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from bmt_ai_os.controller.rate_limit import sensitive_rate_limit
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/ssh-keys", tags=["ssh-keys"])
+router = APIRouter(
+    prefix="/api/v1/ssh-keys",
+    tags=["ssh-keys"],
+    dependencies=[Depends(sensitive_rate_limit)],
+)
 
 _DEFAULT_DB_PATH = "/tmp/bmt-auth.db"
 _ENV_DB_PATH = "BMT_AUTH_DB"
