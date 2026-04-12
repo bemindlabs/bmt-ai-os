@@ -98,7 +98,7 @@ def _ssh_connect_password(
 ) -> paramiko.SSHClient:
     """Create and return a connected SSHClient using password auth."""
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.set_missing_host_key_policy(paramiko.WarningPolicy())
     client.connect(
         hostname=host,
         port=port,
@@ -120,7 +120,7 @@ def _ssh_connect_key(
     """Create and return a connected SSHClient using key-based auth."""
     pkey = _load_private_key(key_path)
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.set_missing_host_key_policy(paramiko.WarningPolicy())
     client.connect(
         hostname=host,
         port=port,

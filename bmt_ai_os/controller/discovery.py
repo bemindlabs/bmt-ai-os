@@ -94,8 +94,10 @@ async def scan_local_providers() -> list[DiscoveredProvider]:
             continue
 
         base_url = f"http://localhost:{port}"
-        # Disambiguate names if multiple instances could exist on different ports
-        name = provider_type if port == _CANDIDATE_PORTS[0][0] else f"{provider_type}-{port}"
+        # Use unsuffixed name when running on the provider's canonical default port
+        default_ports = {pt: p for p, pt, *_ in _CANDIDATE_PORTS}
+        default_port = default_ports.get(provider_type)
+        name = provider_type if port == default_port else f"{provider_type}-{port}"
         results.append(
             DiscoveredProvider(
                 name=name,

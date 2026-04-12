@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -48,6 +49,8 @@ _WORKSPACE_ROOT = Path(os.environ.get("BMT_WORKSPACE_DIR", _DEFAULT_WS))
 
 _active_persona: str | None = None
 
+_SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
 
 def _get_active_persona() -> str | None:
     return _active_persona
@@ -61,6 +64,13 @@ def _set_active_persona(name: str) -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _validate_persona_name(name: str) -> str:
+    """Validate that a persona name contains only safe characters."""
+    if not _SAFE_NAME_RE.match(name):
+        raise HTTPException(status_code=400, detail="Invalid persona name.")
+    return name
 
 
 def _resolve_workspace() -> Path:
@@ -84,6 +94,8 @@ def _soul_path() -> Path:
 
 def _persona_workspace_path(name: str) -> Path:
     """Return the agents/<name> workspace path under the workspace root."""
+    if not _SAFE_NAME_RE.match(name):
+        raise ValueError(f"Invalid persona name: {name}")
     return _WORKSPACE_ROOT / "agents" / name
 
 
@@ -204,6 +216,7 @@ async def activate_persona(name: str) -> ActivatePersonaResponse:
     - Copies the preset SOUL.md into the workspace if not already present.
     - Stores the active persona name in module-level state.
     """
+    _validate_persona_name(name)
     if name not in _PRESET_NAMES:
         raise HTTPException(
             status_code=404,
@@ -251,6 +264,7 @@ async def get_active_persona() -> ActivePersonaResponse:
 @router.post("/presets/{name}/apply", response_model=ApplyPresetResponse)
 async def apply_preset(name: str) -> ApplyPresetResponse:
     """Copy a named preset to the active workspace as SOUL.md."""
+    _validate_persona_name(name)
     if name not in _PRESET_NAMES:
         raise HTTPException(
             status_code=404,

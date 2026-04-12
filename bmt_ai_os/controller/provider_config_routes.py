@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -188,8 +189,8 @@ def _mask_key(raw_key: str) -> str:
 
 
 def _hash_key(raw_key: str) -> str:
-    """Return a stable SHA-256 hex digest of the raw key (for dedup checks)."""
-    return hashlib.sha256(raw_key.encode()).hexdigest()
+    """Return a stable HMAC-SHA256 hex digest of the raw key (for dedup checks)."""
+    return hmac.new(b"bmt-provider-key-fingerprint", raw_key.encode(), hashlib.sha256).hexdigest()
 
 
 # ---------------------------------------------------------------------------

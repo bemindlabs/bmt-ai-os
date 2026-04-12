@@ -40,7 +40,7 @@ interface ChatInterfaceProps {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeId(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
 }
 
 const RAG_TOGGLE_KEY = "bmt_rag_enabled";

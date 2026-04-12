@@ -146,7 +146,7 @@ class KeySummary(BaseModel):
 
 def _require_admin_or_operator(request: Request) -> None:
     role = getattr(request.state, "role", None)
-    if role not in ("admin", "operator", None):
+    if role not in ("admin", "operator"):
         raise HTTPException(
             status_code=403,
             detail={

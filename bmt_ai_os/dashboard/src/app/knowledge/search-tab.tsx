@@ -39,11 +39,19 @@ export function SearchTab({ activePersona }: SearchTabProps) {
   const [sources, setSources] = useState<RagSource[]>([]);
   const [latency, setLatency] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [userEditedCollection, setUserEditedCollection] = useState(false);
 
-  // Update collection default when persona changes (only when unmodified from persona default)
+  // Reset the user-edited flag whenever the active persona changes
   useEffect(() => {
-    setCollection(personaCollection(activePersona) || "default");
+    setUserEditedCollection(false);
   }, [activePersona]);
+
+  // Update collection default when persona changes (only when unmodified by user)
+  useEffect(() => {
+    if (!userEditedCollection) {
+      setCollection(personaCollection(activePersona) || "default");
+    }
+  }, [activePersona, userEditedCollection]);
 
   async function handleSearch() {
     if (!query.trim()) return;
@@ -99,7 +107,10 @@ export function SearchTab({ activePersona }: SearchTabProps) {
             <Input
               placeholder="Collection: default"
               value={collection}
-              onChange={(e) => setCollection(e.target.value)}
+              onChange={(e) => {
+                setCollection(e.target.value);
+                setUserEditedCollection(true);
+              }}
               disabled={loading}
             />
             <Input

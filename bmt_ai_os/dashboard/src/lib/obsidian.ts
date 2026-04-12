@@ -59,7 +59,7 @@ export function renderWikiLinks(
 
   return markdown.replace(WIKI_LINK_RE, (_match, _full, target: string) => {
     const encoded = encodeURIComponent(target);
-    const safe = target.replace(/"/g, "&quot;");
+    const safe = target.replace(/\\/g, "\\\\").replace(/"/g, "&quot;");
     return (
       `<a href="/notes/${encoded}" class="wiki-link" ` +
       `onclick="event.preventDefault();` +

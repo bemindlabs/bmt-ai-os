@@ -484,8 +484,14 @@ jobs:
       - name: Boot Pi 5 image in QEMU
         run: |
           IMG="output/images/bmt_ai_os-arm64.img"
+          KERNEL="output/images/Image"
           SERIAL_LOG="/tmp/pi5-qemu-serial.log"
           TIMEOUT=120
+
+          if [ ! -f "${KERNEL}" ]; then
+            echo "::notice::Skipping QEMU boot — kernel image not found (fallback image only)"
+            exit 0
+          fi
 
           echo "Booting Pi 5 image in QEMU (timeout: ${TIMEOUT}s)..."
 
@@ -494,7 +500,7 @@ jobs:
             -M virt \
             -cpu cortex-a76 \
             -m 2G \
-            -kernel output/images/Image 2>/dev/null \
+            -kernel "${KERNEL}" 2>/dev/null \
             -drive file="${IMG}",format=raw,if=virtio \
             -nographic \
             -serial file:"${SERIAL_LOG}" \

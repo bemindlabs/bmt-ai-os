@@ -17,13 +17,16 @@ import { ConnectionStatus } from "@/components/terminal/connection-status";
  * "http://controller:8080" which isn't resolvable from the browser).
  * Falls back to localhost:8080 during SSR.
  */
-function getTerminalWsUrl(): string {
+function getTerminalWsUrl(token?: string): string {
   if (typeof window === "undefined") return "ws://localhost:8080/ws/terminal";
   const loc = window.location;
   const proto = loc.protocol === "https:" ? "wss:" : "ws:";
   // Dashboard runs on port 9090, controller on 8080 — same host, different port
   const host = loc.hostname;
-  return `${proto}//${host}:8080/ws/terminal`;
+  const base = `${proto}//${host}:8080/ws/terminal`;
+  // Note: useTerminal's buildAuthUrl already appends the JWT from localStorage.
+  // The token parameter allows callers to supply an explicit token when needed.
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 
 const HEIGHT_STORAGE_KEY = "bmt_editor_terminal_height";

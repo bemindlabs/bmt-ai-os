@@ -17,7 +17,7 @@ export interface ProviderCatalogue {
   loadingProviders: boolean;
   loadingModels: boolean;
   loadingKeys: boolean;
-  /** Re-fetch providers, models, and key status. */
+  /** Re-fetch the provider list (models and keys auto-refresh when providers change). */
   refresh: () => void;
   /** Mark a provider as keyed after a successful key save. */
   markKeyed: (providerName: string) => void;

@@ -123,7 +123,6 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
-                    tabIndex={-1}
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }

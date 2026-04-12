@@ -260,7 +260,8 @@ export function ProviderAuthConfig({
         oauthClientId || undefined,
         oauthClientSecret || undefined,
       );
-      // Store provider in sessionStorage for the callback page
+      // Store provider + CSRF state nonce in sessionStorage for callback verification
+      // (state is a non-secret CSRF token, not credentials — standard OAuth 2.0 practice)
       sessionStorage.setItem("bmt_oauth_provider", providerName);
       sessionStorage.setItem("bmt_oauth_state", result.state);
       // Redirect to the OAuth provider
