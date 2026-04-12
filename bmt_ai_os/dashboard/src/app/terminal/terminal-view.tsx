@@ -65,9 +65,14 @@ export function TerminalView() {
     return () => { dispose(); };
   }, [dispose]);
 
-  // Pre-select SSH mode when host is in URL
+  // Pre-select SSH mode when host is in URL, auto-connect local on mount
   useEffect(() => {
-    if (searchParams.get("host")) setMode("ssh");
+    if (searchParams.get("host")) {
+      setMode("ssh");
+    } else {
+      // Auto-connect local terminal on mount for seamless experience
+      void connect();
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentional: run once on mount
 
   const handleConnect = useCallback(() => {

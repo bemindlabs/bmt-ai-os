@@ -227,6 +227,27 @@ export function useTerminal({
   }, [wsUrl, initTerm, onConnect, onDisconnect, onError, cleanupSubscriptions, attachResize, buildAuthUrl]);
 
   // ------------------------------------------------------------------
+  // SSH password prompt helper
+  // ------------------------------------------------------------------
+  const promptPassword = useCallback(
+    (term: Terminal, ws: WebSocket): IDisposable => {
+      term.write("\r\nPassword: ");
+      let buf = "";
+      return term.onData((key) => {
+        if (key === "\r" || key === "\n") {
+          term.writeln("");
+          ws.send(buf);
+        } else if (key === "\x7f" || key === "\b") {
+          if (buf.length > 0) buf = buf.slice(0, -1);
+        } else if (key.charCodeAt(0) >= 32) {
+          buf += key;
+        }
+      });
+    },
+    [],
+  );
+
+  // ------------------------------------------------------------------
   // Connect to SSH WebSocket terminal
   // ------------------------------------------------------------------
   const connectSsh = useCallback(
@@ -238,10 +259,8 @@ export function useTerminal({
       const fitAddon = fitRef.current;
       if (!ready || !term || !fitAddon) return;
 
-      // Clean up old subscriptions before reconnecting
       cleanupSubscriptions();
       wsRef.current?.close();
-
       term.clear();
 
       if (!host.trim()) {
@@ -258,7 +277,6 @@ export function useTerminal({
       url.searchParams.set("port", String(port));
       url.searchParams.set("username", username);
       url.searchParams.set("auth", authMethod);
-      // Add JWT token
       const token = typeof window !== "undefined" ? localStorage.getItem("bmt_auth_token") : null;
       if (token) url.searchParams.set("token", token);
 
@@ -270,6 +288,7 @@ export function useTerminal({
       let pwSub: IDisposable | null = null;
 
       ws.onmessage = (event) => {
+        // Try to parse control messages (JSON)
         if (typeof event.data === "string") {
           try {
             const ctrl = JSON.parse(event.data) as Record<string, unknown>;
@@ -279,47 +298,26 @@ export function useTerminal({
               if (password) {
                 ws.send(password);
               } else {
-                term.write("\r\nPassword: ");
-                let pwBuf = "";
-                pwSub = term.onData((key) => {
-                  if (key === "\r" || key === "\n") {
-                    pwSub?.dispose();
-                    pwSub = null;
-                    term.writeln("");
-                    ws.send(pwBuf);
-                  } else if (key === "\x7f" || key === "\b") {
-                    if (pwBuf.length > 0) pwBuf = pwBuf.slice(0, -1);
-                  } else if (key.charCodeAt(0) >= 32) {
-                    pwBuf += key;
-                  }
-                });
+                pwSub?.dispose();
+                pwSub = promptPassword(term, ws);
               }
               return;
             }
-
             if (type === "connected") {
               handshakeDone = true;
               setStatus("connected");
               onConnect?.();
               const dims = fitAddon.proposeDimensions();
-              if (dims) {
-                ws.send(JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }));
-              }
-
-              // Attach terminal data handler after handshake
+              if (dims) ws.send(JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }));
               dataSubRef.current = term.onData((data) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(new TextEncoder().encode(data));
-                }
+                if (ws.readyState === WebSocket.OPEN) ws.send(new TextEncoder().encode(data));
               });
               return;
             }
-
             if (type === "error") {
               setStatus("error");
-              const msg = `SSH error: ${ctrl["message"] ?? "unknown"}`;
-              term.writeln(`\r\n\x1b[31m${msg}\x1b[0m`);
-              onError?.(msg);
+              term.writeln(`\r\n\x1b[31mSSH error: ${ctrl["message"] ?? "unknown"}\x1b[0m`);
+              onError?.(`SSH error: ${ctrl["message"] ?? "unknown"}`);
               return;
             }
           } catch {
@@ -342,23 +340,17 @@ export function useTerminal({
       };
 
       ws.onclose = () => {
-        // Clean up password subscription if still active
         pwSub?.dispose();
         pwSub = null;
-
-        if (!handshakeDone) {
-          setStatus("error");
-        } else {
-          setStatus("disconnected");
-          onDisconnect?.();
-        }
+        setStatus(handshakeDone ? "disconnected" : "error");
+        if (handshakeDone) onDisconnect?.();
         term.writeln("\r\n\x1b[33mSSH session closed.\x1b[0m");
         cleanupSubscriptions();
       };
 
       attachResize(term, fitAddon, ws);
     },
-    [wsUrl, initTerm, onConnect, onDisconnect, onError, cleanupSubscriptions, attachResize],
+    [wsUrl, initTerm, onConnect, onDisconnect, onError, cleanupSubscriptions, attachResize, promptPassword],
   );
 
   // ------------------------------------------------------------------
