@@ -51,7 +51,7 @@ COPY --from=builder /install /usr/local
 
 # Minimal runtime deps
 RUN apk upgrade --no-cache \
-    && apk add --no-cache curl libffi openssl docker-cli docker-cli-compose \
+    && apk add --no-cache bash curl libffi openssl docker-cli docker-cli-compose \
     && adduser -D -s /bin/false bmt
 
 WORKDIR /app
