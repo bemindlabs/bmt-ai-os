@@ -3,7 +3,7 @@
   <p align="center">
     An open-source, AI-first operating system for ARM64
     <br />
-    <a href="VISION.md"><strong>Vision</strong></a> · <a href="ROADMAP.md"><strong>Roadmap</strong></a> · <a href="CONTRIBUTING.md"><strong>Contributing</strong></a> · <a href="CHANGELOG.md"><strong>Changelog</strong></a>
+    <a href="https://bemindlabs.github.io/bmt-ai-os/"><strong>Documentation</strong></a> · <a href="VISION.md"><strong>Vision</strong></a> · <a href="ROADMAP.md"><strong>Roadmap</strong></a> · <a href="CONTRIBUTING.md"><strong>Contributing</strong></a> · <a href="https://github.com/bemindlabs/bmt-ai-os/wiki"><strong>Wiki</strong></a>
   </p>
 </p>
 
