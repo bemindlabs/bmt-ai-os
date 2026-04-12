@@ -468,7 +468,63 @@
         "BMTOS-155",
         "BMTOS-156"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-22",
+      "title": "Raspberry Pi 5 Bootable OS Image",
+      "description": "Produce a flashable SD card image for Raspberry Pi 5 + AI HAT+ 2 (Hailo-10H). Genimage partition layout, RPi firmware staging, boot config (config.txt/cmdline.txt with PCIe Gen3), first-boot auto-setup, flash tooling, and end-to-end validation.",
+      "status": "completed",
+      "priority": "critical",
+      "total_points": 47,
+      "stories": [
+        "BMTOS-157",
+        "BMTOS-158",
+        "BMTOS-159",
+        "BMTOS-160",
+        "BMTOS-161",
+        "BMTOS-162",
+        "BMTOS-163",
+        "BMTOS-164",
+        "BMTOS-165"
+      ],
+      "acceptance_criteria": [
+        "scripts/build.sh --target pi5 produces a flashable .img file",
+        "Image boots to login prompt on Pi 5 with AI HAT+ 2 connected",
+        "Hailo-10H NPU detected and /dev/hailo0 accessible after first boot",
+        "Ollama starts automatically and serves 1.5B model inference",
+        "Dashboard accessible at :9090 from browser on the same network",
+        "Full boot-to-AI time under 90 seconds on Pi 5 with NVMe",
+        "Image size under 4GB (fits on 8GB SD card with room for models)"
+      ],
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-EPIC-23",
+      "title": "AI DLC — Tool Image Pre-config & Custom OS Builder",
+      "description": "Downloadable content system for BMT AI OS: define selectable AI tool packages (coding CLIs, agents, inference engines), combine with hardware target selection, and build custom OS images. Interactive TUI wizard and Dashboard UI for hardware + tool selection, build profile management, and image generation.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 47,
+      "stories": [
+        "BMTOS-166",
+        "BMTOS-167",
+        "BMTOS-168",
+        "BMTOS-169",
+        "BMTOS-170",
+        "BMTOS-171",
+        "BMTOS-172"
+      ],
+      "acceptance_criteria": [
+        "Tool packages defined in YAML registry with ARM64 compat, size, and deps",
+        "Build profiles combine hardware target + tool selections + device tier",
+        "TUI wizard: select hardware, pick tools, choose tier, trigger build",
+        "Dashboard /image-builder page: visual hardware cards, tool checklist, build trigger",
+        "Controller API: list targets, list packages, CRUD profiles, trigger build",
+        "scripts/build.sh --profile <path> consumes profile JSON to build custom image",
+        "Pre-configured presets: minimal (inference only), developer (coding tools), full (everything)"
+      ],
+      "created_at": "2026-04-12"
     }
   ],
-  "next_id": 18
+  "next_id": 24
 }

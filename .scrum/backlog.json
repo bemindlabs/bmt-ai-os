@@ -3536,7 +3536,190 @@
         "git"
       ],
       "epic": "BMTOS-EPIC-21"
+    },
+    {
+      "id": "BMTOS-157",
+      "title": "Genimage partition layout for Pi 5 SD card",
+      "description": "Create genimage configuration that produces a partitioned .img file: FAT32 boot partition (firmware, kernel, DTBs, config.txt, cmdline.txt) + ext4 rootfs partition. Integrate into scripts/build.sh --target pi5 so the pipeline outputs a ready-to-flash image.",
+      "type": "story",
+      "points": 8,
+      "priority": "critical",
+      "status": "done",
+      "labels": ["pi5", "build", "image"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-158",
+      "title": "RPi 5 firmware and bootloader staging",
+      "description": "Stage official Raspberry Pi 5 firmware files (start4.elf, fixup4.dat, bcm2712 DTBs) into the boot partition. Download from raspberrypi/firmware repo or bundle in buildroot-external. Ensure EEPROM-compatible boot flow (no U-Boot needed for Pi 5).",
+      "type": "story",
+      "points": 5,
+      "priority": "critical",
+      "status": "done",
+      "labels": ["pi5", "firmware", "boot"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-159",
+      "title": "Pi 5 boot config (config.txt, cmdline.txt) with PCIe Gen3",
+      "description": "Create config.txt with: arm_64bit=1, dtoverlay=hailo-8l (AI HAT+), dtparam=pciex1_gen=3 (PCIe Gen3 for Hailo), gpu_mem=256, enable_uart=1. Create cmdline.txt with root partition UUID, console=ttyAMA10, rootwait. Template variables for customization.",
+      "type": "story",
+      "points": 3,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "boot", "config"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-160",
+      "title": "Device tree overlays for AI HAT+ 2 (Hailo-10H)",
+      "description": "Add or bundle device tree overlays for the AI HAT+ 2 board: hailo-8l.dtbo for PCIe detection, fan control overlay, GPIO pinout. Place in boot partition /overlays/. Verify DT overlay loading with dtoverlay= in config.txt.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "device-tree", "hailo"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-161",
+      "title": "First-boot auto-setup OpenRC hook",
+      "description": "Create OpenRC init script (S90firstboot) that runs once on first boot: detect hardware (BCM2712), run pi5-hailo setup.sh (install HailoRT, create hailo group, udev rules), pull default lite model via Ollama, generate SSH host keys, resize rootfs to fill SD card, disable itself after completion.",
+      "type": "story",
+      "points": 8,
+      "priority": "critical",
+      "status": "done",
+      "labels": ["pi5", "init", "firstboot"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-162",
+      "title": "Lite AI stack auto-start for Pi 5 (8GB)",
+      "description": "Configure the AI stack to auto-start with the lite profile on Pi 5: Ollama constrained to 2 CPU / 4GB RAM / 1 model max, ChromaDB with reduced workers. OpenRC service dependencies: network → containerd → ai-stack → controller → dashboard. Validate total memory usage stays under 6GB to leave headroom.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "ai-stack", "lite"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-163",
+      "title": "SD card flash tooling and documentation",
+      "description": "Create scripts/flash-pi5.sh wrapper around dd/bmaptool for safe SD card flashing with progress bar. Write docs/hardware/pi5-image-flash.md with: prerequisites, download link, flash steps (Linux/macOS/Windows via Raspberry Pi Imager), first-boot walkthrough, WiFi/SSH setup, troubleshooting.",
+      "type": "story",
+      "points": 3,
+      "priority": "medium",
+      "status": "done",
+      "labels": ["pi5", "tooling", "docs"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-164",
+      "title": "QEMU Pi 5 image validation in CI",
+      "description": "Add CI job that boots the Pi 5 image in QEMU (aarch64 virt machine with BCM2712 approximation), validates: kernel boots, init completes, containerd starts, controller healthcheck passes, dashboard responds on :9090. Timeout 120s. Add to .github/workflows/ci.yml.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "done",
+      "labels": ["pi5", "ci", "testing"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-165",
+      "title": "Pi 5 image size optimization and compression",
+      "description": "Optimize image size: strip debug symbols, remove unused kernel modules, compress rootfs with zstd, generate bmap for sparse flashing. Target: raw image <4GB, compressed <1.5GB. Add image size check to CI (fail if >4GB).",
+      "type": "story",
+      "points": 5,
+      "priority": "medium",
+      "status": "done",
+      "labels": ["pi5", "optimization", "image"],
+      "epic": "BMTOS-EPIC-22"
+    },
+    {
+      "id": "BMTOS-166",
+      "title": "Create DLC tool package registry (YAML)",
+      "description": "Define bmt_ai_os/dlc/packages.yml with all selectable AI tool packages. Each entry: id, name, description, category (coding-cli/agent/ide-plugin/inference/utility), size_mb, arm64_compatible, dependencies, buildroot_packages list, container_images list.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "in_progress",
+      "labels": ["dlc", "config"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-167",
+      "title": "Implement image profile config and preset system",
+      "description": "Create bmt_ai_os/dlc/profiles.py for build profiles combining hardware target, selected tool packages, device tier, and custom options. Include presets: minimal, developer, full. Profiles saved as JSON.",
+      "type": "story",
+      "points": 5,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "config"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-168",
+      "title": "Add controller API routes for image builder",
+      "description": "Add bmt_ai_os/controller/image_routes.py: GET /api/image/targets, GET /api/image/packages, GET/POST /api/image/profiles, POST /api/image/build, GET /api/image/builds/:id.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "api"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-169",
+      "title": "Add TUI hardware selector and tool picker wizard",
+      "description": "Add CLI commands: bmt-ai-os image configure (interactive TUI), bmt-ai-os image build, bmt-ai-os image list-packages. Use rich library for TUI rendering.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "cli", "tui"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-170",
+      "title": "Extend build.sh to accept DLC build profile",
+      "description": "Add --profile flag to scripts/build.sh that reads a build manifest JSON and includes selected tool packages in the Buildroot config.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "build"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-171",
+      "title": "Add Dashboard image builder page with hardware selector",
+      "description": "Create /image-builder page: hardware target cards, tool package checklist, device tier dropdown, profile save/load, build trigger with progress stream. Add to sidebar nav.",
+      "type": "story",
+      "points": 8,
+      "priority": "high",
+      "status": "backlog",
+      "labels": ["dlc", "dashboard", "ui"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
+    },
+    {
+      "id": "BMTOS-172",
+      "title": "Add DLC build profile validation and dependency resolution",
+      "description": "Validate tool package compatibility with selected hardware. Resolve dependencies automatically. Warn on size constraints. Estimate final image size.",
+      "type": "story",
+      "points": 5,
+      "priority": "medium",
+      "status": "backlog",
+      "labels": ["dlc", "validation"],
+      "epic": "BMTOS-EPIC-23",
+      "created_at": "2026-04-12"
     }
   ],
-  "next_id": 136
+  "next_id": 173
 }
