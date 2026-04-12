@@ -5,6 +5,8 @@ Tests cover:
 - Round-robin least-used selection
 - Cooldown behaviour on rate-limit errors
 - Key masking / public representation
+- Credential types (api_key, oauth, token)
+- OAuth endpoints (start, callback, status)
 - FastAPI endpoints via TestClient
 """
 
@@ -374,3 +376,349 @@ class TestEndpoints:
             assert "sk-groq-2" not in body_str
         finally:
             mod._default_store = original
+
+
+# ---------------------------------------------------------------------------
+# Credential types
+# ---------------------------------------------------------------------------
+
+
+class TestCredentialTypes:
+    def test_credential_type_enum_values(self):
+        from bmt_ai_os.controller.provider_config_routes import CredentialType
+
+        assert CredentialType.API_KEY.value == "api_key"
+        assert CredentialType.OAUTH.value == "oauth"
+        assert CredentialType.TOKEN.value == "token"
+
+    def test_add_key_with_token_type(self, tmp_path):
+        store = make_store(tmp_path)
+        key = store.add_key(
+            "vllm",
+            "bearer-tok-123",
+            credential_type="token",
+        )
+        assert key.credential_type == "token"
+        pub = key.to_public_dict()
+        assert pub["credential_type"] == "token"
+
+    def test_add_key_with_oauth_type_and_expiry(self, tmp_path):
+        store = make_store(tmp_path)
+        expires = time.time() + 3600
+        key = store.add_key(
+            "gemini",
+            "ya29.access-token-xyz",
+            credential_type="oauth",
+            display_name="OAuth (user@gmail.com)",
+            expires_at=expires,
+            refresh_token="1//refresh-tok",
+        )
+        assert key.credential_type == "oauth"
+        assert key.display_name == "OAuth (user@gmail.com)"
+        assert key.expires_at == expires
+        assert key.is_expired() is False
+
+        pub = key.to_public_dict()
+        assert pub["credential_type"] == "oauth"
+        assert pub["display_name"] == "OAuth (user@gmail.com)"
+        assert pub["expires_at"] == expires
+        assert pub["status"] == "active"
+
+    def test_expired_oauth_token_status(self, tmp_path):
+        store = make_store(tmp_path)
+        past = time.time() - 100
+        key = store.add_key(
+            "gemini",
+            "ya29.expired-token",
+            credential_type="oauth",
+            expires_at=past,
+        )
+        assert key.is_expired() is True
+        pub = key.to_public_dict()
+        assert pub["status"] == "expired"
+
+    def test_pick_skips_expired_keys(self, tmp_path):
+        store = make_store(tmp_path)
+        store.add_key(
+            "gemini",
+            "ya29.expired",
+            credential_type="oauth",
+            expires_at=time.time() - 100,
+        )
+        k2 = store.add_key("gemini", "AIza-valid-key")
+        picked = store.pick_key("gemini")
+        assert picked is not None
+        assert picked.id == k2.id
+
+    def test_default_credential_type_is_api_key(self, tmp_path):
+        store = make_store(tmp_path)
+        key = store.add_key("openai", "sk-default-type")
+        assert key.credential_type == "api_key"
+
+    def test_update_oauth_tokens(self, tmp_path):
+        store = make_store(tmp_path)
+        key = store.add_key(
+            "gemini",
+            "ya29.original",
+            credential_type="oauth",
+            expires_at=time.time() + 100,
+            refresh_token="1//original-refresh",
+        )
+        new_expires = time.time() + 7200
+        store.update_oauth_tokens(
+            key.id,
+            "ya29.refreshed",
+            "1//new-refresh",
+            new_expires,
+        )
+        updated = store.get_key(key.id)
+        assert updated is not None
+        assert _decrypt(updated.encrypted_key) == "ya29.refreshed"
+        assert updated.expires_at == new_expires
+
+
+# ---------------------------------------------------------------------------
+# Credential type endpoint tests
+# ---------------------------------------------------------------------------
+
+
+class TestCredentialTypeEndpoints:
+    def test_add_token_credential(self, tmp_path):
+        import bmt_ai_os.controller.provider_config_routes as mod
+
+        original = mod._default_store
+        mod._default_store = ProviderKeyStore(
+            db_path=str(tmp_path / "token.db"),
+        )
+        try:
+            resp = client.post(
+                "/api/v1/providers/config/vllm/keys",
+                json={
+                    "api_key": "bearer-test-token",
+                    "credential_type": "token",
+                    "display_name": "Dev token",
+                },
+            )
+            assert resp.status_code == 201
+            body = resp.json()
+            assert body["key"]["credential_type"] == "token"
+        finally:
+            mod._default_store = original
+
+    def test_add_invalid_credential_type_rejected(self, tmp_path):
+        import bmt_ai_os.controller.provider_config_routes as mod
+
+        original = mod._default_store
+        mod._default_store = ProviderKeyStore(
+            db_path=str(tmp_path / "invalid.db"),
+        )
+        try:
+            resp = client.post(
+                "/api/v1/providers/config/openai/keys",
+                json={
+                    "api_key": "sk-test",
+                    "credential_type": "bad_type",
+                },
+            )
+            assert resp.status_code == 422
+        finally:
+            mod._default_store = original
+
+    def test_list_keys_shows_credential_type(self, tmp_path):
+        import bmt_ai_os.controller.provider_config_routes as mod
+
+        original = mod._default_store
+        store = ProviderKeyStore(
+            db_path=str(tmp_path / "list_types.db"),
+        )
+        mod._default_store = store
+        try:
+            store.add_key("openai", "sk-key-1")
+            store.add_key(
+                "openai",
+                "tok-bearer",
+                credential_type="token",
+            )
+            resp = client.get("/api/v1/providers/config/openai/keys")
+            body = resp.json()
+            assert body["total"] == 2
+            types = {k["credential_type"] for k in body["keys"]}
+            assert types == {"api_key", "token"}
+        finally:
+            mod._default_store = original
+
+
+# ---------------------------------------------------------------------------
+# OAuth endpoint tests
+# ---------------------------------------------------------------------------
+
+
+class TestOAuthEndpoints:
+    def test_oauth_status_unsupported_provider(self, tmp_path):
+        import bmt_ai_os.controller.provider_config_routes as mod
+
+        original = mod._default_store
+        mod._default_store = ProviderKeyStore(
+            db_path=str(tmp_path / "oauth_unsup.db"),
+        )
+        try:
+            resp = client.get(
+                "/api/v1/providers/config/anthropic/oauth/status",
+            )
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["oauth_supported"] is False
+        finally:
+            mod._default_store = original
+
+    def test_oauth_status_supported_provider(self, tmp_path):
+        import bmt_ai_os.controller.provider_config_routes as mod
+
+        original = mod._default_store
+        mod._default_store = ProviderKeyStore(
+            db_path=str(tmp_path / "oauth_status.db"),
+        )
+        try:
+            resp = client.get(
+                "/api/v1/providers/config/gemini/oauth/status",
+            )
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["oauth_supported"] is True
+            assert body["oauth_configured"] is False
+            assert body["oauth_valid"] is False
+        finally:
+            mod._default_store = original
+
+    def test_oauth_start_unsupported_provider(self):
+        resp = client.post(
+            "/api/v1/providers/config/anthropic/oauth/start",
+            json={
+                "redirect_uri": "http://localhost:9090/oauth/callback",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_oauth_start_missing_client_id(self, monkeypatch):
+        monkeypatch.delenv("GOOGLE_OAUTH_CLIENT_ID", raising=False)
+        resp = client.post(
+            "/api/v1/providers/config/gemini/oauth/start",
+            json={
+                "redirect_uri": "http://localhost:9090/oauth/callback",
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_oauth_start_with_client_id(self, monkeypatch):
+        monkeypatch.delenv("GOOGLE_OAUTH_CLIENT_ID", raising=False)
+        resp = client.post(
+            "/api/v1/providers/config/gemini/oauth/start",
+            json={
+                "redirect_uri": "http://localhost:9090/oauth/callback",
+                "client_id": "test-client-id.apps.googleusercontent.com",
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "auth_url" in body
+        assert "state" in body
+        assert "test-client-id" in body["auth_url"]
+        assert "code_challenge" in body["auth_url"]
+
+    def test_oauth_callback_invalid_state(self):
+        resp = client.post(
+            "/api/v1/providers/config/gemini/oauth/callback",
+            json={
+                "code": "fake-code",
+                "state": "nonexistent-state",
+            },
+        )
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# PKCE helpers
+# ---------------------------------------------------------------------------
+
+
+class TestPKCE:
+    def test_pkce_pair_generation(self):
+        from bmt_ai_os.controller.provider_config_routes import (
+            _generate_pkce_pair,
+        )
+
+        verifier, challenge = _generate_pkce_pair()
+        assert len(verifier) > 20
+        assert len(challenge) > 20
+        assert verifier != challenge
+
+    def test_pkce_pairs_are_unique(self):
+        from bmt_ai_os.controller.provider_config_routes import (
+            _generate_pkce_pair,
+        )
+
+        pair1 = _generate_pkce_pair()
+        pair2 = _generate_pkce_pair()
+        assert pair1[0] != pair2[0]
+        assert pair1[1] != pair2[1]
+
+    def test_oauth_providers_metadata(self):
+        from bmt_ai_os.controller.provider_config_routes import (
+            OAUTH_PROVIDERS,
+        )
+
+        assert "gemini" in OAUTH_PROVIDERS
+        assert "openai" in OAUTH_PROVIDERS
+        assert "google" in OAUTH_PROVIDERS
+        assert "anthropic" not in OAUTH_PROVIDERS
+
+        gemini = OAUTH_PROVIDERS["gemini"]
+        assert gemini.supports_pkce is True
+        assert "googleapis.com" in gemini.token_url
+
+
+# ---------------------------------------------------------------------------
+# Schema migration
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaMigration:
+    def test_legacy_db_gets_new_columns(self, tmp_path):
+        """Simulate a pre-OAuth database and verify migration."""
+        import sqlite3
+
+        db_path = str(tmp_path / "legacy.db")
+        con = sqlite3.connect(db_path)
+        con.execute(
+            """
+            CREATE TABLE provider_keys (
+                id TEXT PRIMARY KEY,
+                provider_name TEXT NOT NULL,
+                key_hash TEXT NOT NULL,
+                encrypted_key TEXT NOT NULL,
+                usage_count INTEGER NOT NULL DEFAULT 0,
+                last_used REAL,
+                last_error TEXT,
+                cooldown_until REAL,
+                created_at REAL NOT NULL
+            )
+            """
+        )
+        con.execute(
+            "CREATE UNIQUE INDEX uq_provider_key_hash ON provider_keys(provider_name, key_hash)",
+        )
+        con.execute(
+            "INSERT INTO provider_keys"
+            " (id, provider_name, key_hash, encrypted_key, created_at)"
+            " VALUES ('old-1', 'openai', 'hash1', 'enc1', 1000)",
+        )
+        con.commit()
+        con.close()
+
+        # Open with the new store — migration should run
+        store = ProviderKeyStore(db_path=db_path)
+        keys = store.list_keys("openai")
+        assert len(keys) == 1
+        assert keys[0].credential_type == "api_key"
+        assert keys[0].display_name == ""
+        assert keys[0].expires_at is None
