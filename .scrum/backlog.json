@@ -3112,6 +3112,273 @@
       ],
       "epic_id": "BMTOS-EPIC-17",
       "created_at": "2026-04-11"
+    },
+    {
+      "id": "BMTOS-136",
+      "title": "Per-persona workspace directories and RAG collections",
+      "description": "Each persona (coding, general, creative, custom) gets its own workspace directory under workspace/agents/<persona_name>/ with subdirs for notes/, files/, and SOUL.md. Backend: extend persona_routes to return workspace path, auto-create dirs on persona switch, scope RAG ingest/query to persona collection. Directory structure: workspace/agents/coding/, workspace/agents/general/, workspace/agents/creative/, etc.",
+      "type": "story",
+      "priority": "critical",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "backend",
+        "persona",
+        "rag"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "GET /api/v1/persona/presets returns workspace_path per persona",
+        "workspace/agents/<name>/ auto-created with SOUL.md, notes/, files/ subdirs",
+        "RAG ingest scopes to persona-named ChromaDB collection",
+        "RAG query accepts collection param to scope results",
+        "Switching persona updates active workspace path in session",
+        "Tests: unit test for workspace creation and collection scoping"
+      ]
+    },
+    {
+      "id": "BMTOS-137",
+      "title": "Obsidian-compatible markdown parser (wiki-links, frontmatter, tags)",
+      "description": "Add markdown processing that understands Obsidian format: parse [[wiki-links]] into navigable links, extract YAML frontmatter metadata, support #tags inline, handle ![[embeds]] for images/notes. Backend: new chunker strategy for Obsidian vault files that preserves link graph. Frontend: render wiki-links as clickable navigation.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "frontend",
+        "markdown"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "[[wiki-link]] syntax parsed into navigable links in rendered markdown",
+        "YAML frontmatter extracted and displayed as metadata",
+        "#tag syntax extracted and displayed as badges",
+        "![[embed]] syntax renders referenced note/image inline",
+        "RAG chunker preserves wiki-link references in chunk metadata",
+        "Tests: parser correctly handles nested links, missing targets, edge cases"
+      ]
+    },
+    {
+      "id": "BMTOS-138",
+      "title": "Persona-scoped Knowledge & Files tab in dashboard",
+      "description": "Update the Knowledge page to show files/collections filtered by active persona. Add persona selector dropdown. File browser defaults to persona workspace. RAG search scopes to persona collection. Collections tab shows only persona collections.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "dashboard"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Knowledge page shows active persona name in header",
+        "Persona selector dropdown switches workspace and collection",
+        "Files tab defaults to workspace/agents/<active>/files/",
+        "Collections tab shows only active persona collection",
+        "Search tab scopes queries to active persona collection",
+        "Switching persona refreshes all tabs"
+      ]
+    },
+    {
+      "id": "BMTOS-139",
+      "title": "Obsidian vault note editor with live preview",
+      "description": "Add a markdown note editor to the Knowledge page that supports Obsidian features: split view (edit + preview), wiki-link autocomplete from vault files, frontmatter form, tag input, backlinks panel showing which notes link to current note.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Split view: markdown source (left) and rendered preview (right)",
+        "Wiki-link autocomplete suggests existing vault files on [[ trigger",
+        "Frontmatter form editor for title, tags, date fields",
+        "Backlinks panel shows list of notes that link to current note",
+        "New note button creates file in workspace/agents/<name>/notes/",
+        "Ctrl+S saves and auto-ingests into persona RAG collection"
+      ]
+    },
+    {
+      "id": "BMTOS-140",
+      "title": "Auto-ingest persona vault into RAG on file changes",
+      "description": "When files are created/edited/deleted in a persona workspace, automatically re-ingest affected files into the persona RAG collection. Backend: file watcher or post-write hook in file_routes that triggers ingest for the owning persona. Debounce to avoid excessive re-indexing.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "backend",
+        "rag"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "File write/create in persona workspace triggers re-ingest of that file",
+        "File delete removes corresponding chunks from persona collection",
+        "Debounce: max 1 ingest per file per 5 seconds",
+        "Ingest runs async (does not block file save response)",
+        "Logs ingest activity with file path and chunk count"
+      ]
+    },
+    {
+      "id": "BMTOS-141",
+      "title": "Chat RAG context auto-scoped to active persona",
+      "description": "When chatting, the RAG query automatically uses the active persona collection instead of default. System prompt includes persona SOUL.md + relevant vault context. If no persona-specific results, fall back to default collection.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "backend",
+        "chat",
+        "rag"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Chat completion auto-queries active persona RAG collection",
+        "System prompt includes active persona SOUL.md content",
+        "RAG results from persona collection injected as context",
+        "Falls back to shared/ collection if persona collection has no results",
+        "No persona active: uses default collection as before"
+      ]
+    },
+    {
+      "id": "BMTOS-142",
+      "title": "Vault graph view and backlinks panel",
+      "description": "Build a simple graph visualization showing connections between notes via wiki-links (like Obsidian graph view). Display as an interactive canvas with nodes (notes) and edges (links). Add a backlinks panel in the note editor showing incoming links. Use a lightweight graph library or CSS/SVG-based rendering.",
+      "type": "story",
+      "priority": "low",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "visualization"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "Graph canvas renders notes as nodes, wiki-links as edges",
+        "Nodes are clickable to navigate to note",
+        "Graph auto-layouts with force-directed algorithm",
+        "Backlinks panel in note editor shows incoming link count + list",
+        "Graph filters: by tag, by date range, by connection depth",
+        "Works with 100+ notes without lag"
+      ]
+    },
+    {
+      "id": "BMTOS-143",
+      "title": "Embedded terminal panel in Code Editor (bottom split)",
+      "description": "Add a resizable terminal panel at the bottom of the Code Editor page, like VS Code. Toggle with a button or Ctrl+`. Uses the existing useTerminal hook and WebSocket /ws/terminal endpoint. Panel is collapsible with drag handle. Shares the editor flex layout: FileTree (left) | Editor+Terminal (right, vertical split).",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor",
+        "terminal"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Terminal panel visible at bottom of Code Editor page",
+        "Toggle with Ctrl+backtick keyboard shortcut",
+        "Uses existing useTerminal hook and /ws/terminal WebSocket",
+        "Shares flex layout with editor: vertical split",
+        "Terminal panel has its own status bar (connected/disconnected)",
+        "Panel hidden by default, toggle button in editor toolbar"
+      ]
+    },
+    {
+      "id": "BMTOS-144",
+      "title": "tmux session management via WebSocket",
+      "description": "Backend: modify terminal_ws.py to spawn tmux instead of plain /bin/sh. If tmux is available, run \"tmux new-session -A -s bmt\" so the session persists across reconnects. Add BMT_TERMINAL_CMD env var (default: auto-detect tmux, fallback to sh). Frontend: show session name in status bar, add \"New Tab\" button that creates tmux windows.",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "terminal",
+        "tmux"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Backend spawns tmux new-session -A -s bmt instead of plain sh",
+        "Falls back to /bin/sh if tmux not available",
+        "tmux session persists across WebSocket reconnects",
+        "BMT_TERMINAL_CMD env var overrides default command",
+        "Frontend shows session name in terminal status bar",
+        "Tests: unit test for tmux detection and fallback"
+      ]
+    },
+    {
+      "id": "BMTOS-145",
+      "title": "Terminal auto-connects on editor page load",
+      "description": "When the Code Editor page opens, automatically connect the embedded terminal to the local WebSocket (no click required). Reconnect on disconnect. Terminal starts in the current workspace directory (cd to workspace path). Show connection status dot in the terminal toolbar.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "terminal"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Terminal connects automatically when editor page loads",
+        "No click required to establish connection",
+        "Auto-reconnects on disconnect (max 3 attempts, exponential backoff)",
+        "Terminal starts in workspace directory (cd workspace)",
+        "Connection status dot visible in terminal toolbar"
+      ]
+    },
+    {
+      "id": "BMTOS-146",
+      "title": "Terminal panel resize with drag handle",
+      "description": "Add a draggable resize handle between editor and terminal panels. Persist panel height in localStorage. Double-click handle to toggle terminal open/closed. Minimum height 100px, maximum 60% of container.",
+      "type": "story",
+      "priority": "medium",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-19",
+      "acceptance_criteria": [
+        "Drag handle between editor and terminal panels",
+        "Drag to resize: min 100px, max 60% of container",
+        "Double-click handle toggles terminal open/closed",
+        "Panel height persisted in localStorage",
+        "Resize triggers xterm.js fit() to adjust columns/rows"
+      ]
+    },
+    {
+      "id": "BMTOS-147",
+      "title": "Workspace directory structure convention and auto-scaffold",
+      "description": "Define and auto-create the standard workspace layout on first boot or workspace init. Backend: GET /api/v1/settings/workspace returns the structure, POST /api/v1/workspace/init creates it. Directory convention:\n\nworkspace/\n\u251c\u2500\u2500 agents/                  # Per-persona isolated environments\n\u2502   \u251c\u2500\u2500 coding/\n\u2502   \u2502   \u251c\u2500\u2500 SOUL.md          # Persona definition\n\u2502   \u2502   \u251c\u2500\u2500 notes/           # Obsidian vault (markdown knowledge base)\n\u2502   \u2502   \u251c\u2500\u2500 files/           # Working files for this persona\n\u2502   \u2502   \u2514\u2500\u2500 .chroma/         # Persona-scoped vector collection name\n\u2502   \u251c\u2500\u2500 general/\n\u2502   \u2514\u2500\u2500 creative/\n\u251c\u2500\u2500 projects/                # User project directories\n\u2502   \u2514\u2500\u2500 <project-name>/     # Cloned repos, code projects\n\u251c\u2500\u2500 data/                    # Datasets, training data, exports\n\u2502   \u251c\u2500\u2500 datasets/            # Training datasets (JSONL, CSV, Parquet)\n\u2502   \u251c\u2500\u2500 models/              # Fine-tuned model exports (GGUF, LoRA adapters)\n\u2502   \u2514\u2500\u2500 exports/             # Benchmark reports, conversation exports\n\u251c\u2500\u2500 uploads/                 # File upload landing zone\n\u251c\u2500\u2500 shared/                  # Shared knowledge across all personas\n\u2502   \u251c\u2500\u2500 notes/               # Global Obsidian vault\n\u2502   \u2514\u2500\u2500 documents/           # Reference documents for RAG\n\u2514\u2500\u2500 .config/                 # Workspace config\n    \u251c\u2500\u2500 workspace.json       # Workspace metadata (created_at, version)\n    \u2514\u2500\u2500 preferences.json     # User preferences (theme, defaults)\n\nAuto-scaffold on first access. Dashboard Settings shows the layout. File browser and editor default to workspace root. Each persona auto-creates its subdirs on first switch.",
+      "type": "story",
+      "priority": "critical",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "backend",
+        "workspace",
+        "convention"
+      ],
+      "epic": "BMTOS-EPIC-18",
+      "acceptance_criteria": [
+        "GET /api/v1/workspace/structure returns full directory tree",
+        "POST /api/v1/workspace/init creates all standard directories",
+        "Auto-scaffold on first GET /api/v1/settings/workspace if dirs missing",
+        "Creates: agents/, projects/, data/{datasets,models,exports}, uploads/, shared/{notes,documents}, .config/",
+        "workspace.json created with version, created_at metadata",
+        "Settings page shows workspace layout with descriptions",
+        "Tests: unit test for scaffold idempotency"
+      ]
     }
   ],
   "next_id": 136

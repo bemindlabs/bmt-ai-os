@@ -51,10 +51,14 @@ def _has_system_message(messages: list[Any]) -> bool:
 async def _inject_persona(messages: list[Any]) -> list[Any]:
     """Prepend the assembled persona as a system message when none is present.
 
+    When a named persona is active (set via POST /api/v1/persona/activate/:name),
+    its SOUL.md is read directly from the persona workspace and used as the system
+    prompt.  If no persona is active the generic assembler is used instead.
+
     Returns *messages* unchanged when:
     - A system message is already present (client owns the system prompt).
     - Persona injection is disabled via ``BMT_PERSONA_ENABLED=0``.
-    - The assembler returns an empty string.
+    - The assembler / SOUL.md returns an empty string.
 
     Never raises — persona errors must not break the chat flow.
     """
@@ -65,10 +69,32 @@ async def _inject_persona(messages: list[Any]) -> list[Any]:
         return messages
 
     try:
-        from bmt_ai_os.persona.assembler import get_persona_assembler
+        from .persona_routes import _get_active_persona, _persona_workspace_path
 
-        assembler = get_persona_assembler()
-        system_content = assembler.assemble()
+        active_persona = _get_active_persona()
+        system_content: str = ""
+
+        if active_persona:
+            # Read SOUL.md from the active persona's workspace directory
+            soul_path = _persona_workspace_path(active_persona) / "SOUL.md"
+            if soul_path.is_file():
+                try:
+                    system_content = soul_path.read_text(encoding="utf-8").strip()
+                    logger.debug(
+                        "Active persona '%s' SOUL.md injected (%d chars)",
+                        active_persona,
+                        len(system_content),
+                    )
+                except OSError as exc:
+                    logger.warning("Failed to read persona SOUL.md (non-fatal): %s", exc)
+
+        if not system_content:
+            # Fall back to the generic persona assembler
+            from bmt_ai_os.persona.assembler import get_persona_assembler
+
+            assembler = get_persona_assembler()
+            system_content = assembler.assemble()
+
         if not system_content:
             return messages
 
@@ -101,6 +127,9 @@ async def _inject_rag_context(messages: list[Any]) -> list[Any]:
     """Prepend a RAG-retrieved context system message to *messages*.
 
     Queries ChromaDB using the last user message as the search query.
+    When a persona is active the query targets the persona-scoped collection
+    (``persona-<name>``); otherwise the ``"default"`` collection is used.
+
     Returns the original list unchanged when RAG is unavailable or returns
     no useful results, so the behaviour is always non-breaking.
 
@@ -132,9 +161,15 @@ async def _inject_rag_context(messages: list[Any]) -> list[Any]:
         from bmt_ai_os.rag.config import RAGConfig
         from bmt_ai_os.rag.storage import ChromaStorage
 
+        from .persona_routes import _get_active_persona, _persona_collection
+
+        # Use persona-scoped collection when a persona is active
+        active_persona = _get_active_persona()
+        collection_name = _persona_collection(active_persona) if active_persona else "default"
+
         config = RAGConfig()
         storage = ChromaStorage(config)
-        raw = storage.query("default", query_text, top_k=3)
+        raw = storage.query(collection_name, query_text, top_k=3)
 
         documents = (raw.get("documents") or [[]])[0]
         if not documents:

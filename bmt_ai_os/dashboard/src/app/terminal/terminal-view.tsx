@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useReducer, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { useTerminal } from "@/hooks/use-terminal";
 import { ConnectionStatus } from "@/components/terminal/connection-status";
@@ -17,7 +19,6 @@ import {
 
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
-/** Convert an HTTP(S) origin to a WS(S) URL with a given path. */
 function buildWsUrl(origin: string, path: string): string {
   const url = new URL(origin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -57,25 +58,15 @@ export function TerminalView() {
     wsUrl: LOCAL_WS_URL,
   });
 
-  // ------------------------------------------------------------------
-  // Lifecycle — init terminal on mount, clean up on unmount
-  // ------------------------------------------------------------------
   useEffect(() => {
-    return () => {
-      dispose();
-    };
+    return () => { dispose(); };
   }, [dispose]);
 
-  // Pre-select SSH mode when a host is passed via URL query params.
+  // Pre-select SSH mode when host is in URL
   useEffect(() => {
-    if (searchParams.get("host")) {
-      setMode("ssh");
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (searchParams.get("host")) setMode("ssh");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentional: run once on mount
 
-  // ------------------------------------------------------------------
-  // Connect handler
-  // ------------------------------------------------------------------
   const handleConnect = useCallback(() => {
     if (mode === "local") {
       void connect();
@@ -89,9 +80,12 @@ export function TerminalView() {
     }
   }, [mode, connect, connectSsh, sshState]);
 
-  // ------------------------------------------------------------------
-  // Render
-  // ------------------------------------------------------------------
+  const handleReconnect = useCallback(() => {
+    disconnect();
+    // Small delay to let cleanup finish
+    setTimeout(() => handleConnect(), 100);
+  }, [disconnect, handleConnect]);
+
   return (
     <div className="flex h-full flex-col">
       <TerminalConnectionForm
@@ -106,6 +100,17 @@ export function TerminalView() {
 
       <div className="flex items-center border-b border-border bg-muted/10 px-3 py-1">
         <ConnectionStatus status={status} />
+        {(status === "error" || status === "disconnected") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReconnect}
+            className="ml-2 h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className="size-3" />
+            Reconnect
+          </Button>
+        )}
       </div>
 
       <div

@@ -14,7 +14,10 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass, field
-from typing import List
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    from bmt_ai_os.rag.obsidian import ObsidianNote
 
 
 @dataclass
@@ -313,6 +316,150 @@ class CodeChunker:
             source,
             extra_meta={"language": language or _guess_language(source)},
         )
+
+
+# ---------------------------------------------------------------------------
+# ObsidianChunker
+# ---------------------------------------------------------------------------
+
+
+class ObsidianChunker:
+    """Chunk Obsidian markdown notes by heading sections.
+
+    Unlike :class:`MarkdownChunker`, this chunker enriches every chunk's
+    :attr:`Chunk.metadata` with Obsidian-specific fields extracted by the
+    :mod:`bmt_ai_os.rag.obsidian` parser:
+
+    - ``source_file`` – absolute path of the originating ``.md`` file.
+    - ``section_heading`` – the markdown heading under which the chunk falls.
+    - ``wiki_links`` – comma-separated ``[[wiki-link]]`` targets found in
+      the note (not restricted to the chunk — note-level for context).
+    - ``tags`` – comma-separated ``#tag`` values from frontmatter + inline.
+    - ``title`` – note title (frontmatter ``title`` or file stem).
+
+    Chunking follows heading boundaries (``# / ## / ###``) exactly like
+    :class:`MarkdownChunker` but operates on a pre-parsed
+    :class:`~bmt_ai_os.rag.obsidian.ObsidianNote` object so that all
+    metadata is already available without re-parsing.
+    """
+
+    def __init__(self, chunk_size: int = 512, overlap: int = 50) -> None:
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+        self._md_chunker = MarkdownChunker(chunk_size, overlap)
+
+    def chunk_note(self, note: "ObsidianNote") -> List[Chunk]:  # type: ignore[name-defined]
+        """Chunk an already-parsed :class:`~bmt_ai_os.rag.obsidian.ObsidianNote`.
+
+        Args:
+            note: A parsed Obsidian note.
+
+        Returns:
+            List of :class:`Chunk` objects with Obsidian-enriched metadata.
+        """
+        # Use MarkdownChunker internals for heading-aware splitting
+        sections = MarkdownChunker._split_by_headings(note.content)
+        all_chunks: List[Chunk] = []
+
+        # Note-level metadata shared across every chunk
+        note_meta = {
+            "source_file": note.path,
+            "wiki_links": ",".join(note.wiki_links),
+            "tags": ",".join(note.tags),
+            "title": note.title,
+        }
+
+        for heading, body in sections:
+            section_text = f"{heading}\n{body}".strip() if heading else body.strip()
+            if not section_text:
+                continue
+
+            chunk_meta = dict(note_meta)
+            chunk_meta["section_heading"] = heading.strip() if heading else ""
+
+            if _token_len(section_text) <= self.chunk_size:
+                all_chunks.append(
+                    Chunk(
+                        text=section_text,
+                        source=note.path,
+                        chunk_index=len(all_chunks),
+                        start_char=0,
+                        end_char=len(section_text),
+                        metadata=chunk_meta,
+                    )
+                )
+            else:
+                sub = _merge_splits(
+                    MarkdownChunker._paragraph_split(body),
+                    self.chunk_size,
+                    self.overlap,
+                    note.path,
+                    extra_meta=chunk_meta,
+                )
+                for c in sub:
+                    c.chunk_index = len(all_chunks)
+                    if heading:
+                        c.text = f"{heading.strip()}\n{c.text}"
+                    all_chunks.append(c)
+
+        return all_chunks
+
+    def chunk(self, text: str, source: str = "") -> List[Chunk]:
+        """Chunk raw markdown text with Obsidian-aware metadata.
+
+        This is a convenience wrapper that parses the text as an Obsidian
+        note on-the-fly.  Prefer :meth:`chunk_note` when you already hold
+        an :class:`~bmt_ai_os.rag.obsidian.ObsidianNote`.
+
+        Args:
+            text: Raw markdown content.
+            source: Source file path (used for metadata and as a fallback title).
+
+        Returns:
+            List of :class:`Chunk` objects.
+        """
+        from pathlib import Path as _Path
+
+        from bmt_ai_os.rag.obsidian import (
+            _EMBED_RE,
+            _TAG_RE,
+            _WIKI_LINK_RE,
+            ObsidianNote,
+            _parse_frontmatter,
+            _strip_code_blocks,
+        )
+
+        frontmatter, body = _parse_frontmatter(text)
+        title: str = frontmatter.get("title") or _Path(source).stem or "untitled"
+
+        embeds: list[str] = list(dict.fromkeys(_EMBED_RE.findall(body)))
+        wiki_links: list[str] = list(dict.fromkeys(_WIKI_LINK_RE.findall(body)))
+
+        fm_tags: list[str] = []
+        raw_fm_tags = frontmatter.get("tags")
+        if isinstance(raw_fm_tags, list):
+            fm_tags = [str(t).lstrip("#") for t in raw_fm_tags]
+        elif isinstance(raw_fm_tags, str):
+            fm_tags = [t.lstrip("#") for t in raw_fm_tags.split()]
+
+        inline_tags: list[str] = _TAG_RE.findall(_strip_code_blocks(body))
+        seen: set[str] = set()
+        tags: list[str] = []
+        for tag in fm_tags + inline_tags:
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+
+        note = ObsidianNote(
+            path=source,
+            title=title,
+            content=body,
+            frontmatter=frontmatter,
+            wiki_links=wiki_links,
+            tags=tags,
+            embeds=embeds,
+        )
+        return self.chunk_note(note)
 
 
 def _guess_language(path: str) -> str:

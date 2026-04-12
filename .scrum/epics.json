@@ -393,6 +393,52 @@
         "BMTOS-134",
         "BMTOS-135"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-18",
+      "title": "Multi-Agent Persona Knowledge Vaults (Obsidian)",
+      "description": "Each AI agent persona gets its own knowledge base, file workspace under workspace/agents/<name>/, and Obsidian-compatible markdown vault with wiki-links, tags, and frontmatter support.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 39,
+      "stories": [
+        "BMTOS-136",
+        "BMTOS-137",
+        "BMTOS-138",
+        "BMTOS-139",
+        "BMTOS-140",
+        "BMTOS-141",
+        "BMTOS-142",
+        "BMTOS-147"
+      ],
+      "acceptance_criteria": [
+        "Each persona has an isolated workspace directory and RAG collection",
+        "Markdown files support Obsidian wiki-links ([[page]]) and frontmatter",
+        "Dashboard shows persona-scoped file browser and knowledge search",
+        "Chat automatically uses active persona knowledge for RAG context",
+        "Notes can be created/edited in Obsidian-compatible format"
+      ]
+    },
+    {
+      "id": "BMTOS-EPIC-19",
+      "title": "Integrated Editor Terminal (IDE Experience)",
+      "description": "Embed a terminal panel in the Code Editor with tmux session support, creating a VS Code-like IDE experience in the browser.",
+      "status": "completed",
+      "priority": "high",
+      "total_points": 16,
+      "stories": [
+        "BMTOS-143",
+        "BMTOS-144",
+        "BMTOS-145",
+        "BMTOS-146"
+      ],
+      "acceptance_criteria": [
+        "Terminal panel visible at bottom of Code Editor by default",
+        "tmux session persists across page refreshes",
+        "Terminal auto-connects on page load",
+        "Panel is resizable with drag handle",
+        "Ctrl+backtick toggles terminal visibility"
+      ]
     }
   ],
   "next_id": 18

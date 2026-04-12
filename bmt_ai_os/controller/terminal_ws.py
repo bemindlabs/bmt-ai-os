@@ -11,6 +11,19 @@ WebSocket handshake is accepted.  The token is verified using the same
 ``verify_token`` function used by the HTTP middleware.  If the secret is
 not configured (e.g. in test environments), the check is skipped so that
 existing smoke and unit tests continue to pass without changes.
+
+tmux session persistence
+------------------------
+When tmux is available the terminal attaches to (or creates) a named tmux
+session called ``bmt`` via ``tmux new-session -A -s bmt``.  This means
+that if the WebSocket disconnects and the user reconnects, they return to
+the exact same shell session with its full history and running processes.
+
+If tmux is not found the handler falls back to the shell specified by
+``BMT_TERMINAL_SHELL`` (default: ``/bin/sh``).
+
+The ``BMT_TERMINAL_CMD`` environment variable overrides the entire command
+selection logic, letting operators substitute an arbitrary executable.
 """
 
 from __future__ import annotations
@@ -21,6 +34,7 @@ import json
 import logging
 import os
 import pty
+import shutil
 import struct
 import termios
 
@@ -33,7 +47,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_SHELL = os.environ.get("BMT_TERMINAL_SHELL", "/bin/sh")
+# ---------------------------------------------------------------------------
+# Command selection
+# Priority: BMT_TERMINAL_CMD > tmux (if available) > BMT_TERMINAL_SHELL
+# ---------------------------------------------------------------------------
+_TERMINAL_CMD = os.environ.get("BMT_TERMINAL_CMD")
+if _TERMINAL_CMD:
+    _SHELL = _TERMINAL_CMD
+    _SHELL_ARGS: list[str] = []
+elif shutil.which("tmux"):
+    _SHELL = "tmux"
+    _SHELL_ARGS = ["new-session", "-A", "-s", "bmt"]
+else:
+    _SHELL = os.environ.get("BMT_TERMINAL_SHELL", "/bin/sh")
+    _SHELL_ARGS = []
+
 _READ_SIZE = 4096
 
 
@@ -78,14 +106,24 @@ async def terminal_ws(websocket: WebSocket, token: str = "") -> None:
     # Open a PTY master/slave pair so the shell gets a real terminal.
     master_fd, slave_fd = pty.openpty()
 
+    # Build the child process environment.  When using tmux, expose the
+    # session name so that any scripts or aliases inside the session can
+    # reference it without hard-coding "bmt".
+    child_env = {
+        **os.environ,
+        "TERM": "xterm-256color",
+        "TMUX_SESSION": "bmt",
+    }
+
     try:
         proc = await asyncio.create_subprocess_exec(
             _SHELL,
+            *_SHELL_ARGS,
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
             close_fds=True,
-            env={**os.environ, "TERM": "xterm-256color"},
+            env=child_env,
         )
     except Exception as exc:
         logger.error("terminal: failed to spawn shell: %s", exc)

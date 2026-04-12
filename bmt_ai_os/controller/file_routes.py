@@ -10,10 +10,13 @@ from __future__ import annotations
 import logging
 import mimetypes
 import os
+import re
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,78 @@ def _entry_dict(path: Path) -> dict:
         "modified": stat.st_mtime,
         "mime": mimetypes.guess_type(path.name)[0] if not path.is_dir() else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Background ingest helpers
+# ---------------------------------------------------------------------------
+
+# Regex to extract the persona name from a workspace path segment.
+# Matches:  .../agents/<name>/...  anywhere in the resolved path string.
+_PERSONA_PATH_RE = re.compile(r"[/\\]agents[/\\]([^/\\]+)[/\\]")
+
+# Only ingest text-based files — skip binary blobs.
+_INGESTABLE_EXTENSIONS = {
+    ".md",
+    ".txt",
+    ".rst",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".csv",
+    ".log",
+    ".py",
+    ".js",
+    ".ts",
+    ".sh",
+}
+
+
+async def _maybe_ingest_persona_file(path: str) -> None:
+    """If *path* falls inside a persona workspace, ingest it into the persona's RAG collection.
+
+    Only markdown and plain-text files are ingested.  All exceptions are caught
+    silently so that a RAG failure never causes the file write to fail.
+    """
+    try:
+        resolved = _resolve_safe(path)
+        suffix = resolved.suffix.lower()
+
+        if suffix not in _INGESTABLE_EXTENSIONS:
+            logger.debug("Skipping ingest for non-text file: %s", resolved)
+            return
+
+        # Check whether the resolved path lives under workspace/agents/<name>/
+        path_str = str(resolved)
+        match = _PERSONA_PATH_RE.search(path_str)
+        if not match:
+            return  # Not inside a persona workspace — nothing to do
+
+        persona_name = match.group(1)
+
+        from bmt_ai_os.rag.config import RAGConfig
+        from bmt_ai_os.rag.ingest import DocumentIngester
+
+        from .persona_routes import _persona_collection
+
+        config = RAGConfig()
+        collection_name = _persona_collection(persona_name)
+        # Override the collection name so DocumentIngester targets the
+        # persona-scoped collection rather than the global default.
+        config.collection_name = collection_name  # type: ignore[attr-defined]
+
+        ingester = DocumentIngester(config)
+        count = ingester.ingest_file(resolved)
+        logger.info(
+            "Auto-ingested '%s' into persona collection '%s' (%d chunks)",
+            resolved,
+            collection_name,
+            count,
+        )
+
+    except Exception as exc:
+        logger.warning("Background persona ingest failed (non-fatal): %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +259,50 @@ async def download_file(path: str) -> FileResponse:
     )
 
 
+@router.put("/files/write")
+async def write_file(request: Request) -> JSONResponse:
+    """Write text content to a file (create or overwrite).
+
+    Accepts JSON body ``{ "path": "...", "content": "..." }``.
+    The path is relative to the files root.  Max 1 MB.
+
+    After a successful write, if the file lives inside a persona workspace
+    (``workspace/agents/<name>/``), it is automatically ingested into the
+    persona's RAG collection as a background task.
+    """
+
+    body = await request.json()
+    path = body.get("path", "")
+    content = body.get("content", "")
+
+    if not path:
+        raise HTTPException(status_code=422, detail="Missing 'path' field.")
+
+    if len(content) > 1 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Content too large (max 1 MB).")
+
+    target = _resolve_safe(path)
+
+    # Ensure parent directory exists
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        target.write_text(content, encoding="utf-8")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    response_body = {
+        "status": "written",
+        "path": path,
+        "name": target.name,
+        "size": len(content.encode("utf-8")),
+    }
+    return JSONResponse(
+        content=response_body,
+        background=BackgroundTask(_maybe_ingest_persona_file, path),
+    )
+
+
 @router.post("/files/upload")
 async def upload_file(path: str = "", file: UploadFile = None) -> dict:  # type: ignore[assignment]
     """Upload a file into the directory at *path* (relative to files root)."""
@@ -212,3 +331,71 @@ async def upload_file(path: str = "", file: UploadFile = None) -> dict:  # type:
         "name": filename,
         "size": len(contents),
     }
+
+
+@router.post("/files/mkdir")
+async def make_directory(request: Request) -> dict:
+    """Create a new directory."""
+    body = await request.json()
+    path = body.get("path", "")
+    if not path:
+        raise HTTPException(status_code=422, detail="Missing 'path' field.")
+
+    target = _resolve_safe(path)
+    if target.exists():
+        raise HTTPException(status_code=409, detail="Path already exists.")
+
+    try:
+        target.mkdir(parents=True, exist_ok=False)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    return {"status": "created", "path": path}
+
+
+@router.post("/files/rename")
+async def rename_file(request: Request) -> dict:
+    """Rename or move a file or directory."""
+    body = await request.json()
+    old_path = body.get("old_path", "")
+    new_path = body.get("new_path", "")
+    if not old_path or not new_path:
+        raise HTTPException(status_code=422, detail="Missing 'old_path' or 'new_path'.")
+
+    source = _resolve_safe(old_path)
+    dest = _resolve_safe(new_path)
+
+    if not source.exists():
+        raise HTTPException(status_code=404, detail="Source not found.")
+    if dest.exists():
+        raise HTTPException(status_code=409, detail="Destination already exists.")
+
+    try:
+        source.rename(dest)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    return {"status": "renamed", "old_path": old_path, "new_path": new_path}
+
+
+@router.delete("/files/delete")
+async def delete_file_or_dir(path: str) -> dict:
+    """Delete a file or empty directory."""
+    if not path:
+        raise HTTPException(status_code=422, detail="Missing 'path' parameter.")
+
+    target = _resolve_safe(path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Not found.")
+
+    try:
+        if target.is_dir():
+            import shutil
+
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    return {"status": "deleted", "path": path}

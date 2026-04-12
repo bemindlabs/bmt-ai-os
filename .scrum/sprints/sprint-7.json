@@ -1,0 +1,83 @@
+{
+  "sprint_number": 7,
+  "goal": "Persona Knowledge Vaults + IDE Terminal \u2014 workspace convention, per-persona RAG, Obsidian vault, embedded terminal with tmux",
+  "start_date": "2026-04-12",
+  "end_date": "2026-04-12",
+  "status": "completed",
+  "planned_points": 55,
+  "completed_points": 55,
+  "items": [
+    {
+      "id": "BMTOS-147",
+      "title": "Workspace directory convention and auto-scaffold",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-136",
+      "title": "Per-persona workspace dirs + RAG collections",
+      "points": 8,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-137",
+      "title": "Obsidian markdown parser (wiki-links, frontmatter, tags)",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-138",
+      "title": "Persona-scoped Knowledge & Files tab",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-139",
+      "title": "Obsidian vault note editor with live preview",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-140",
+      "title": "Auto-ingest vault into RAG on file changes",
+      "points": 3,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-141",
+      "title": "Chat RAG auto-scoped to active persona",
+      "points": 3,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-142",
+      "title": "Vault graph view + backlinks panel",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-143",
+      "title": "Embedded terminal panel in Code Editor",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-144",
+      "title": "tmux session management via WebSocket",
+      "points": 5,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-145",
+      "title": "Terminal auto-connects on editor page load",
+      "points": 3,
+      "status": "done"
+    },
+    {
+      "id": "BMTOS-146",
+      "title": "Terminal panel resize with drag handle",
+      "points": 3,
+      "status": "done"
+    }
+  ]
+}

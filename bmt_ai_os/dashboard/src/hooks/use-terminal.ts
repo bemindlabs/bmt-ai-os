@@ -2,10 +2,9 @@
 
 import { useRef, useCallback, useState } from "react";
 
-// xterm.js is ESM-only and uses browser APIs — dynamic import is required.
-// Types are imported statically so TypeScript can type-check call sites.
 import type { Terminal } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
+import type { IDisposable } from "@xterm/xterm";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,20 +29,11 @@ export interface SshConnectOptions {
 }
 
 export interface UseTerminalReturn {
-  /** Connect to the local WebSocket terminal (wsUrl is used directly). */
   connect: () => Promise<void>;
-  /** Connect to the SSH WebSocket proxy. */
   connectSsh: (opts: SshConnectOptions) => Promise<void>;
-  /** Close the current WebSocket connection. */
   disconnect: () => void;
-  /** Current connection status. */
   status: ConnectionStatus;
-  /** Write raw text to the terminal. */
   write: (data: string) => void;
-  /**
-   * Tear down xterm.js and close the WebSocket.
-   * Call this inside a useEffect cleanup function.
-   */
   dispose: () => void;
 }
 
@@ -92,6 +82,20 @@ export function useTerminal({
   const wsRef = useRef<WebSocket | null>(null);
   const cleanedUp = useRef(false);
 
+  // Track subscriptions for proper cleanup
+  const dataSubRef = useRef<IDisposable | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
+
+  // ------------------------------------------------------------------
+  // Cleanup subscriptions before (re)connecting
+  // ------------------------------------------------------------------
+  const cleanupSubscriptions = useCallback(() => {
+    dataSubRef.current?.dispose();
+    dataSubRef.current = null;
+    roRef.current?.disconnect();
+    roRef.current = null;
+  }, []);
+
   // ------------------------------------------------------------------
   // Terminal initialisation (idempotent)
   // ------------------------------------------------------------------
@@ -103,49 +107,81 @@ export function useTerminal({
     if (!container) return false;
 
     const { Terminal: XTerm } = await import("@xterm/xterm");
-    const { FitAddon } = await import("@xterm/addon-fit");
+    const { FitAddon: Fit } = await import("@xterm/addon-fit");
 
-    // Guard against concurrent calls and unmount racing the async import.
     if (termRef.current) return true;
     if (cleanedUp.current) return false;
 
     const term = new XTerm({
       cursorBlink: true,
-      fontFamily:
-        "var(--font-geist-mono, 'Fira Mono', 'Cascadia Code', monospace)",
+      fontFamily: "var(--font-geist-mono, 'Fira Mono', 'Cascadia Code', monospace)",
       fontSize: 13,
       lineHeight: 1.4,
       theme: XTERM_THEME,
       allowTransparency: false,
     });
 
-    const fitAddon = new FitAddon();
+    const fitAddon = new Fit();
     term.loadAddon(fitAddon);
     term.open(container);
     fitAddon.fit();
 
     termRef.current = term;
     fitRef.current = fitAddon;
-
     return true;
   }, [containerRef]);
+
+  // ------------------------------------------------------------------
+  // Attach resize observer (tracked for cleanup)
+  // ------------------------------------------------------------------
+  const attachResize = useCallback((term: Terminal, fitAddon: FitAddon, ws: WebSocket) => {
+    roRef.current?.disconnect();
+
+    const el = term.element?.parentElement;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => {
+      fitAddon.fit();
+      const dims = fitAddon.proposeDimensions();
+      if (dims && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }));
+      }
+    });
+
+    ro.observe(el);
+    roRef.current = ro;
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Build WS URL with JWT token
+  // ------------------------------------------------------------------
+  const buildAuthUrl = useCallback((url: string): string => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("bmt_auth_token") : null;
+    if (!token) return url;
+    const u = new URL(url);
+    u.searchParams.set("token", token);
+    return u.toString();
+  }, []);
 
   // ------------------------------------------------------------------
   // Connect to local WebSocket terminal
   // ------------------------------------------------------------------
   const connect = useCallback(async (): Promise<void> => {
     const ready = await initTerm();
-    // Small tick to let React flush the DOM mount.
     await new Promise<void>((r) => setTimeout(r, 50));
 
     const term = termRef.current;
     const fitAddon = fitRef.current;
     if (!ready || !term || !fitAddon) return;
 
+    // Clean up old subscriptions before reconnecting
+    cleanupSubscriptions();
+    wsRef.current?.close();
+
     term.clear();
     setStatus("connecting");
 
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(buildAuthUrl(wsUrl));
     ws.binaryType = "arraybuffer";
     wsRef.current = ws;
 
@@ -176,35 +212,35 @@ export function useTerminal({
     ws.onclose = () => {
       setStatus("disconnected");
       term.writeln("\r\n\x1b[33mConnection closed.\x1b[0m");
+      cleanupSubscriptions();
       onDisconnect?.();
     };
 
-    term.onData((data) => {
+    // Single data subscription — tracked for cleanup
+    dataSubRef.current = term.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(new TextEncoder().encode(data));
       }
     });
 
-    _attachResizeObserver(term, fitAddon, ws);
-  }, [wsUrl, initTerm, onConnect, onDisconnect, onError]);
+    attachResize(term, fitAddon, ws);
+  }, [wsUrl, initTerm, onConnect, onDisconnect, onError, cleanupSubscriptions, attachResize, buildAuthUrl]);
 
   // ------------------------------------------------------------------
   // Connect to SSH WebSocket terminal
   // ------------------------------------------------------------------
   const connectSsh = useCallback(
-    async ({
-      host,
-      port,
-      username,
-      authMethod,
-      password,
-    }: SshConnectOptions): Promise<void> => {
+    async ({ host, port, username, authMethod, password }: SshConnectOptions): Promise<void> => {
       const ready = await initTerm();
       await new Promise<void>((r) => setTimeout(r, 50));
 
       const term = termRef.current;
       const fitAddon = fitRef.current;
       if (!ready || !term || !fitAddon) return;
+
+      // Clean up old subscriptions before reconnecting
+      cleanupSubscriptions();
+      wsRef.current?.close();
 
       term.clear();
 
@@ -215,40 +251,42 @@ export function useTerminal({
 
       setStatus("connecting");
 
-      // Build the SSH WebSocket URL from the base wsUrl.
       const url = new URL(wsUrl);
+      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       url.pathname = "/ws/ssh";
       url.searchParams.set("host", host);
       url.searchParams.set("port", String(port));
       url.searchParams.set("username", username);
       url.searchParams.set("auth", authMethod);
+      // Add JWT token
+      const token = typeof window !== "undefined" ? localStorage.getItem("bmt_auth_token") : null;
+      if (token) url.searchParams.set("token", token);
 
       const ws = new WebSocket(url.toString());
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
       let handshakeDone = false;
+      let pwSub: IDisposable | null = null;
 
       ws.onmessage = (event) => {
-        // First messages may be JSON control frames.
         if (typeof event.data === "string") {
           try {
-            const ctrl = JSON.parse(event.data as string) as Record<string, unknown>;
+            const ctrl = JSON.parse(event.data) as Record<string, unknown>;
             const type = ctrl["type"] as string | undefined;
 
             if (type === "auth" && ctrl["method"] === "password") {
               if (password) {
                 ws.send(password);
               } else {
-                // Prompt for password inline in the terminal.
                 term.write("\r\nPassword: ");
                 let pwBuf = "";
-                const dataSub = term.onData((key) => {
+                pwSub = term.onData((key) => {
                   if (key === "\r" || key === "\n") {
-                    dataSub.dispose();
+                    pwSub?.dispose();
+                    pwSub = null;
                     term.writeln("");
                     ws.send(pwBuf);
-                    pwBuf = "";
                   } else if (key === "\x7f" || key === "\b") {
                     if (pwBuf.length > 0) pwBuf = pwBuf.slice(0, -1);
                   } else if (key.charCodeAt(0) >= 32) {
@@ -265,10 +303,15 @@ export function useTerminal({
               onConnect?.();
               const dims = fitAddon.proposeDimensions();
               if (dims) {
-                ws.send(
-                  JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows })
-                );
+                ws.send(JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }));
               }
+
+              // Attach terminal data handler after handshake
+              dataSubRef.current = term.onData((data) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(new TextEncoder().encode(data));
+                }
+              });
               return;
             }
 
@@ -280,11 +323,10 @@ export function useTerminal({
               return;
             }
           } catch {
-            // Not JSON — fall through to write as terminal data.
+            // Not JSON — fall through to terminal write
           }
         }
 
-        // Binary or plain terminal data.
         if (event.data instanceof ArrayBuffer) {
           term.write(new Uint8Array(event.data));
         } else if (typeof event.data === "string") {
@@ -300,6 +342,10 @@ export function useTerminal({
       };
 
       ws.onclose = () => {
+        // Clean up password subscription if still active
+        pwSub?.dispose();
+        pwSub = null;
+
         if (!handshakeDone) {
           setStatus("error");
         } else {
@@ -307,27 +353,23 @@ export function useTerminal({
           onDisconnect?.();
         }
         term.writeln("\r\n\x1b[33mSSH session closed.\x1b[0m");
+        cleanupSubscriptions();
       };
 
-      term.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(new TextEncoder().encode(data));
-        }
-      });
-
-      _attachResizeObserver(term, fitAddon, ws);
+      attachResize(term, fitAddon, ws);
     },
-    [wsUrl, initTerm, onConnect, onDisconnect, onError]
+    [wsUrl, initTerm, onConnect, onDisconnect, onError, cleanupSubscriptions, attachResize],
   );
 
   // ------------------------------------------------------------------
   // Disconnect
   // ------------------------------------------------------------------
   const disconnect = useCallback(() => {
+    cleanupSubscriptions();
     wsRef.current?.close();
     wsRef.current = null;
     setStatus("disconnected");
-  }, []);
+  }, [cleanupSubscriptions]);
 
   // ------------------------------------------------------------------
   // Write raw text to terminal
@@ -337,50 +379,18 @@ export function useTerminal({
   }, []);
 
   // ------------------------------------------------------------------
-  // Dispose — called from useEffect cleanup in the host component
+  // Dispose — called from useEffect cleanup
   // ------------------------------------------------------------------
   const dispose = useCallback(() => {
     cleanedUp.current = true;
+    cleanupSubscriptions();
     wsRef.current?.close();
     wsRef.current = null;
 
-    const t = termRef.current as (Terminal & { _ro?: ResizeObserver }) | null;
-    if (t) {
-      t._ro?.disconnect();
-      t.dispose();
-      termRef.current = null;
-    }
+    termRef.current?.dispose();
+    termRef.current = null;
     fitRef.current = null;
-  }, []);
+  }, [cleanupSubscriptions]);
 
   return { connect, connectSsh, disconnect, status, write, dispose };
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function _attachResizeObserver(
-  term: Terminal,
-  fitAddon: FitAddon,
-  ws: WebSocket
-): void {
-  const container = (
-    term as Terminal & { _core?: { _viewportElement?: Element } }
-  )._core?._viewportElement?.parentElement;
-
-  if (!container) return;
-
-  const ro = new ResizeObserver(() => {
-    fitAddon.fit();
-    const dims = fitAddon.proposeDimensions();
-    if (dims && ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows })
-      );
-    }
-  });
-
-  ro.observe(container);
-  (term as Terminal & { _ro?: ResizeObserver })._ro = ro;
 }

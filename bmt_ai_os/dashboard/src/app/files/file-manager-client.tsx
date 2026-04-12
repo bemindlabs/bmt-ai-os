@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ChevronRight,
   RefreshCw,
@@ -21,6 +21,7 @@ import {
   type FileEntry,
   type Breadcrumb,
 } from "@/lib/api";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 // ---------------------------------------------------------------------------
 // Upload drop zone (self-contained within this page)
@@ -131,7 +132,18 @@ function UploadZone({
 // FileManagerClient
 // ---------------------------------------------------------------------------
 
-export function FileManagerClient() {
+interface FileManagerClientProps {
+  /**
+   * Optional path to navigate to on first render.
+   * When provided (e.g., from a persona workspace), it takes precedence over
+   * the generic workspace directory from the settings API.
+   */
+  initialPath?: string;
+}
+
+export function FileManagerClient({ initialPath }: FileManagerClientProps = {}) {
+  const { workspace, loading: wsLoading } = useWorkspace();
+
   // Current browsed directory
   const [currentPath, setCurrentPath] = useState("");
   const [rootEntries, setRootEntries] = useState<FileEntry[]>([]);
@@ -168,12 +180,13 @@ export function FileManagerClient() {
     }
   }, []);
 
-  // Load root on first render
-  const [initialised, setInitialised] = useState(false);
-  if (!initialised) {
-    setInitialised(true);
-    loadRoot("");
-  }
+  // Load workspace directory on first render.
+  // If an explicit initialPath was passed (e.g., persona workspace), use it;
+  // otherwise fall back to the generic workspace from settings.
+  useEffect(() => {
+    if (!wsLoading) void loadRoot(initialPath ?? workspace);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsLoading]);
 
   // ---------------------------------------------------------------------------
   // Load children for tree expansion

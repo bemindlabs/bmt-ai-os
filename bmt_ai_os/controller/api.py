@@ -78,6 +78,123 @@ async def healthz() -> dict:
     return {"status": "ok"}
 
 
+def _get_workspace_root() -> str:
+    """Resolve the workspace root from environment variables."""
+    import os
+    from pathlib import Path
+
+    env = os.environ.get("BMT_ENV", "production")
+    default = str(Path.home() / "workspace") if env == "dev" else "/data/workspace"
+    return os.environ.get("BMT_WORKSPACE_DIR", default)
+
+
+# Ordered list of workspace directories to create.
+# Each entry: (relative_path, description)
+_WORKSPACE_DIRS: list[tuple[str, str]] = [
+    ("agents/coding/notes", "Coding agent notes"),
+    ("agents/coding/files", "Coding agent files"),
+    ("agents/general/notes", "General agent notes"),
+    ("agents/general/files", "General agent files"),
+    ("agents/creative/notes", "Creative agent notes"),
+    ("agents/creative/files", "Creative agent files"),
+    ("projects", "User projects"),
+    ("data/datasets", "Training datasets"),
+    ("data/models", "Saved models"),
+    ("data/exports", "Exported artefacts"),
+    ("uploads", "Uploaded files"),
+    ("shared/notes", "Shared notes"),
+    ("shared/documents", "Shared documents"),
+    (".config", "Workspace configuration"),
+]
+
+# Persona presets to copy as SOUL.md into each agent directory.
+_AGENT_SOUL_MAP: dict[str, str] = {
+    "coding": "coding.md",
+    "general": "general.md",
+    "creative": "creative.md",
+}
+
+
+def _scaffold_workspace(workspace_root: str) -> None:
+    """Create the full workspace directory structure (idempotent)."""
+    import json
+    import shutil
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    root = Path(workspace_root)
+
+    # Create every declared directory.
+    for rel, _desc in _WORKSPACE_DIRS:
+        (root / rel).mkdir(parents=True, exist_ok=True)
+
+    # Write .config/workspace.json only on first scaffold.
+    config_file = root / ".config" / "workspace.json"
+    if not config_file.exists():
+        config_file.write_text(
+            json.dumps(
+                {
+                    "version": "1.0",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                indent=2,
+            )
+        )
+
+    # Copy persona preset files as SOUL.md into each agent directory.
+    presets_dir = Path(__file__).parent.parent / "persona" / "presets"
+    for agent, preset_file in _AGENT_SOUL_MAP.items():
+        src = presets_dir / preset_file
+        dst = root / "agents" / agent / "SOUL.md"
+        if src.exists() and not dst.exists():
+            shutil.copy2(src, dst)
+
+
+@app.get("/api/v1/settings/workspace")
+async def get_workspace() -> dict:
+    """Return the default workspace directory path and auto-scaffold the structure."""
+    workspace = _get_workspace_root()
+    _scaffold_workspace(workspace)
+    return {"workspace": workspace}
+
+
+@app.post("/api/v1/workspace/init")
+async def init_workspace() -> dict:
+    """Explicitly create the workspace directory structure."""
+    workspace = _get_workspace_root()
+    _scaffold_workspace(workspace)
+    return {"workspace": workspace, "status": "ok"}
+
+
+@app.get("/api/v1/workspace/structure")
+async def get_workspace_structure() -> dict:
+    """Return the workspace directory tree as a structured list."""
+    workspace = _get_workspace_root()
+
+    # Top-level entries include both leaf dirs and their parents.
+    structure = []
+    seen: set[str] = set()
+
+    descriptions: dict[str, str] = {rel: desc for rel, desc in _WORKSPACE_DIRS}
+
+    for rel, desc in _WORKSPACE_DIRS:
+        # Emit parent segments first so callers can build a tree if desired.
+        parts = rel.split("/")
+        for depth in range(1, len(parts) + 1):
+            partial = "/".join(parts[:depth])
+            if partial not in seen:
+                seen.add(partial)
+                structure.append(
+                    {
+                        "name": parts[depth - 1],
+                        "path": partial,
+                        "description": descriptions.get(partial, ""),
+                    }
+                )
+
+    return {"workspace": workspace, "structure": structure}
+
+
 @app.get("/api/v1/logs")
 async def get_logs() -> list:
     """Return recent request logs from middleware."""
