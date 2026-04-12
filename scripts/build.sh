@@ -182,9 +182,11 @@ download_buildroot() {
     if [[ -f "${sha256_file}" ]]; then
         log_info "Verifying checksum..."
         if command -v sha256sum &>/dev/null; then
-            (cd "$(dirname "${BUILDROOT_ARCHIVE}")" && sha256sum --check --status "${sha256_file##*/}" 2>/dev/null) \
-                && log_ok "Checksum verified" \
-                || log_warn "Checksum verification failed or file format mismatch — proceeding"
+            if (cd "$(dirname "${BUILDROOT_ARCHIVE}")" && sha256sum --check --status "${sha256_file##*/}" 2>/dev/null); then
+                log_ok "Checksum verified"
+            else
+                log_warn "Checksum verification failed or file format mismatch — proceeding"
+            fi
         fi
     fi
 
