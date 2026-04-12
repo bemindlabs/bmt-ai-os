@@ -30,6 +30,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/project:ro
+      - controller_data:/data
     # BMTOS-50: per-service security hardening
     # seccomp/AppArmor applied on Linux; Docker Desktop silently ignores AppArmor.
     security_opt:
@@ -227,6 +228,8 @@ networks:
         - subnet: 172.30.0.0/16
 
 volumes:
+  controller_data:
+    name: bmt-controller-data
   ollama_models:
     name: bmt-ollama-models
   chromadb_data:

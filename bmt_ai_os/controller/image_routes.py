@@ -274,7 +274,8 @@ async def trigger_build(req: BuildRequest):
     }
 
     # Launch build in background
-    asyncio.create_task(_run_build(build_id, profile.target, str(manifest_path)))
+    build_env = profile.custom_options.get("env", {}) if profile.custom_options else {}
+    asyncio.create_task(_run_build(build_id, profile.target, str(manifest_path), build_env))
 
     return {"build_id": build_id, "status": "pending", "manifest_path": str(manifest_path)}
 
@@ -306,7 +307,12 @@ def _find_build_script() -> str | None:
     return None
 
 
-async def _run_build(build_id: str, target: str, manifest_path: str) -> None:
+async def _run_build(
+    build_id: str,
+    target: str,
+    manifest_path: str,
+    extra_env: dict[str, str] | None = None,
+) -> None:
     """Run scripts/build.sh --target <target> --profile <manifest> in background."""
     build = _builds[build_id]
     build["status"] = "running"
@@ -325,11 +331,14 @@ async def _run_build(build_id: str, target: str, manifest_path: str) -> None:
     cmd = [build_script, "--target", target, "--profile", manifest_path]
     logger.info("Starting image build: %s", " ".join(cmd))
 
+    proc_env = {**os.environ, **(extra_env or {})}
+
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
+            env=proc_env,
         )
 
         while True:

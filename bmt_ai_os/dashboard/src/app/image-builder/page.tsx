@@ -27,6 +27,7 @@ import {
   Monitor,
   Package,
   Play,
+  Plus,
   RefreshCw,
   Rocket,
   RotateCcw,
@@ -34,6 +35,7 @@ import {
   Server,
   Trash2,
   WifiOff,
+  X,
   Zap,
 } from "lucide-react";
 import {
@@ -233,6 +235,7 @@ export default function ImageBuilderPage() {
   const [activeCategory,   setActiveCategory]   = useState("");
   const [profileName,      setProfileName]      = useState("");
   const [profileDesc,      setProfileDesc]      = useState("");
+  const [envVars,          setEnvVars]          = useState<{ key: string; value: string }[]>([]);
 
   // Build readiness
   const [buildReady, setBuildReady] = useState(true);
@@ -385,6 +388,9 @@ export default function ImageBuilderPage() {
     setSaving(true);
     setActionError(null);
     try {
+      const envObj = Object.fromEntries(
+        envVars.filter((e) => e.key.trim()).map((e) => [e.key.trim(), e.value]),
+      );
       await createProfile({
         name: profileName.trim(),
         description: profileDesc.trim() || undefined,
@@ -392,6 +398,7 @@ export default function ImageBuilderPage() {
         tier: selectedTier,
         packages: Array.from(selectedPackages),
         preset: selectedPreset ?? undefined,
+        custom_options: Object.keys(envObj).length > 0 ? { env: envObj } : undefined,
       });
       await loadData();
       setStep(1);
@@ -407,6 +414,9 @@ export default function ImageBuilderPage() {
     setBuilding(true);
     setActionError(null);
     try {
+      const envObj2 = Object.fromEntries(
+        envVars.filter((e) => e.key.trim()).map((e) => [e.key.trim(), e.value]),
+      );
       const res = await createProfile({
         name: profileName.trim(),
         description: profileDesc.trim() || undefined,
@@ -414,6 +424,7 @@ export default function ImageBuilderPage() {
         tier: selectedTier,
         packages: Array.from(selectedPackages),
         preset: selectedPreset ?? undefined,
+        custom_options: Object.keys(envObj2).length > 0 ? { env: envObj2 } : undefined,
       });
       const buildRes = await triggerBuild(res.profile.id);
       setBuildStatus({
@@ -1029,6 +1040,61 @@ export default function ImageBuilderPage() {
                   <AlertTriangle className="size-3.5" /> {actionError}
                 </p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Environment Variables */}
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Environment Variables</CardTitle>
+              <CardDescription>
+                Optional build-time environment variables passed to the build script.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {envVars.map((env, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    value={env.key}
+                    onChange={(e) => {
+                      const next = [...envVars];
+                      next[i] = { ...next[i], key: e.target.value };
+                      setEnvVars(next);
+                    }}
+                    placeholder="KEY"
+                    className="w-1/3 font-mono text-xs"
+                    aria-label={`Variable name ${i + 1}`}
+                  />
+                  <span className="text-muted-foreground">=</span>
+                  <Input
+                    value={env.value}
+                    onChange={(e) => {
+                      const next = [...envVars];
+                      next[i] = { ...next[i], value: e.target.value };
+                      setEnvVars(next);
+                    }}
+                    placeholder="value"
+                    className="flex-1 font-mono text-xs"
+                    aria-label={`Variable value ${i + 1}`}
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="size-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
+                    aria-label="Remove variable"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEnvVars([...envVars, { key: "", value: "" }])}
+              >
+                <Plus className="size-3.5" /> Add Variable
+              </Button>
             </CardContent>
           </Card>
 

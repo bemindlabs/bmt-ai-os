@@ -108,6 +108,7 @@ export async function createProfile(req: {
   packages: string[];
   description?: string;
   preset?: string;
+  custom_options?: Record<string, unknown>;
 }): Promise<{
   profile: BuildProfile;
   resolved_packages: string[];
