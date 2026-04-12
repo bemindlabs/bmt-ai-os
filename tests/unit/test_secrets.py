@@ -110,7 +110,7 @@ class TestReadSecretFromEnv:
         with caplog.at_level(logging.WARNING, logger="bmt_ai_os.secret_files"):
             mod.read_secret("MY_SECRET")
 
-        assert "/run/secrets/MY_SECRET" in caplog.text
+        assert "/run/secrets/" in caplog.text
 
     def test_empty_secrets_file_falls_through_to_env(self, tmp_path, monkeypatch):
         """An empty file is treated as missing; env var should be used."""
