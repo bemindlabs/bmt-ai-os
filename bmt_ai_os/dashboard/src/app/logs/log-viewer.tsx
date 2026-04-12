@@ -147,7 +147,8 @@ export function LogViewer() {
                     ? "bg-blue-500 animate-pulse"
                     : "bg-green-500 animate-pulse"
               }`}
-              title={paused ? "Paused" : "Live"}
+              role="status"
+              aria-label={paused ? "Log stream paused" : "Log stream live"}
             />
 
             <Button
@@ -155,7 +156,7 @@ export function LogViewer() {
               size="sm"
               onClick={load}
               disabled={loading}
-              title="Refresh now"
+              aria-label="Refresh logs"
             >
               <RefreshCw
                 className={`size-3.5 ${loading ? "animate-spin" : ""}`}
@@ -188,6 +189,7 @@ export function LogViewer() {
           <Input
             className="pl-8"
             placeholder="Filter by path, method or status…"
+            aria-label="Filter logs"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />

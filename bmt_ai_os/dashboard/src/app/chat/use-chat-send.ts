@@ -8,6 +8,7 @@ import {
   type ChatMessage,
   type RagSource,
 } from "@/lib/api";
+import { parseSSEChunk } from "@/lib/sse";
 import { estimateTokens } from "@/components/context-meter";
 import { attachmentsToContext, type AttachedFile } from "@/components/file-drop-zone";
 import type { LocalMessage } from "./chat-message";
@@ -31,26 +32,6 @@ function toLocalMessage(
   };
 }
 
-function parseSSEChunk(chunk: string): string {
-  let delta = "";
-  const lines = chunk.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("data:")) continue;
-    const payload = trimmed.slice(5).trim();
-    if (payload === "[DONE]") continue;
-    try {
-      const parsed = JSON.parse(payload) as {
-        choices?: { delta?: { content?: string } }[];
-      };
-      const content = parsed.choices?.[0]?.delta?.content;
-      if (content) delta += content;
-    } catch {
-      // Non-JSON SSE line — skip
-    }
-  }
-  return delta;
-}
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 

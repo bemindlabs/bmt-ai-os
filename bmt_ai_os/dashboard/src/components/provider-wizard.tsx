@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Server,
   Cloud,
@@ -585,11 +585,52 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
   const [state, setState] = useState<WizardState>(initialState);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const update = useCallback(
     (patch: Partial<WizardState>) => setState((s) => ({ ...s, ...patch })),
     []
   );
+
+  // ---- focus management ---------------------------------------------------
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    // Initial focus into dialog
+    dialogRef.current?.focus();
+
+    // Close on Escape
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Focus trap: cycle focus within dialog
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Restore focus on unmount
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
 
   // ---- step validation ----------------------------------------------------
 
@@ -759,10 +800,12 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Provider setup wizard"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 outline-none"
     >
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader className="border-b pb-4">

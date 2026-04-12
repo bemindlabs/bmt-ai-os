@@ -16,6 +16,7 @@ import type { ToolCallSummary } from "@/lib/api";
 import { DiffView } from "./diff-view";
 import { MultiFileEdit, parseMultiFileResponse } from "./multi-file-edit";
 import { ModelCompare } from "./model-compare";
+import { extractCode } from "./editor-prompts";
 
 // ---------------------------------------------------------------------------
 // AiResponseArea
@@ -39,7 +40,6 @@ interface AiResponseAreaProps {
   maxTokens: number;
   onApply: (code: string) => void;
   onFileCreated?: () => void;
-  extractCode: (raw: string) => string;
 }
 
 export function AiResponseArea({
@@ -60,7 +60,6 @@ export function AiResponseArea({
   maxTokens,
   onApply,
   onFileCreated,
-  extractCode,
 }: AiResponseAreaProps) {
   const [copied, setCopied] = useState(false);
   const [showSaveAs, setShowSaveAs] = useState(false);

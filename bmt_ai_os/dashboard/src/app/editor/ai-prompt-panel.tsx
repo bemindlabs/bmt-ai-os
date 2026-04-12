@@ -4,11 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   streamChat,
   streamChatWithTools,
-  fetchProviders,
-  fetchProviderModels,
   fetchProviderKeys,
 } from "@/lib/api";
-import type { ChatMessage, Provider, ToolCallSummary } from "@/lib/api";
+import type { ChatMessage, ToolCallSummary } from "@/lib/api";
+import { useProviderCatalogue } from "./use-provider-catalogue";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -19,35 +18,15 @@ import {
   Wrench,
 } from "lucide-react";
 import { ProviderKeySetup } from "./provider-key-setup";
-import { AiProviderSelector, isCloudProvider, providerLabel } from "./ai-provider-selector";
+import { AiProviderSelector, isCloudProvider, providerLabel, HealthDot } from "./ai-provider-selector";
 import { AiOptionsPanel } from "./ai-options-panel";
 import { AiPromptInput } from "./ai-prompt-input";
 import { AiResponseArea } from "./ai-response-area";
-import { HealthDot } from "./ai-provider-selector";
+import { resolveModel, displayModelName } from "@/lib/utils";
+import { buildDefaultSystemContent, buildUserContent, MULTI_FILE_SYSTEM_PROMPT } from "./editor-prompts";
 import { parseMultiFileResponse } from "./multi-file-edit";
 import type { EditorSlashCommand } from "./slash-commands";
-
-// ---------------------------------------------------------------------------
-// SSE parser
-// ---------------------------------------------------------------------------
-
-function parseSSEChunk(chunk: string): string {
-  let text = "";
-  for (const line of chunk.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("data: ")) continue;
-    const payload = trimmed.slice(6);
-    if (payload === "[DONE]") break;
-    try {
-      const json = JSON.parse(payload);
-      const delta = json.choices?.[0]?.delta?.content;
-      if (delta) text += delta;
-    } catch {
-      // skip
-    }
-  }
-  return text;
-}
+import { parseSSEChunk } from "@/lib/sse";
 
 // ---------------------------------------------------------------------------
 // Storage keys
@@ -115,13 +94,16 @@ export function AiPromptPanel({
   // Slash command active state
   const [activeCommand, setActiveCommand] = useState<EditorSlashCommand | null>(null);
 
-  // Provider / model state
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [loadingProviders, setLoadingProviders] = useState(false);
-  const [providerModels, setProviderModels] = useState<Record<string, string[]>>({});
-  const [loadingModels, setLoadingModels] = useState(false);
-  const [keyedProviders, setKeyedProviders] = useState<Set<string>>(new Set());
-  const [loadingKeys, setLoadingKeys] = useState(false);
+  // Provider / model catalogue (shared hook)
+  const catalogue = useProviderCatalogue();
+  const {
+    providers,
+    providerModels,
+    keyedProviders,
+    loadingProviders,
+    loadingModels,
+    loadingKeys,
+  } = catalogue;
 
   const [selectedProvider, setSelectedProvider] = useState<string>(
     () => (typeof window !== "undefined" && localStorage.getItem(STORAGE_PROVIDER)) || "default",
@@ -148,71 +130,6 @@ export function AiPromptPanel({
   useEffect(() => { localStorage.setItem(STORAGE_MODEL, selectedModel); }, [selectedModel]);
   useEffect(() => { localStorage.setItem(STORAGE_TEMP, String(temperature)); }, [temperature]);
   useEffect(() => { localStorage.setItem(STORAGE_TOKENS, String(maxTokens)); }, [maxTokens]);
-
-  // ---------------------------------------------------------------------------
-  // Fetch providers on mount
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    setLoadingProviders(true);
-    fetchProviders()
-      .then((res) => setProviders(res.providers ?? []))
-      .catch(() => setProviders([]))
-      .finally(() => setLoadingProviders(false));
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Fetch API key status for all cloud providers once providers load
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (providers.length === 0) return;
-    const cloudProviders = providers.filter((p) => isCloudProvider(p.name));
-    if (cloudProviders.length === 0) return;
-
-    setLoadingKeys(true);
-    Promise.allSettled(
-      cloudProviders.map((p) =>
-        fetchProviderKeys(p.name).then((res) => ({
-          name: p.name,
-          hasKey: (res.keys ?? []).some((k) => k.status === "active"),
-        })),
-      ),
-    )
-      .then((results) => {
-        const keyed = new Set<string>();
-        for (const r of results) {
-          if (r.status === "fulfilled" && r.value.hasKey) keyed.add(r.value.name);
-        }
-        setKeyedProviders(keyed);
-      })
-      .finally(() => setLoadingKeys(false));
-  }, [providers]);
-
-  // ---------------------------------------------------------------------------
-  // Fetch models for all providers once provider list loads
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (providers.length === 0) return;
-    setLoadingModels(true);
-    fetchProviderModels("all")
-      .then((res) => {
-        const allIds = (res.models ?? [])
-          .map((m) => m.id ?? (m as { name?: string }).name ?? "")
-          .filter(Boolean);
-        const byProvider: Record<string, string[]> = {};
-        for (const p of providers) {
-          const prefixed = allIds.filter((id) =>
-            id.toLowerCase().startsWith(p.name.toLowerCase() + "/"),
-          );
-          byProvider[p.name] = prefixed.length > 0 ? prefixed : allIds;
-        }
-        setProviderModels(byProvider);
-      })
-      .catch(() => setProviderModels({}))
-      .finally(() => setLoadingModels(false));
-  }, [providers]);
 
   // ---------------------------------------------------------------------------
   // Provider selection handler
@@ -245,23 +162,17 @@ export function AiPromptPanel({
     fetchProviderKeys(selectedProvider)
       .then((res) => {
         const hasKey = (res.keys ?? []).some((k) => k.status === "active");
-        if (hasKey) setKeyedProviders((prev) => new Set([...prev, selectedProvider]));
+        if (hasKey) catalogue.markKeyed(selectedProvider);
       })
       .catch(() => null)
       .finally(() => setShowKeySetup(false));
     // Re-fetch providers list — the newly keyed provider may now be registered
-    fetchProviders()
-      .then((res) => setProviders(res.providers ?? []))
-      .catch(() => null);
+    catalogue.refresh();
     // Re-fetch models for the provider
-    fetchProviderModels(selectedProvider)
-      .then((res) => {
-        const modelIds = (res.models ?? []).map((m) => m.id ?? m.name ?? "");
-        setProviderModels((prev) => ({ ...prev, [selectedProvider]: modelIds }));
-        if (modelIds.length > 0) setSelectedModel(modelIds[0]);
-      })
-      .catch(() => null);
-  }, [selectedProvider]);
+    catalogue.refreshModelsForProvider(selectedProvider).then((modelIds) => {
+      if (modelIds.length > 0) setSelectedModel(modelIds[0]);
+    });
+  }, [selectedProvider, catalogue]);
 
   // ---------------------------------------------------------------------------
   // Slash command selection — replaces trigger text + sets active command
@@ -276,15 +187,6 @@ export function AiPromptPanel({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Code extraction helper (strip markdown fences)
-  // ---------------------------------------------------------------------------
-
-  const extractCode = useCallback((raw: string): string => {
-    const fenceMatch = raw.match(/^```[\w]*\n([\s\S]*?)\n```$/);
-    return fenceMatch ? fenceMatch[1] : raw;
-  }, []);
-
-  // ---------------------------------------------------------------------------
   // Submit handler
   // ---------------------------------------------------------------------------
 
@@ -296,74 +198,39 @@ export function AiPromptPanel({
     setShowDiff(false);
     onPromptSubmit?.(prompt);
 
-    const MULTI_FILE_SYSTEM_PROMPT = [
-      "When creating or editing multiple files, use this format for each file:",
-      "",
-      "### FILE: path/to/file.ext",
-      "```language",
-      "file content here",
-      "```",
-      "",
-      "Include the complete file content for each file. List all files that need to be created or modified.",
-    ].join("\n");
-
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const defaultSystemContent = [
-      "You are a coding assistant integrated into a code editor.",
-      "The user is editing a file and wants you to generate or modify code.",
-      "Respond ONLY with the code — no markdown fences, no explanations, no preamble.",
-      "If the user asks to modify existing code, return the complete modified file content.",
-      "If the user asks to generate new code, return just the code.",
-      "The user can save your output as a new file using the 'Save As' button.",
-      filePath ? `Current file: ${filePath} (${language})` : "",
-      currentDir ? `Current directory: ${currentDir}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const fileCtx = { filePath, language, currentDir };
 
-    const multiFileSystemContent = [
-      "You are a coding assistant integrated into a code editor.",
-      MULTI_FILE_SYSTEM_PROMPT,
-      filePath ? `Current file: ${filePath} (${language})` : "",
-      currentDir ? `Current directory: ${currentDir}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    const systemMessage: ChatMessage = {
-      role: "system",
-      content: activeCommand
-        ? [
-            activeCommand.systemPrompt,
-            filePath ? `Current file: ${filePath} (${language})` : "",
-            currentDir ? `Current directory: ${currentDir}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n")
-        : multiFileMode
-          ? multiFileSystemContent
-          : defaultSystemContent,
-    };
-
-    const userContent = fileContent.trim()
-      ? `Here is the current file content:\n\`\`\`${language}\n${fileContent}\n\`\`\`\n\nInstruction: ${prompt}`
-      : prompt;
+    let systemContent: string;
+    if (activeCommand) {
+      systemContent = [
+        activeCommand.systemPrompt,
+        filePath ? `Current file: ${filePath} (${language})` : "",
+        currentDir ? `Current directory: ${currentDir}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    } else if (multiFileMode) {
+      systemContent = [
+        "You are a coding assistant integrated into a code editor.",
+        MULTI_FILE_SYSTEM_PROMPT,
+        filePath ? `Current file: ${filePath} (${language})` : "",
+        currentDir ? `Current directory: ${currentDir}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    } else {
+      systemContent = buildDefaultSystemContent(fileCtx);
+    }
 
     const messages: ChatMessage[] = [
-      systemMessage,
-      { role: "user", content: userContent },
+      { role: "system", content: systemContent },
+      { role: "user", content: buildUserContent({ prompt, fileContent, language }) },
     ];
 
-    let modelArg = selectedModel;
-    if (selectedProvider !== "default") {
-      if (!selectedModel || selectedModel === "default") {
-        modelArg = selectedProvider;
-      } else if (!selectedModel.toLowerCase().startsWith(selectedProvider.toLowerCase() + "/")) {
-        modelArg = `${selectedProvider}/${selectedModel}`;
-      }
-    }
+    const modelArg = resolveModel(selectedProvider, selectedModel);
 
     try {
       const chatReq = { model: modelArg, messages, temperature, max_tokens: maxTokens };
@@ -572,9 +439,7 @@ export function AiPromptPanel({
                 {selectedModel !== "default" && (
                   <span className="opacity-60 truncate">
                     &middot;{" "}
-                    {selectedModel.includes("/")
-                      ? selectedModel.split("/").slice(1).join("/")
-                      : selectedModel}
+                    {displayModelName(selectedModel)}
                   </span>
                 )}
               </>
@@ -612,7 +477,6 @@ export function AiPromptPanel({
         maxTokens={maxTokens}
         onApply={onApply}
         onFileCreated={onFileCreated}
-        extractCode={extractCode}
       />
     </div>
   );

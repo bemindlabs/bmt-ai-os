@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Download, X, CheckCircle, AlertCircle } from "lucide-react";
+import { formatBytes } from "@/lib/api";
 
 const AVAILABLE_MODELS = [
   { name: "qwen2.5-coder:7b", size: "4.7 GB", desc: "Coding (recommended)" },
@@ -29,13 +30,6 @@ const AVAILABLE_MODELS = [
 
 interface PullModelFormProps {
   installedModels?: string[];
-}
-
-function fmtBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
 export function PullModelForm({ installedModels = [] }: PullModelFormProps) {
@@ -155,7 +149,7 @@ export function PullModelForm({ installedModels = [] }: PullModelFormProps) {
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">{pullStatus}</span>
               <span className="font-mono text-muted-foreground">
-                {totalSize > 0 ? `${fmtBytes(completedSize)} / ${fmtBytes(totalSize)}` : `${progress}%`}
+                {totalSize > 0 ? `${formatBytes(completedSize)} / ${formatBytes(totalSize)}` : `${progress}%`}
               </span>
             </div>
             <Progress value={progress} />

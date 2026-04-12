@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -24,62 +24,14 @@ import {
 import {
   BrainCog,
   Plus,
-  Loader2,
   RefreshCw,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  CircleDot,
 } from "lucide-react";
+import { TrainingStatusBadge } from "./training-status-badge";
 import {
   fetchTrainingJobs,
   type TrainingJob,
   type TrainingJobListResponse,
 } from "@/lib/api";
-
-// ---- Status badge -------------------------------------------------------
-
-function StatusBadge({ status }: { status: TrainingJob["status"] }) {
-  switch (status) {
-    case "pending":
-      return (
-        <Badge variant="outline" className="gap-1.5">
-          <Clock className="size-3 opacity-70" />
-          Pending
-        </Badge>
-      );
-    case "running":
-      return (
-        <Badge className="gap-1.5 bg-blue-600 text-white hover:bg-blue-600">
-          <Loader2 className="size-3 animate-spin" />
-          Running
-        </Badge>
-      );
-    case "completed":
-      return (
-        <Badge className="gap-1.5 bg-green-600 text-white hover:bg-green-600">
-          <CheckCircle2 className="size-3" />
-          Completed
-        </Badge>
-      );
-    case "failed":
-      return (
-        <Badge className="gap-1.5 bg-red-600 text-white hover:bg-red-600">
-          <XCircle className="size-3" />
-          Failed
-        </Badge>
-      );
-    case "cancelled":
-      return (
-        <Badge variant="secondary" className="gap-1.5">
-          <CircleDot className="size-3 opacity-70" />
-          Cancelled
-        </Badge>
-      );
-    default:
-      return <Badge variant="outline">{status}</Badge>;
-  }
-}
 
 // ---- Skeleton row -------------------------------------------------------
 
@@ -96,14 +48,6 @@ function SkeletonRow() {
 }
 
 // ---- Helpers ------------------------------------------------------------
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
-}
 
 function hasActiveJobs(jobs: TrainingJob[]): boolean {
   return jobs.some((j) => j.status === "running" || j.status === "pending");
@@ -262,7 +206,7 @@ export default function TrainingPage() {
                       {job.dataset}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={job.status} />
+                      <TrainingStatusBadge status={job.status} />
                     </TableCell>
                     <TableCell className="min-w-[140px]">
                       {job.status === "running" ? (

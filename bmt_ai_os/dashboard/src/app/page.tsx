@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Code2,
   BrainCircuit,
+  BrainCog,
   Terminal,
   WifiOff,
 } from "lucide-react";
@@ -71,6 +72,7 @@ function ServiceCard({ svc }: { svc: ServiceStatus }) {
             className={`size-2.5 shrink-0 rounded-full ${healthColor(svc.health)} ${
               healthy ? "shadow-[0_0_6px_1px] shadow-green-500/60" : ""
             }`}
+            aria-hidden="true"
           />
           <CardTitle className="text-sm font-medium">{svc.name}</CardTitle>
         </div>
@@ -176,6 +178,7 @@ const QUICK_ACTIONS = [
   { href: "/chat", label: "Chat", icon: MessageSquare, desc: "Talk to AI" },
   { href: "/editor", label: "Editor", icon: Code2, desc: "AI code editor" },
   { href: "/models", label: "Models", icon: BrainCircuit, desc: "Manage models" },
+  { href: "/agents", label: "Agents", icon: BrainCog, desc: "Agent personas" },
   { href: "/terminal", label: "Terminal", icon: Terminal, desc: "SSH terminal" },
 ] as const;
 
@@ -264,7 +267,7 @@ export default function OverviewPage() {
             </Badge>
           ) : overallHealthy ? (
             <Badge className="gap-1 bg-green-600 text-white hover:bg-green-600">
-              <span className="size-1.5 rounded-full bg-white" />
+              <span className="size-1.5 rounded-full bg-white" aria-hidden="true" />
               All Systems Operational
             </Badge>
           ) : overallDegraded ? (
@@ -411,7 +414,7 @@ export default function OverviewPage() {
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Quick Actions
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {QUICK_ACTIONS.map(({ href, label, icon: Icon, desc }) => (
             <Link key={href} href={href} className="group">
               <Card className="cursor-pointer transition-colors hover:bg-muted/50">

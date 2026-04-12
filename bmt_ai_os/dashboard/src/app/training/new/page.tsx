@@ -247,12 +247,14 @@ export default function NewTrainingPage() {
 
             {/* Method selector */}
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium">Method</span>
-              <div className="flex gap-3">
+              <span id="method-label" className="text-xs font-medium">Method</span>
+              <div className="flex gap-3" role="radiogroup" aria-labelledby="method-label">
                 {PRESETS.map((p) => (
                   <button
                     key={p.method}
                     type="button"
+                    role="radio"
+                    aria-checked={method === p.method}
                     onClick={() => setMethod(p.method)}
                     className={`flex-1 rounded-lg border p-3 text-left transition-colors ${
                       method === p.method

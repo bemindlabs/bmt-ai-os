@@ -8,6 +8,7 @@ export interface FileEntry {
   is_dir: boolean;
   size: number;
   modified: string;
+  mime?: string;
 }
 
 export async function listFiles(

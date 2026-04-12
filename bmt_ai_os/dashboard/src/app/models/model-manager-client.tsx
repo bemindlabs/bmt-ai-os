@@ -414,6 +414,7 @@ function FilterBar({
           <Input
             type="search"
             placeholder="Search models…"
+            aria-label="Search models"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             className="pl-8 h-8 text-sm"

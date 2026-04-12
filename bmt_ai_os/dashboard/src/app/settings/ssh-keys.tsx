@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatDate } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -100,14 +101,6 @@ export function SshKeyManager() {
       setKeyContent((ev.target?.result as string) ?? "");
     };
     reader.readAsText(file);
-  }
-
-  function formatDate(iso: string): string {
-    try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
-    }
   }
 
   return (

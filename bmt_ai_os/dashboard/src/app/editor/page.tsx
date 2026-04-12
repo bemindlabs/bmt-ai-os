@@ -224,6 +224,7 @@ export default function EditorPage() {
                   <button
                     onClick={() => setShowRecent(false)}
                     className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                    aria-label="Close recent files"
                   >
                     <X className="size-3" />
                   </button>
@@ -276,6 +277,7 @@ export default function EditorPage() {
             variant={showAi ? "default" : "outline"}
             onClick={() => update({ showAi: !showAi })}
             className="h-7 gap-1.5 text-xs"
+            aria-pressed={showAi}
           >
             <Sparkles className="size-3" />
             AI Assist
@@ -323,7 +325,7 @@ export default function EditorPage() {
         </aside>
 
         {/* Editor pane */}
-        <div className="flex min-w-0 flex-1 flex-col bg-[#1e1e1e]">
+        <div className="flex min-w-0 flex-1 flex-col bg-background">
           <div className="flex min-h-0 flex-1 flex-col">
             {loadingFile ? (
               <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

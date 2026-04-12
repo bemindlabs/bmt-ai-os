@@ -1,61 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { streamChat, fetchProviders, fetchProviderModels } from "@/lib/api";
-import type { ChatMessage, Provider } from "@/lib/api";
+import { streamChat } from "@/lib/api";
+import type { Provider } from "@/lib/api";
+import { useProviderCatalogue } from "./use-provider-catalogue";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GitCompare, Loader2, Check, X, ChevronDown } from "lucide-react";
-
-// ---------------------------------------------------------------------------
-// SSE parser (mirrors ai-prompt-panel.tsx)
-// ---------------------------------------------------------------------------
-
-function parseSSEChunk(chunk: string): string {
-  let text = "";
-  for (const line of chunk.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("data: ")) continue;
-    const payload = trimmed.slice(6);
-    if (payload === "[DONE]") break;
-    try {
-      const json = JSON.parse(payload);
-      const delta = json.choices?.[0]?.delta?.content;
-      if (delta) text += delta;
-    } catch {
-      // skip malformed chunks
-    }
-  }
-  return text;
-}
-
-// ---------------------------------------------------------------------------
-// Provider display helpers (mirrors ai-prompt-panel.tsx)
-// ---------------------------------------------------------------------------
-
-const PROVIDER_LABELS: Record<string, string> = {
-  anthropic: "Claude",
-  openai: "OpenAI",
-  gemini: "Gemini",
-  groq: "Groq",
-  mistral: "Mistral",
-  ollama: "Ollama",
-  vllm: "vLLM",
-  llamacpp: "llama.cpp",
-};
-
-function providerLabel(name: string): string {
-  return PROVIDER_LABELS[name.toLowerCase()] ?? name;
-}
-
-// ---------------------------------------------------------------------------
-// Approximate token count from text length
-// ---------------------------------------------------------------------------
-
-function approxTokens(text: string): number {
-  // ~4 chars per token is a reasonable approximation
-  return Math.round(text.length / 4);
-}
+import { parseSSEChunk } from "@/lib/sse";
+import { resolveModel, displayModelName } from "@/lib/utils";
+import { buildEditorMessages, extractCode } from "./editor-prompts";
+import { providerLabel } from "./ai-provider-selector";
+import { estimateTokens } from "@/components/context-meter";
 
 function formatLatency(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -152,7 +108,7 @@ function ModelSelector({
               <option value="default">default ({providerLabel(selectedProvider)})</option>
               {models.map((id) => (
                 <option key={id} value={id}>
-                  {id.includes("/") ? id.split("/").slice(1).join("/") : id}
+                  {displayModelName(id)}
                 </option>
               ))}
             </select>
@@ -178,17 +134,12 @@ function ResultColumn({ col, side, onApply }: ResultColumnProps) {
   const displayName =
     col.provider !== "default"
       ? col.model !== "default"
-        ? col.model.includes("/")
-          ? col.model.split("/").slice(1).join("/")
-          : col.model
+        ? displayModelName(col.model)
         : providerLabel(col.provider)
       : "auto";
 
   const handleApply = () => {
-    let code = col.response;
-    const fenceMatch = code.match(/^```[\w]*\n([\s\S]*?)\n```$/);
-    if (fenceMatch) code = fenceMatch[1];
-    onApply(code);
+    onApply(extractCode(col.response));
   };
 
   return (
@@ -212,7 +163,7 @@ function ResultColumn({ col, side, onApply }: ResultColumnProps) {
           )}
           {col.response && !col.loading && (
             <span className="text-[10px] text-muted-foreground font-mono">
-              {approxTokens(col.response)}tk
+              {estimateTokens(col.response)}tk
             </span>
           )}
           {col.loading && (
@@ -285,10 +236,9 @@ export function ModelCompare({
   onApply,
   onClose,
 }: ModelCompareProps) {
-  // Provider / model catalogue
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [allModels, setAllModels] = useState<Record<string, string[]>>({});
-  const [loadingCatalogue, setLoadingCatalogue] = useState(false);
+  // Provider / model catalogue (shared hook)
+  const { providers, providerModels: allModels, loadingProviders: loadingCatalogue } =
+    useProviderCatalogue();
 
   // Column A
   const [providerA, setProviderA] = useState<string>("default");
@@ -307,49 +257,19 @@ export function ModelCompare({
 
   const isRunning = colA.loading || colB.loading;
 
-  // ---------------------------------------------------------------------------
-  // Fetch providers + models on mount
-  // ---------------------------------------------------------------------------
-
+  // Auto-select healthy providers once catalogue loads
   useEffect(() => {
-    setLoadingCatalogue(true);
-    fetchProviders()
-      .then(async (res) => {
-        const list = res.providers ?? [];
-        setProviders(list);
-
-        if (list.length === 0) return;
-
-        const modelsRes = await fetchProviderModels("all").catch(() => ({
-          models: [],
-        }));
-        const allIds = (modelsRes.models ?? [])
-          .map((m) => m.id ?? (m as { name?: string }).name ?? "")
-          .filter(Boolean);
-
-        const byProvider: Record<string, string[]> = {};
-        for (const p of list) {
-          const prefixed = allIds.filter((id) =>
-            id.toLowerCase().startsWith(p.name.toLowerCase() + "/"),
-          );
-          byProvider[p.name] = prefixed.length > 0 ? prefixed : allIds;
-        }
-        setAllModels(byProvider);
-
-        // Default column A to first healthy provider, column B to second
-        const healthy = list.filter((p) => p.healthy);
-        if (healthy[0]) {
-          setProviderA(healthy[0].name);
-          setModelA((byProvider[healthy[0].name] ?? [])[0] ?? "default");
-        }
-        if (healthy[1]) {
-          setProviderB(healthy[1].name);
-          setModelB((byProvider[healthy[1].name] ?? [])[0] ?? "default");
-        }
-      })
-      .catch(() => setProviders([]))
-      .finally(() => setLoadingCatalogue(false));
-  }, []);
+    if (providers.length === 0 || Object.keys(allModels).length === 0) return;
+    const healthy = providers.filter((p) => p.healthy);
+    if (healthy[0]) {
+      setProviderA(healthy[0].name);
+      setModelA((allModels[healthy[0].name] ?? [])[0] ?? "default");
+    }
+    if (healthy[1]) {
+      setProviderB(healthy[1].name);
+      setModelB((allModels[healthy[1].name] ?? [])[0] ?? "default");
+    }
+  }, [providers, allModels]);
 
   // ---------------------------------------------------------------------------
   // Sync column state models when provider selectors change
@@ -370,45 +290,6 @@ export function ModelCompare({
     },
     [allModels],
   );
-
-  // ---------------------------------------------------------------------------
-  // Build model arg string for streamChat (mirrors ai-prompt-panel.tsx)
-  // ---------------------------------------------------------------------------
-
-  function resolveModel(provider: string, model: string): string {
-    if (provider === "default") return model;
-    if (!model || model === "default") return provider;
-    if (!model.toLowerCase().startsWith(provider.toLowerCase() + "/")) {
-      return `${provider}/${model}`;
-    }
-    return model;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Build messages array (mirrors ai-prompt-panel.tsx)
-  // ---------------------------------------------------------------------------
-
-  function buildMessages(): ChatMessage[] {
-    const systemMessage: ChatMessage = {
-      role: "system",
-      content: [
-        "You are a coding assistant integrated into a code editor.",
-        "The user is editing a file and wants you to generate or modify code.",
-        "Respond ONLY with the code — no markdown fences, no explanations, no preamble.",
-        "If the user asks to modify existing code, return the complete modified file content.",
-        "If the user asks to generate new code, return just the code.",
-        filePath ? `Current file: ${filePath} (${language})` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    };
-
-    const userContent = fileContent.trim()
-      ? `Here is the current file content:\n\`\`\`${language}\n${fileContent}\n\`\`\`\n\nInstruction: ${prompt}`
-      : prompt;
-
-    return [systemMessage, { role: "user", content: userContent }];
-  }
 
   // ---------------------------------------------------------------------------
   // Stream one column
@@ -433,7 +314,7 @@ export function ModelCompare({
       const reader = await streamChat(
         {
           model: modelArg,
-          messages: buildMessages(),
+          messages: buildEditorMessages({ prompt, fileContent, filePath, language }),
           temperature,
           max_tokens: maxTokens,
         },
