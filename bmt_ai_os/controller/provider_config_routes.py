@@ -42,7 +42,7 @@ from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from bmt_ai_os.controller.rate_limit import sensitive_rate_limit
 
@@ -542,21 +542,21 @@ def get_key_store() -> ProviderKeyStore:
 
 
 class AddKeyRequest(BaseModel):
-    api_key: str
-    credential_type: str = "api_key"
-    display_name: str = ""
+    api_key: str = Field(max_length=4096)
+    credential_type: str = Field(default="api_key", max_length=32)
+    display_name: str = Field(default="", max_length=128)
 
 
 class OAuthStartRequest(BaseModel):
-    redirect_uri: str
-    client_id: str | None = None
-    client_secret: str | None = None
+    redirect_uri: str = Field(max_length=2048)
+    client_id: str | None = Field(default=None, max_length=256)
+    client_secret: str | None = Field(default=None, max_length=256)
 
 
 class OAuthCallbackRequest(BaseModel):
-    code: str
-    state: str
-    redirect_uri: str | None = None
+    code: str = Field(max_length=4096)
+    state: str = Field(max_length=512)
+    redirect_uri: str | None = Field(default=None, max_length=2048)
 
 
 # ---------------------------------------------------------------------------

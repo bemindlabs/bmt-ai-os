@@ -80,9 +80,8 @@ async def install_plugin(name: str) -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to persist plugin state: {exc}"
-        ) from exc
+        logger.exception("Failed to persist plugin state for '%s'", name)
+        raise HTTPException(status_code=500, detail="Failed to persist plugin state.") from exc
     return {"plugin": name, "status": "installed", "installed": manager.is_installed(name)}
 
 
@@ -95,9 +94,8 @@ async def uninstall_plugin(name: str) -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to persist plugin state: {exc}"
-        ) from exc
+        logger.exception("Failed to persist plugin state for '%s'", name)
+        raise HTTPException(status_code=500, detail="Failed to persist plugin state.") from exc
     return {"plugin": name, "status": "uninstalled"}
 
 
@@ -110,9 +108,8 @@ async def enable_plugin(name: str) -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to persist plugin state: {exc}"
-        ) from exc
+        logger.exception("Failed to persist plugin state for '%s'", name)
+        raise HTTPException(status_code=500, detail="Failed to persist plugin state.") from exc
     return {"plugin": name, "status": "enabled", "enabled": manager.is_enabled(name)}
 
 
@@ -125,7 +122,6 @@ async def disable_plugin(name: str) -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to persist plugin state: {exc}"
-        ) from exc
+        logger.exception("Failed to persist plugin state for '%s'", name)
+        raise HTTPException(status_code=500, detail="Failed to persist plugin state.") from exc
     return {"plugin": name, "status": "disabled", "enabled": manager.is_enabled(name)}

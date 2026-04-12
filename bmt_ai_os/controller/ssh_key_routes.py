@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from typing import Generator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from bmt_ai_os.controller.rate_limit import sensitive_rate_limit
 
@@ -135,8 +135,8 @@ def _ensure_table() -> None:
 
 
 class UploadKeyRequest(BaseModel):
-    name: str
-    key: str  # PEM private key content
+    name: str = Field(max_length=128)
+    key: str = Field(max_length=16384)  # PEM private key content
 
 
 class KeySummary(BaseModel):
