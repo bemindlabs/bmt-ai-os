@@ -122,9 +122,11 @@ const PROVIDERS: ProviderMeta[] = [
 // Wizard state
 // ---------------------------------------------------------------------------
 
+type AuthMethod = "none" | "api_key" | "oauth" | "token";
+
 interface WizardState {
   provider: ProviderMeta | null;
-  authMethod: "none" | "api_key";
+  authMethod: AuthMethod;
   baseUrl: string;
   apiKey: string;
   defaultModel: string;
@@ -133,6 +135,10 @@ interface WizardState {
   availableModels: string[];
   modelsLoading: boolean;
   modelsError: string;
+  oauthClientId: string;
+  oauthClientSecret: string;
+  oauthStatus: "idle" | "connecting" | "connected" | "error";
+  oauthError: string;
 }
 
 const initialState: WizardState = {
@@ -146,7 +152,14 @@ const initialState: WizardState = {
   availableModels: [],
   modelsLoading: false,
   modelsError: "",
+  oauthClientId: "",
+  oauthClientSecret: "",
+  oauthStatus: "idle",
+  oauthError: "",
 };
+
+// Providers that support OAuth
+const OAUTH_PROVIDERS = new Set(["openai", "gemini", "google"]);
 
 // ---------------------------------------------------------------------------
 // Step components
@@ -212,30 +225,36 @@ function StepAuthMethod({
   onSelect,
 }: {
   provider: ProviderMeta;
-  authMethod: "none" | "api_key";
-  onSelect: (m: "none" | "api_key") => void;
+  authMethod: AuthMethod;
+  onSelect: (m: AuthMethod) => void;
 }) {
-  const options: { value: "none" | "api_key"; label: string; description: string }[] =
-    provider.isLocal
-      ? [
-          {
-            value: "none",
-            label: "No Authentication",
-            description: "Local provider — no API key required.",
-          },
-          {
-            value: "api_key",
-            label: "API Key",
-            description: "Optional bearer token if your server is secured.",
-          },
-        ]
-      : [
-          {
-            value: "api_key",
-            label: "API Key",
-            description: "Authenticate using a provider-issued API key.",
-          },
-        ];
+  const options: { value: AuthMethod; label: string; description: string }[] = [];
+
+  if (provider.isLocal) {
+    options.push({
+      value: "none",
+      label: "No Authentication",
+      description: "Local provider — no API key required.",
+    });
+    options.push({
+      value: "token",
+      label: "Bearer Token",
+      description: "Optional bearer token if your server is secured.",
+    });
+  } else {
+    options.push({
+      value: "api_key",
+      label: "API Key",
+      description: "Authenticate using a provider-issued API key.",
+    });
+    if (OAUTH_PROVIDERS.has(provider.id)) {
+      options.push({
+        value: "oauth",
+        label: "OAuth 2.0",
+        description: "Authenticate via OAuth with PKCE — auto-refreshable tokens.",
+      });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -284,15 +303,29 @@ function StepCredentials({
   authMethod,
   baseUrl,
   apiKey,
+  oauthClientId,
+  oauthClientSecret,
+  oauthStatus,
+  oauthError,
   onBaseUrlChange,
   onApiKeyChange,
+  onOAuthClientIdChange,
+  onOAuthClientSecretChange,
+  onOAuthConnect,
 }: {
   provider: ProviderMeta;
-  authMethod: "none" | "api_key";
+  authMethod: AuthMethod;
   baseUrl: string;
   apiKey: string;
+  oauthClientId: string;
+  oauthClientSecret: string;
+  oauthStatus: "idle" | "connecting" | "connected" | "error";
+  oauthError: string;
   onBaseUrlChange: (v: string) => void;
   onApiKeyChange: (v: string) => void;
+  onOAuthClientIdChange: (v: string) => void;
+  onOAuthClientSecretChange: (v: string) => void;
+  onOAuthConnect: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -320,21 +353,83 @@ function StepCredentials({
           </p>
         </div>
 
-        {authMethod === "api_key" && (
+        {(authMethod === "api_key" || authMethod === "token") && (
           <div className="space-y-1.5">
             <label htmlFor="api-key" className="text-sm font-medium">
-              API Key
+              {authMethod === "token" ? "Bearer Token" : "API Key"}
             </label>
             <Input
               id="api-key"
               type="password"
-              placeholder="sk-..."
+              placeholder={authMethod === "token" ? "Bearer token..." : "sk-..."}
               value={apiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
               autoComplete="new-password"
             />
             <p className="text-xs text-muted-foreground">
-              Your secret API key — stored securely on the controller.
+              {authMethod === "token"
+                ? "Your bearer token — stored securely on the controller."
+                : "Your secret API key — stored securely on the controller."}
+            </p>
+          </div>
+        )}
+
+        {authMethod === "oauth" && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label htmlFor="oauth-client-id" className="text-sm font-medium">
+                OAuth Client ID
+              </label>
+              <Input
+                id="oauth-client-id"
+                type="text"
+                placeholder="Client ID (or set via environment variable)"
+                value={oauthClientId}
+                onChange={(e) => onOAuthClientIdChange(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="oauth-client-secret" className="text-sm font-medium">
+                OAuth Client Secret
+              </label>
+              <Input
+                id="oauth-client-secret"
+                type="password"
+                placeholder="Client Secret (optional with PKCE)"
+                value={oauthClientSecret}
+                onChange={(e) => onOAuthClientSecretChange(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <Button
+              variant={oauthStatus === "connected" ? "outline" : "default"}
+              size="sm"
+              onClick={onOAuthConnect}
+              disabled={oauthStatus === "connecting"}
+              className="w-full"
+            >
+              {oauthStatus === "connecting" && (
+                <>
+                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                  Connecting...
+                </>
+              )}
+              {oauthStatus === "connected" && (
+                <>
+                  <CheckCircle className="size-3.5 mr-1.5" />
+                  OAuth Connected — Reconnect
+                </>
+              )}
+              {(oauthStatus === "idle" || oauthStatus === "error") && (
+                "Connect with OAuth"
+              )}
+            </Button>
+            {oauthError && (
+              <p className="text-xs text-destructive">{oauthError}</p>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              OAuth uses PKCE (S256) for security. You&apos;ll be redirected to the provider to authorize access.
             </p>
           </div>
         )}
@@ -646,6 +741,12 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
         if (state.authMethod === "api_key" && !state.provider?.isLocal) {
           return state.apiKey.trim().length > 0;
         }
+        if (state.authMethod === "token") {
+          return state.apiKey.trim().length > 0;
+        }
+        if (state.authMethod === "oauth") {
+          return state.oauthStatus === "connected" || state.oauthClientId.trim().length > 0;
+        }
         return true;
       }
       case 3:
@@ -665,8 +766,8 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
       if (!state.baseUrl) {
         update({ baseUrl: state.provider.defaultBaseUrl });
       }
-      // Force api_key for cloud providers
-      if (!state.provider.isLocal) {
+      // Force api_key for cloud providers if method is "none"
+      if (!state.provider.isLocal && state.authMethod === "none") {
         update({ authMethod: "api_key" });
       }
     }
@@ -688,6 +789,46 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
   }
 
   // ---- API calls ----------------------------------------------------------
+
+  async function handleOAuthConnect() {
+    if (!state.provider) return;
+    update({ oauthStatus: "connecting", oauthError: "" });
+
+    try {
+      const redirectUri = `${window.location.origin}/oauth/callback`;
+      const res = await fetch(
+        `/api/v1/providers/config/${state.provider.id}/oauth/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            redirect_uri: redirectUri,
+            client_id: state.oauthClientId || undefined,
+            client_secret: state.oauthClientSecret || undefined,
+          }),
+        },
+      );
+
+      if (res.ok) {
+        const data = (await res.json()) as { auth_url: string; state: string };
+        sessionStorage.setItem("bmt_oauth_provider", state.provider.id);
+        sessionStorage.setItem("bmt_oauth_state", data.state);
+        sessionStorage.setItem("bmt_oauth_wizard", "true");
+        window.location.href = data.auth_url;
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { detail?: string };
+        update({
+          oauthStatus: "error",
+          oauthError: data.detail ?? `HTTP ${res.status}`,
+        });
+      }
+    } catch (err) {
+      update({
+        oauthStatus: "error",
+        oauthError: err instanceof Error ? err.message : "OAuth failed",
+      });
+    }
+  }
 
   async function handleTest() {
     if (!state.provider) return;
@@ -778,6 +919,7 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
           base_url: state.baseUrl,
           api_key: state.apiKey || undefined,
           default_model: state.defaultModel,
+          credential_type: state.authMethod === "token" ? "token" : state.authMethod === "oauth" ? "oauth" : "api_key",
         }),
       });
 
@@ -846,6 +988,10 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
                   testMessage: "",
                   availableModels: [],
                   defaultModel: "",
+                  oauthClientId: "",
+                  oauthClientSecret: "",
+                  oauthStatus: "idle",
+                  oauthError: "",
                 })
               }
             />
@@ -865,8 +1011,15 @@ export function ProviderWizard({ onClose, onComplete }: ProviderWizardProps) {
               authMethod={state.authMethod}
               baseUrl={state.baseUrl}
               apiKey={state.apiKey}
+              oauthClientId={state.oauthClientId}
+              oauthClientSecret={state.oauthClientSecret}
+              oauthStatus={state.oauthStatus}
+              oauthError={state.oauthError}
               onBaseUrlChange={(v) => update({ baseUrl: v })}
               onApiKeyChange={(v) => update({ apiKey: v })}
+              onOAuthClientIdChange={(v) => update({ oauthClientId: v })}
+              onOAuthClientSecretChange={(v) => update({ oauthClientSecret: v })}
+              onOAuthConnect={handleOAuthConnect}
             />
           )}
 

@@ -36,15 +36,20 @@ export interface ProvidersResponse {
   active?: string;
 }
 
+export type CredentialType = "api_key" | "oauth" | "token";
+
 export interface ProviderKey {
   id: string;
   provider_name: string;
   masked_key: string;
+  credential_type: CredentialType;
+  display_name?: string;
+  expires_at?: number | null;
   usage_count: number;
   last_used: number | null;
   last_error: string | null;
   cooldown_until: number | null;
-  status: "active" | "cooldown";
+  status: "active" | "cooldown" | "expired";
 }
 
 export interface ProviderKeysResponse {
@@ -116,12 +121,18 @@ export async function fetchProviderKeys(
 export async function addProviderKey(
   providerName: string,
   apiKey: string,
+  credentialType: CredentialType = "api_key",
+  displayName = "",
 ): Promise<AddKeyResponse> {
   return apiFetch<AddKeyResponse>(
     `/api/v1/providers/config/${encodeURIComponent(providerName)}/keys`,
     {
       method: "POST",
-      body: JSON.stringify({ api_key: apiKey }),
+      body: JSON.stringify({
+        api_key: apiKey,
+        credential_type: credentialType,
+        display_name: displayName,
+      }),
     },
   );
 }
@@ -143,4 +154,76 @@ export async function saveProviderKey(
 ): Promise<{ status: string }> {
   const res = await addProviderKey(provider, key);
   return { status: res.key.status };
+}
+
+// ---------------------------------------------------------------------------
+// OAuth
+// ---------------------------------------------------------------------------
+
+export interface OAuthStartResponse {
+  auth_url: string;
+  state: string;
+  provider: string;
+}
+
+export interface OAuthCallbackResponse {
+  provider_name: string;
+  credential_type: "oauth";
+  key: ProviderKey;
+  expires_in: number;
+}
+
+export interface OAuthStatusResponse {
+  provider_name: string;
+  oauth_supported: boolean;
+  oauth_configured: boolean;
+  oauth_valid: boolean;
+  has_client_config: boolean;
+  credentials: ProviderKey[];
+}
+
+export async function oauthStart(
+  providerName: string,
+  redirectUri: string,
+  clientId?: string,
+  clientSecret?: string,
+): Promise<OAuthStartResponse> {
+  return apiFetch<OAuthStartResponse>(
+    `/api/v1/providers/config/${encodeURIComponent(providerName)}/oauth/start`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        redirect_uri: redirectUri,
+        client_id: clientId || undefined,
+        client_secret: clientSecret || undefined,
+      }),
+    },
+  );
+}
+
+export async function oauthCallback(
+  providerName: string,
+  code: string,
+  state: string,
+  redirectUri?: string,
+): Promise<OAuthCallbackResponse> {
+  return apiFetch<OAuthCallbackResponse>(
+    `/api/v1/providers/config/${encodeURIComponent(providerName)}/oauth/callback`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        code,
+        state,
+        redirect_uri: redirectUri || undefined,
+      }),
+    },
+  );
+}
+
+export async function oauthStatus(
+  providerName: string,
+): Promise<OAuthStatusResponse> {
+  return apiFetch<OAuthStatusResponse>(
+    `/api/v1/providers/config/${encodeURIComponent(providerName)}/oauth/status`,
+  );
 }
