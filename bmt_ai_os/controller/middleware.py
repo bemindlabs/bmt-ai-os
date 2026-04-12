@@ -297,6 +297,41 @@ def add_cors(app: FastAPI) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Request body size limit
+# ---------------------------------------------------------------------------
+
+_MAX_BODY_BYTES = int(os.environ.get("BMT_MAX_BODY_BYTES", str(10 * 1024 * 1024)))  # 10 MB
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests whose Content-Length exceeds ``BMT_MAX_BODY_BYTES``.
+
+    Default limit is 10 MB.  Requests without a Content-Length header are
+    allowed through (streaming uploads are bounded by other means).
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > _MAX_BODY_BYTES:
+                    max_mb = _MAX_BODY_BYTES // (1024 * 1024)
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "detail": {
+                                "message": f"Request body too large (max {max_mb} MB).",
+                                "type": "request_too_large",
+                                "code": "body_too_large",
+                            }
+                        },
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
 # Security headers
 # ---------------------------------------------------------------------------
 
@@ -343,6 +378,7 @@ def apply_middleware(app: FastAPI, *, api_key: str | None = None) -> None:
     from .auth import JWTAuthMiddleware  # local import avoids circular deps at module load
 
     add_cors(app)
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(JWTAuthMiddleware)

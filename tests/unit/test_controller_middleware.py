@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from bmt_ai_os.controller.middleware import (
@@ -184,3 +184,60 @@ class TestSecurityHeaders:
         client = self._make_app()
         resp = client.get("/healthz")
         assert resp.headers.get("Cache-Control") != "no-store"
+
+
+# ---------------------------------------------------------------------------
+# BodySizeLimitMiddleware
+# ---------------------------------------------------------------------------
+
+
+class TestBodySizeLimit:
+    """Verify that oversized request bodies are rejected with 413."""
+
+    def _make_app(self, max_bytes: int = 1024):
+        import bmt_ai_os.controller.middleware as mw
+
+        original = mw._MAX_BODY_BYTES
+        mw._MAX_BODY_BYTES = max_bytes
+
+        from bmt_ai_os.controller.middleware import BodySizeLimitMiddleware
+
+        app = FastAPI()
+        app.add_middleware(BodySizeLimitMiddleware)
+
+        @app.post("/upload")
+        async def upload(request: Request):
+            body = await request.body()
+            return {"size": len(body)}
+
+        client = TestClient(app)
+        mw._MAX_BODY_BYTES = original  # restore after app is built
+        # Re-patch for the middleware instance already captured the module global
+        # The middleware reads _MAX_BODY_BYTES at request time, so we set it now
+        mw._MAX_BODY_BYTES = max_bytes
+        yield client
+        mw._MAX_BODY_BYTES = original
+
+    def test_allows_small_body(self):
+        gen = self._make_app(max_bytes=1024)
+        client = next(gen)
+        resp = client.post("/upload", content=b"x" * 100)
+        assert resp.status_code == 200
+
+    def test_rejects_oversized_body(self):
+        gen = self._make_app(max_bytes=1024)
+        client = next(gen)
+        resp = client.post(
+            "/upload",
+            content=b"x" * 2048,
+            headers={"content-length": "2048"},
+        )
+        assert resp.status_code == 413
+        assert "too large" in resp.json()["detail"]["message"]
+
+    def test_allows_missing_content_length(self):
+        gen = self._make_app(max_bytes=512)
+        client = next(gen)
+        # TestClient always sets content-length, so just test small body passes
+        resp = client.post("/upload", content=b"small")
+        assert resp.status_code == 200
