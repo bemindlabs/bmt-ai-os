@@ -33,6 +33,9 @@ export const CLOUD_PROVIDER_NAMES = new Set([
   "mistral",
 ]);
 
+/** Well-known cloud providers to always show in the selector, even without registration */
+const WELL_KNOWN_CLOUD: string[] = ["anthropic", "openai", "gemini", "groq", "mistral"];
+
 export function isCloudProvider(name: string): boolean {
   return CLOUD_PROVIDER_NAMES.has(name.toLowerCase());
 }
@@ -181,6 +184,20 @@ export function AiProviderSelector({
               disabled={loading}
             />
           ))}
+
+          {/* Show placeholder pills for cloud providers not yet registered */}
+          {WELL_KNOWN_CLOUD
+            .filter((name) => !providers.some((p) => p.name === name))
+            .map((name) => (
+              <ProviderPill
+                key={name}
+                provider={{ name, healthy: false, active: false } as Provider}
+                selected={selectedProvider === name}
+                missingKey={true}
+                onSelect={() => onProviderChange(name)}
+                disabled={loading}
+              />
+            ))}
         </div>
       </div>
 

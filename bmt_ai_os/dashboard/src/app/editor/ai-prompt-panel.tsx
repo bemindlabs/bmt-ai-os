@@ -241,6 +241,7 @@ export function AiPromptPanel({
 
   const handleProviderKeySaved = useCallback(() => {
     if (!selectedProvider || selectedProvider === "default") return;
+    // Re-check key status
     fetchProviderKeys(selectedProvider)
       .then((res) => {
         const hasKey = (res.keys ?? []).some((k) => k.status === "active");
@@ -248,6 +249,18 @@ export function AiPromptPanel({
       })
       .catch(() => null)
       .finally(() => setShowKeySetup(false));
+    // Re-fetch providers list — the newly keyed provider may now be registered
+    fetchProviders()
+      .then((res) => setProviders(res.providers ?? []))
+      .catch(() => null);
+    // Re-fetch models for the provider
+    fetchProviderModels(selectedProvider)
+      .then((res) => {
+        const modelIds = (res.models ?? []).map((m) => m.id ?? m.name ?? "");
+        setProviderModels((prev) => ({ ...prev, [selectedProvider]: modelIds }));
+        if (modelIds.length > 0) setSelectedModel(modelIds[0]);
+      })
+      .catch(() => null);
   }, [selectedProvider]);
 
   // ---------------------------------------------------------------------------
