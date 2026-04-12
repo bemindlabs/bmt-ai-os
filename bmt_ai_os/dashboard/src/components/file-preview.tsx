@@ -20,9 +20,9 @@ import {
   downloadFileUrl,
   ingestPath,
 } from "@/lib/api";
-import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { MarkdownPreview } from "@/components/markdown-preview";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -261,9 +261,9 @@ export function FilePreview({ entry, onClose }: FilePreviewProps) {
 
         {/* Markdown preview */}
         {!loading && !error && content !== null && isMarkdown && (
-          <article className="prose prose-sm prose-invert max-w-none p-6">
-            <ReactMarkdown>{content}</ReactMarkdown>
-          </article>
+          <div className="p-6">
+            <MarkdownPreview>{content}</MarkdownPreview>
+          </div>
         )}
 
         {/* Code / text preview */}

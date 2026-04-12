@@ -8,6 +8,7 @@ import {
   useLayoutEffect,
 } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
@@ -205,6 +206,7 @@ interface MarkdownContentProps {
 function MarkdownContent({ content }: MarkdownContentProps) {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
           <h1 className="mb-2 text-base font-bold">{children}</h1>

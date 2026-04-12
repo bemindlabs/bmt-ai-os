@@ -1,13 +1,24 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { streamChat } from "@/lib/api";
-import type { ChatMessage } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { streamChat, fetchModels } from "@/lib/api";
+import type { ChatMessage, OllamaModel } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X, Copy, Check, Replace, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Sparkles,
+  X,
+  Copy,
+  Check,
+  Replace,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Settings2,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
-// SSE parser — extracts content deltas from streaming response
+// SSE parser
 // ---------------------------------------------------------------------------
 
 function parseSSEChunk(chunk: string): string {
@@ -22,11 +33,19 @@ function parseSSEChunk(chunk: string): string {
       const delta = json.choices?.[0]?.delta?.content;
       if (delta) text += delta;
     } catch {
-      // skip malformed chunks
+      // skip
     }
   }
   return text;
 }
+
+// ---------------------------------------------------------------------------
+// Storage keys
+// ---------------------------------------------------------------------------
+
+const STORAGE_MODEL = "bmt_ai_model";
+const STORAGE_TEMP = "bmt_ai_temperature";
+const STORAGE_TOKENS = "bmt_ai_max_tokens";
 
 // ---------------------------------------------------------------------------
 // AI Prompt Panel
@@ -52,7 +71,44 @@ export function AiPromptPanel({
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Model selection
+  const [models, setModels] = useState<OllamaModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState(() =>
+    (typeof window !== "undefined" && localStorage.getItem(STORAGE_MODEL)) || "default",
+  );
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  // Options
+  const [showOptions, setShowOptions] = useState(false);
+  const [temperature, setTemperature] = useState(() => {
+    const stored = typeof window !== "undefined" && localStorage.getItem(STORAGE_TEMP);
+    return stored ? parseFloat(stored) : 0.3;
+  });
+  const [maxTokens, setMaxTokens] = useState(() => {
+    const stored = typeof window !== "undefined" && localStorage.getItem(STORAGE_TOKENS);
+    return stored ? parseInt(stored, 10) : 4096;
+  });
+
+  // Persist settings
+  useEffect(() => {
+    localStorage.setItem(STORAGE_MODEL, selectedModel);
+  }, [selectedModel]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_TEMP, String(temperature));
+  }, [temperature]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_TOKENS, String(maxTokens));
+  }, [maxTokens]);
+
+  // Fetch models on mount
+  useEffect(() => {
+    setLoadingModels(true);
+    fetchModels()
+      .then((res) => setModels(res.models ?? []))
+      .catch(() => setModels([]))
+      .finally(() => setLoadingModels(false));
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || loading) return;
@@ -88,7 +144,12 @@ export function AiPromptPanel({
 
     try {
       const reader = await streamChat(
-        { model: "default", messages },
+        {
+          model: selectedModel,
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+        },
         controller.signal,
       );
 
@@ -104,17 +165,19 @@ export function AiPromptPanel({
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
-        // User cancelled
+        // cancelled
       } else {
         setResponse(
-          (prev) => prev + `\n\n[Error: ${err instanceof Error ? err.message : "Request failed"}]`,
+          (prev) =>
+            prev +
+            `\n\n[Error: ${err instanceof Error ? err.message : "Request failed"}]`,
         );
       }
     } finally {
       setLoading(false);
       abortRef.current = null;
     }
-  }, [prompt, fileContent, filePath, language, loading]);
+  }, [prompt, fileContent, filePath, language, loading, selectedModel, temperature, maxTokens]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -128,7 +191,6 @@ export function AiPromptPanel({
   }, [response]);
 
   const handleApply = useCallback(() => {
-    // Strip markdown fences if the model added them despite instructions
     let code = response;
     const fenceMatch = code.match(/^```[\w]*\n([\s\S]*?)\n```$/);
     if (fenceMatch) code = fenceMatch[1];
@@ -152,10 +214,83 @@ export function AiPromptPanel({
         </button>
       </div>
 
+      {/* Model selector + options */}
+      <div className="border-b border-border px-3 py-2 space-y-2">
+        {/* Model dropdown */}
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-muted-foreground shrink-0 uppercase tracking-wide">
+            Model
+          </label>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            disabled={loading}
+          >
+            <option value="default">default (auto)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.name}
+              </option>
+            ))}
+            {loadingModels && <option disabled>Loading models...</option>}
+          </select>
+          <button
+            onClick={() => setShowOptions(!showOptions)}
+            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+            title="Model options"
+            aria-expanded={showOptions}
+          >
+            <Settings2 className="size-3.5" />
+          </button>
+        </div>
+
+        {/* Options panel */}
+        {showOptions && (
+          <div className="space-y-2 rounded border border-border bg-muted/20 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[10px] text-muted-foreground">
+                Temperature
+              </label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                  className="w-20 h-1 accent-primary"
+                />
+                <span className="text-xs font-mono w-7 text-right text-foreground">
+                  {temperature.toFixed(1)}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[10px] text-muted-foreground">
+                Max tokens
+              </label>
+              <Input
+                type="number"
+                min={256}
+                max={32768}
+                step={256}
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(parseInt(e.target.value, 10) || 4096)}
+                className="h-6 w-20 text-xs font-mono text-right"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Low temperature (0.1-0.3) for precise code. Higher (0.7+) for creative suggestions.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Prompt input */}
       <div className="border-b border-border p-3">
         <textarea
-          ref={textareaRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
@@ -204,7 +339,7 @@ export function AiPromptPanel({
           )}
           {filePath && fileContent.trim() && (
             <span className="ml-auto text-[10px] text-muted-foreground">
-              Context: {filePath.split("/").pop()}
+              {filePath.split("/").pop()}
             </span>
           )}
         </div>
@@ -251,7 +386,7 @@ export function AiPromptPanel({
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center p-4">
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-xs text-muted-foreground whitespace-pre-line">
               {loading
                 ? "Generating code..."
                 : "Describe what you want to code.\nThe AI will use the current file as context."}

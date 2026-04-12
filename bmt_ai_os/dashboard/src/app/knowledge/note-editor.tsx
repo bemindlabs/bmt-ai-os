@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import Markdown, { type Components } from "react-markdown";
+import { MarkdownPreview } from "@/components/markdown-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,75 +134,19 @@ function NotePreviewContent({
   rawBody: string;
   onNavigate: (target: string) => void;
 }) {
-  // We render body paragraphs manually so that wiki-links and tags become
-  // interactive React elements.  Split on double newlines (paragraph breaks)
-  // and render each paragraph either as a heading-check or as interactive text.
-  //
-  // For non-text blocks (code fences, HR, tables), fall back to react-markdown
-  // for the whole document.  The approach: use react-markdown for the skeleton
-  // but override the `p` component to inject our rich rendering.
-  const components: Components = {
-    // Override paragraph to process wiki-links and tags inline
+  // Override the paragraph renderer to inject wiki-link/tag interactivity.
+  // MarkdownPreview handles GFM tables, code highlighting, headings, etc.
+  const wikiComponents = {
     p({ children }: React.ComponentProps<"p">) {
       const text = extractText(children);
       return <p className="mb-3 leading-relaxed">{preprocessMarkdown(text, onNavigate)}</p>;
     },
-    h1({ children }: React.ComponentProps<"h1">) {
-      return <h1 className="mb-3 mt-5 text-2xl font-bold">{children}</h1>;
-    },
-    h2({ children }: React.ComponentProps<"h2">) {
-      return <h2 className="mb-2 mt-4 text-xl font-semibold">{children}</h2>;
-    },
-    h3({ children }: React.ComponentProps<"h3">) {
-      return <h3 className="mb-2 mt-3 text-lg font-medium">{children}</h3>;
-    },
-    ul({ children }: React.ComponentProps<"ul">) {
-      return <ul className="mb-3 list-disc pl-5">{children}</ul>;
-    },
-    ol({ children }: React.ComponentProps<"ol">) {
-      return <ol className="mb-3 list-decimal pl-5">{children}</ol>;
-    },
-    li({ children }: React.ComponentProps<"li">) {
-      return <li className="mb-1">{children}</li>;
-    },
-    code({ children, className }: React.ComponentProps<"code">) {
-      const isBlock = !!className;
-      return isBlock ? (
-        <code className="block overflow-x-auto rounded bg-muted p-3 font-mono text-xs">
-          {children}
-        </code>
-      ) : (
-        <code className="rounded bg-muted px-1 font-mono text-xs">{children}</code>
-      );
-    },
-    blockquote({ children }: React.ComponentProps<"blockquote">) {
-      return (
-        <blockquote className="mb-3 border-l-4 border-border pl-4 italic text-muted-foreground">
-          {children}
-        </blockquote>
-      );
-    },
-    hr() {
-      return <hr className="my-4 border-border" />;
-    },
-    a({ href, children }: React.ComponentProps<"a">) {
-      return (
-        <a
-          href={href}
-          className="text-blue-500 underline-offset-2 hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {children}
-        </a>
-      );
-    },
   };
 
   return (
-    <Markdown components={components}>
+    <MarkdownPreview components={wikiComponents as Record<string, React.ComponentType<unknown>>}>
       {rawBody}
-    </Markdown>
+    </MarkdownPreview>
   );
 }
 
