@@ -32,6 +32,7 @@ import {
   RotateCcw,
   Save,
   Server,
+  Trash2,
   WifiOff,
   Zap,
 } from "lucide-react";
@@ -42,6 +43,7 @@ import {
   fetchPresets,
   fetchProfiles,
   createProfile,
+  deleteProfile,
   validateSelection,
   fetchBuildReady,
   triggerBuild,
@@ -452,6 +454,16 @@ export default function ImageBuilderPage() {
     }
   }
 
+  async function handleDeleteProfile(profileId: string) {
+    setActionError(null);
+    try {
+      await deleteProfile(profileId);
+      setProfiles((prev) => prev.filter((p) => p.id !== profileId));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete profile");
+    }
+  }
+
   function handleReset() {
     setStep(1);
     setSelectedTarget("");
@@ -682,13 +694,22 @@ export default function ImageBuilderPage() {
                           packages
                         </CardDescription>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="flex gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => triggerExistingBuild(p.id)}
                         >
                           <Play className="size-3.5" /> Build
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteProfile(p.id)}
+                          aria-label={`Delete profile ${p.name}`}
+                        >
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </CardContent>
                     </Card>
