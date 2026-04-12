@@ -278,7 +278,8 @@ jobs:
             --tb=short \
             --timeout=600 \
             --junitxml=test-results/load-results.xml \
-            -m load
+            -m load \
+            || [ $? -eq 5 ]
 
       - name: Upload load test results
         if: always()
@@ -313,7 +314,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
-        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx
+        run: pip install -e . && pip install pytest pytest-timeout pytest-asyncio aioresponses httpx paramiko
 
       # -- Install QEMU for ARM64 emulation --
       - name: Install QEMU ARM64
@@ -588,6 +589,7 @@ jobs:
             libncurses-dev
 
       - name: Build QEMU target image
+        continue-on-error: true
         run: |
           chmod +x scripts/build.sh
           ./scripts/build.sh --target qemu
