@@ -13,10 +13,9 @@ from typing import Any
 import click
 import requests
 
+from bmt_ai_os import __version__
 from bmt_ai_os.benchmark import suite as _suite
 from bmt_ai_os.controller.config import load_config
-
-__version__ = "2026.4.10"
 
 _OLLAMA_BASE = "http://localhost:11434"
 _CHROMADB_BASE = "http://localhost:8000"

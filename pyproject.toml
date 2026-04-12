@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bmt_ai_os"
-version = "2026.4.10"
+version = "2026.4.12"
 description = "BMT AI OS — AI-first operating system for ARM64"
 requires-python = ">=3.11"
 license = {text = "MIT"}

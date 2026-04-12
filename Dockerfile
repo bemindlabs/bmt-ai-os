@@ -42,7 +42,7 @@ LABEL maintainer="Bemind Technology Co., Ltd."
 LABEL org.opencontainers.image.title="BMT AI OS"
 LABEL org.opencontainers.image.description="AI-first OS controller for ARM64 — multi-provider LLM inference, RAG, and OpenAI-compatible API"
 LABEL org.opencontainers.image.source="https://github.com/bemindlabs/bmt-ai-os"
-LABEL org.opencontainers.image.version="2026.4.10"
+LABEL org.opencontainers.image.version="2026.4.12"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="Bemind Technology Co., Ltd."
 
