@@ -624,7 +624,7 @@ jobs:
             .
 
       - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@v0.31.0
+        uses: aquasecurity/trivy-action@v0.32.0
         continue-on-error: true
         with:
           image-ref: bmt-ai-os:ci-${{ github.sha }}
@@ -645,7 +645,7 @@ jobs:
       - name: Run Trivy scan (table output for logs)
         if: always()
         continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.31.0
+        uses: aquasecurity/trivy-action@v0.32.0
         with:
           image-ref: bmt-ai-os:ci-${{ github.sha }}
           format: table
