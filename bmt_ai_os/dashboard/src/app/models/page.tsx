@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BrainCircuit, Layers, RefreshCw } from "lucide-react";
+import { BrainCircuit, Layers, RefreshCw, KeyRound } from "lucide-react";
+import { fetchProviderKeys } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ModelManagerClient } from "./model-manager-client";
@@ -20,6 +21,7 @@ import { PullModelForm } from "./pull-model-form";
 import { ProviderSwitcher } from "../providers/provider-switcher";
 import { ProviderKeyManager } from "../providers/provider-key-manager";
 import { FallbackChain } from "@/components/fallback-chain";
+import { ProviderAuthConfig } from "../providers/provider-auth-config";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
@@ -29,6 +31,7 @@ export default function ModelsPage() {
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({});
 
   const loadAll = useCallback(async () => {
     try {
@@ -39,8 +42,25 @@ export default function ModelsPage() {
       ]);
       if (modelsRes) setModels(modelsRes.models ?? []);
       if (providersRes) {
-        setProviders(providersRes.providers ?? []);
+        const provs = providersRes.providers ?? [];
+        setProviders(provs);
         setActiveProvider(providersRes.active ?? null);
+        // Check key status for each provider
+        const keyChecks = await Promise.allSettled(
+          provs.map(async (p) => {
+            try {
+              const res = await fetchProviderKeys(p.name);
+              return { name: p.name, hasKeys: res.keys.length > 0 };
+            } catch {
+              return { name: p.name, hasKeys: false };
+            }
+          }),
+        );
+        const keyMap: Record<string, boolean> = {};
+        for (const r of keyChecks) {
+          if (r.status === "fulfilled") keyMap[r.value.name] = r.value.hasKeys;
+        }
+        setProviderKeyStatus(keyMap);
       }
     } finally {
       setLoading(false);
@@ -98,6 +118,10 @@ export default function ModelsPage() {
                 {providers.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="auth">
+            <KeyRound className="mr-1.5 size-4" />
+            Auth & Keys
           </TabsTrigger>
         </TabsList>
 
@@ -179,6 +203,40 @@ export default function ModelsPage() {
               );
             })}
           </div>
+        </TabsContent>
+        {/* Auth & Keys tab */}
+        <TabsContent value="auth" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Provider Authentication</CardTitle>
+              <CardDescription>
+                Configure API keys for cloud providers. Local providers (Ollama, vLLM, llama.cpp)
+                don&apos;t require authentication.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {providers.map((p) => (
+              <ProviderAuthConfig
+                key={p.name}
+                providerName={p.name}
+                healthy={p.healthy}
+                hasKeys={providerKeyStatus[p.name] ?? false}
+                onKeyAdded={() => void loadAll()}
+              />
+            ))}
+          </div>
+
+          {providers.length === 0 && !loading && (
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">
+                  No providers registered. Check that the controller is running.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
