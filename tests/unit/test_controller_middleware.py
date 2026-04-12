@@ -137,3 +137,50 @@ class TestRequestLoggingMiddleware:
         # The middleware should emit a log line containing the path
         log_messages = " ".join(caplog.messages)
         assert "/ping" in log_messages
+
+
+# ---------------------------------------------------------------------------
+# SecurityHeadersMiddleware
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityHeaders:
+    """Verify that security headers are added to every response."""
+
+    def _make_app(self):
+        from bmt_ai_os.controller.middleware import SecurityHeadersMiddleware
+
+        app = FastAPI()
+        app.add_middleware(SecurityHeadersMiddleware)
+
+        @app.get("/api/v1/test")
+        def api_endpoint():
+            return {"ok": True}
+
+        @app.get("/healthz")
+        def healthz():
+            return {"status": "ok"}
+
+        return TestClient(app)
+
+    def test_nosniff_and_frame_deny(self):
+        client = self._make_app()
+        resp = client.get("/healthz")
+        assert resp.headers["X-Content-Type-Options"] == "nosniff"
+        assert resp.headers["X-Frame-Options"] == "DENY"
+
+    def test_referrer_and_permissions(self):
+        client = self._make_app()
+        resp = client.get("/healthz")
+        assert resp.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+        assert "camera=()" in resp.headers["Permissions-Policy"]
+
+    def test_cache_control_on_api_routes(self):
+        client = self._make_app()
+        resp = client.get("/api/v1/test")
+        assert resp.headers["Cache-Control"] == "no-store"
+
+    def test_no_cache_control_on_non_api_routes(self):
+        client = self._make_app()
+        resp = client.get("/healthz")
+        assert resp.headers.get("Cache-Control") != "no-store"

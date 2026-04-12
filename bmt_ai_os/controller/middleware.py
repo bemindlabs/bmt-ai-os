@@ -297,6 +297,33 @@ def add_cors(app: FastAPI) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add standard security headers to every response.
+
+    Headers applied:
+    - ``X-Content-Type-Options: nosniff`` — prevent MIME sniffing
+    - ``X-Frame-Options: DENY`` — prevent clickjacking
+    - ``Referrer-Policy: strict-origin-when-cross-origin``
+    - ``Permissions-Policy: camera=(), microphone=(), geolocation=()``
+    - ``Cache-Control: no-store`` on API responses (not static assets)
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if request.url.path.startswith("/api/") or request.url.path.startswith("/v1/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+
+# ---------------------------------------------------------------------------
 # Convenience: apply all middleware
 # ---------------------------------------------------------------------------
 
@@ -316,6 +343,7 @@ def apply_middleware(app: FastAPI, *, api_key: str | None = None) -> None:
     from .auth import JWTAuthMiddleware  # local import avoids circular deps at module load
 
     add_cors(app)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(JWTAuthMiddleware)
     app.add_middleware(APIKeyMiddleware, api_key=api_key)
