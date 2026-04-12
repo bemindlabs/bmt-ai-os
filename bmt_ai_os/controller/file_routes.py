@@ -43,7 +43,9 @@ def _resolve_safe(rel: str) -> Path:
     try:
         resolved.relative_to(_FILES_ROOT.resolve())
     except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied: path outside files root.")
+        raise HTTPException(
+            status_code=403, detail="Access denied: path outside files root."
+        ) from None
 
     return resolved
 
@@ -176,7 +178,7 @@ async def list_files(path: str = "") -> dict:
         )
         entry_list = [_entry_dict(e) for e in entries]
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     # Build breadcrumb chain
     root_resolved = _FILES_ROOT.resolve()
@@ -230,7 +232,7 @@ async def read_file(path: str) -> dict:
     try:
         content = target.read_text(encoding="utf-8", errors="replace")
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     return {
         "path": path,
@@ -289,7 +291,7 @@ async def write_file(request: Request) -> JSONResponse:
     try:
         target.write_text(content, encoding="utf-8")
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     response_body = {
         "status": "written",
@@ -323,7 +325,7 @@ async def upload_file(path: str = "", file: UploadFile = None) -> dict:  # type:
         contents = await file.read()
         dest.write_bytes(contents)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     return {
         "status": "uploaded",
@@ -348,7 +350,7 @@ async def make_directory(request: Request) -> dict:
     try:
         target.mkdir(parents=True, exist_ok=False)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     return {"status": "created", "path": path}
 
@@ -373,7 +375,7 @@ async def rename_file(request: Request) -> dict:
     try:
         source.rename(dest)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     return {"status": "renamed", "old_path": old_path, "new_path": new_path}
 
@@ -396,6 +398,6 @@ async def delete_file_or_dir(path: str) -> dict:
         else:
             target.unlink()
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied.")
+        raise HTTPException(status_code=403, detail="Permission denied.") from None
 
     return {"status": "deleted", "path": path}

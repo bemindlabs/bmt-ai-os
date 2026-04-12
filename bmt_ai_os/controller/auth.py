@@ -277,7 +277,7 @@ class UserStore:
                 role = Role(role)
             except ValueError:
                 valid = [r.value for r in Role]
-                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
+                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}") from None
 
         if not skip_complexity:
             validate_password_complexity(password)
@@ -295,7 +295,7 @@ class UserStore:
                 )
                 user_id = cur.lastrowid
         except sqlite3.IntegrityError:
-            raise ValueError(f"Username '{username}' already exists.")
+            raise ValueError(f"Username '{username}' already exists.") from None
 
         logger.info("Created user '%s' with role '%s'", username, role.value)
         return User(
@@ -346,7 +346,7 @@ class UserStore:
                 role = Role(role)
             except ValueError:
                 valid = [r.value for r in Role]
-                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}")
+                raise ValueError(f"Invalid role '{role}'. Must be one of: {valid}") from None
 
         with self._conn() as con:
             cur = con.execute(

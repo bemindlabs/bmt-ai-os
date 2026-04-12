@@ -197,7 +197,7 @@ async def upload_key(body: UploadKeyRequest, request: Request) -> KeySummary:
         raise HTTPException(
             status_code=409,
             detail={"message": f"Key '{name}' already exists."},
-        )
+        ) from None
 
     logger.info("SSH key '%s' uploaded (fingerprint=%s)", name, fingerprint)
     return KeySummary(name=name, fingerprint=fingerprint, created_at=created_at)

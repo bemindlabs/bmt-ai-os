@@ -142,7 +142,7 @@ def _safe_path(raw: str) -> Path:
         raise ValueError(
             f"Path '{raw}' resolves outside the workspace ({workspace}). "
             "Only paths within the workspace are permitted."
-        )
+        ) from None
     return resolved
 
 

@@ -379,7 +379,7 @@ class ProviderKeyStore:
         except sqlite3.IntegrityError:
             raise ValueError(
                 f"An identical credential already exists for provider '{provider_name}'.",
-            )
+            ) from None
         logger.info(
             "Added %s credential %s for provider '%s'",
             credential_type,
@@ -595,7 +595,7 @@ async def add_provider_key(provider_name: str, body: AddKeyRequest) -> dict:
             display_name=body.display_name,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return {
         "provider_name": provider_name,
@@ -730,7 +730,7 @@ async def oauth_callback(provider_name: str, body: OAuthCallbackRequest) -> dict
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Token exchange failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Token exchange failed: {exc}") from exc
 
     if resp.status_code != 200:
         detail = resp.text[:500]
@@ -774,9 +774,13 @@ async def oauth_callback(provider_name: str, body: OAuthCallbackRequest) -> dict
             )
             key = store.get_key(oauth_keys[0].id)
             if key is None:
-                raise HTTPException(status_code=500, detail="Failed to update OAuth tokens.")
+                raise HTTPException(
+                    status_code=500, detail="Failed to update OAuth tokens."
+                ) from None
         else:
-            raise HTTPException(status_code=409, detail="OAuth credential already exists.")
+            raise HTTPException(
+                status_code=409, detail="OAuth credential already exists."
+            ) from None
 
     return {
         "provider_name": provider_name,

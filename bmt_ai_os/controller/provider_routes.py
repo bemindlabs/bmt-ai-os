@@ -121,7 +121,7 @@ async def get_active_provider():
     try:
         provider = registry.get_active()
     except ProviderError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     health = await provider.health_check()
     return {
         "name": provider.name,
@@ -138,7 +138,7 @@ async def set_fallback_order(body: FallbackOrderRequest):
     try:
         registry.reorder(body.order)
     except ProviderError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"order": registry.list()}
 
 
@@ -149,7 +149,7 @@ async def set_active_provider(body: SetActiveRequest):
     try:
         registry.set_active(body.name)
     except ProviderError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"active_provider": body.name}
 
 
@@ -160,7 +160,7 @@ async def chat_with_provider(name: str, body: ChatRequest):
     try:
         provider = registry.get(name)
     except ProviderError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     messages = [ChatMessage(role=m["role"], content=m["content"]) for m in body.messages]
 
@@ -173,9 +173,9 @@ async def chat_with_provider(name: str, body: ChatRequest):
             stream=False,
         )
     except ModelNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ProviderError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return response.to_dict()
 
@@ -204,11 +204,11 @@ async def list_provider_models(name: str):
     try:
         provider = registry.get(name)
     except ProviderError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     try:
         models = await provider.list_models()
     except ProviderError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return {"models": [m.to_dict() for m in models]}

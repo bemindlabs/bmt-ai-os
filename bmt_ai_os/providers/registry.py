@@ -53,7 +53,7 @@ class ProviderRegistry:
             raise ProviderError(
                 f"Provider '{name}' is not registered. "
                 f"Available: {', '.join(self._providers) or '(none)'}"
-            )
+            ) from None
 
     def list(self) -> list[str]:
         """Return the names of all registered providers."""

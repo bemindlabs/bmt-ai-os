@@ -60,7 +60,7 @@ async def get_plugin(name: str) -> dict:
     try:
         info = manager.get_plugin_info(name)
     except KeyError:
-        raise HTTPException(status_code=404, detail=f"Plugin '{name}' not found.")
+        raise HTTPException(status_code=404, detail=f"Plugin '{name}' not found.") from None
     return {
         **info.to_dict(),
         "installed": manager.is_installed(name),
@@ -78,9 +78,11 @@ async def install_plugin(name: str) -> dict:
     try:
         manager.install(name)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to persist plugin state: {exc}"
+        ) from exc
     return {"plugin": name, "status": "installed", "installed": manager.is_installed(name)}
 
 
@@ -91,9 +93,11 @@ async def uninstall_plugin(name: str) -> dict:
     try:
         manager.uninstall(name)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to persist plugin state: {exc}"
+        ) from exc
     return {"plugin": name, "status": "uninstalled"}
 
 
@@ -104,9 +108,11 @@ async def enable_plugin(name: str) -> dict:
     try:
         manager.enable(name)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to persist plugin state: {exc}"
+        ) from exc
     return {"plugin": name, "status": "enabled", "enabled": manager.is_enabled(name)}
 
 
@@ -117,7 +123,9 @@ async def disable_plugin(name: str) -> dict:
     try:
         manager.disable(name)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to persist plugin state: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to persist plugin state: {exc}"
+        ) from exc
     return {"plugin": name, "status": "disabled", "enabled": manager.is_enabled(name)}

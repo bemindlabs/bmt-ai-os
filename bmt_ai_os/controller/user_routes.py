@@ -79,8 +79,8 @@ async def create_user(body: CreateUserRequest, request: Request) -> dict:
     except ValueError as exc:
         msg = str(exc)
         if "already exists" in msg:
-            raise HTTPException(status_code=409, detail={"message": msg})
-        raise HTTPException(status_code=400, detail={"message": msg})
+            raise HTTPException(status_code=409, detail={"message": msg}) from exc
+        raise HTTPException(status_code=400, detail={"message": msg}) from exc
     return user.as_dict()
 
 
@@ -103,7 +103,7 @@ async def update_role(username: str, body: UpdateRoleRequest, request: Request) 
     try:
         updated = store.update_user_role(username, body.role)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail={"message": str(exc)})
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     if not updated:
         raise HTTPException(status_code=404, detail={"message": f"User '{username}' not found."})
     user = store.get_user(username)

@@ -86,7 +86,7 @@ def _sanitize_path(path: str, workspace: Path) -> str:
         raise HTTPException(
             status_code=400,
             detail=f"Path '{path}' is outside the workspace directory.",
-        )
+        ) from None
 
     # Reject shell-special characters to prevent injection
     if re.search(r"[;&|`$<>]", path):

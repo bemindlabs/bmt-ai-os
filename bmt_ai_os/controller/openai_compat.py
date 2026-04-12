@@ -563,7 +563,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         provider = registry.get_active()
     except (RuntimeError, LookupError) as exc:
         logger.warning("No active provider available: %s", exc)
-        raise HTTPException(status_code=503, detail="No active provider")
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     # ---- Tool / function-calling pre-processing ----------------------------
     tools = body.tools or []
@@ -600,7 +600,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
             logger.exception("Streaming chat failed")
-            raise HTTPException(status_code=502, detail=str(exc))
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         request_id = _make_id("chatcmpl")
         model_name = model or provider.name
@@ -632,7 +632,7 @@ async def chat_completions(body: ChatCompletionRequest, request: Request):
         response = await provider.chat(messages, **chat_kwargs)
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
         logger.exception("Chat completion failed")
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
     completion_tokens = getattr(response, "output_tokens", 0) or getattr(
@@ -678,7 +678,7 @@ async def completions(body: CompletionRequest, request: Request):
         provider = registry.get_active()
     except (RuntimeError, LookupError) as exc:
         logger.warning("No active provider available: %s", exc)
-        raise HTTPException(status_code=503, detail="No active provider")
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     if body.stream:
         try:
@@ -691,7 +691,7 @@ async def completions(body: CompletionRequest, request: Request):
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
             logger.exception("Streaming completions failed")
-            raise HTTPException(status_code=502, detail=str(exc))
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         request_id = _make_id("cmpl")
         model_name = body.model if body.model != "default" else provider.name
@@ -737,7 +737,7 @@ async def completions(body: CompletionRequest, request: Request):
         )
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
         logger.exception("Completions (non-streaming) failed")
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     prompt_tokens = getattr(response, "input_tokens", 0) or getattr(response, "prompt_tokens", 0)
     completion_tokens = getattr(response, "output_tokens", 0) or getattr(
@@ -766,13 +766,13 @@ async def embeddings(body: EmbeddingRequest):
         provider = registry.get_active()
     except (RuntimeError, LookupError) as exc:
         logger.warning("No active provider available: %s", exc)
-        raise HTTPException(status_code=503, detail="No active provider")
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     try:
         result = await provider.embed(texts, model=model)
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
         logger.exception("Embedding failed")
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     # Normalise result to a list of embedding vectors
     if isinstance(result, list) and len(result) > 0:
@@ -852,7 +852,7 @@ async def chat_with_tools(body: ChatCompletionRequest, request: Request):
         provider = registry.get_active()
     except (RuntimeError, LookupError) as exc:
         logger.warning("No active provider available: %s", exc)
-        raise HTTPException(status_code=503, detail="No active provider")
+        raise HTTPException(status_code=503, detail="No active provider") from exc
 
     messages = [_make_chat_message(m.role, m.content) for m in body.messages]
     model = body.model if body.model != "default" else None
@@ -913,7 +913,7 @@ async def chat_with_tools(body: ChatCompletionRequest, request: Request):
             response = await provider.chat(messages, **chat_kwargs)
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
             logger.exception("Tool-augmented chat call failed")
-            raise HTTPException(status_code=502, detail=str(exc))
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         # Extract tool calls from the response.
         raw_tool_calls: list[dict[str, Any]] | None = None

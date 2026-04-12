@@ -117,7 +117,7 @@ class DocumentIngester:
                 resolved = path.resolve()
             except OSError:
                 # If we cannot resolve the path, reject it for safety
-                raise ValueError(f"Cannot resolve path '{path}' for traversal check.")
+                raise ValueError(f"Cannot resolve path '{path}' for traversal check.") from None
 
             try:
                 resolved.relative_to(workspace_root)
@@ -125,7 +125,7 @@ class DocumentIngester:
                 raise ValueError(
                     f"Path '{path}' resolves to '{resolved}' which is outside the "
                     f"allowed workspace root '{workspace_root}'."
-                )
+                ) from None
 
     # ------------------------------------------------------------------
     # Public API
