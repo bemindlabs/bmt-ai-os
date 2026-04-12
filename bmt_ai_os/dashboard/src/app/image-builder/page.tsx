@@ -684,51 +684,6 @@ export default function ImageBuilderPage() {
             </Button>
           </div>
 
-          {/* Saved profiles */}
-          {profiles.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h2 className="text-sm font-semibold">Saved Profiles</h2>
-                {actionError && (
-                  <p className="flex items-center gap-1.5 text-xs text-destructive">
-                    <AlertTriangle className="size-3.5" /> {actionError}
-                  </p>
-                )}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {profiles.map((p) => (
-                    <Card key={p.id} size="sm">
-                      <CardHeader>
-                        <CardTitle>{p.name}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {p.target} &middot; {p.tier} &middot; {p.packages.length}{" "}
-                          packages
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => triggerExistingBuild(p.id)}
-                        >
-                          <Play className="size-3.5" /> Build
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteProfile(p.id)}
-                          aria-label={`Delete profile ${p.name}`}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
         </div>
       )}
 
@@ -1209,6 +1164,47 @@ export default function ImageBuilderPage() {
             <RotateCcw className="mr-1 size-3.5" /> Start New Build
           </Button>
         </div>
+      )}
+
+      {/* ── Saved Profiles (always visible) ──────────────────────────── */}
+      {profiles.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold">Saved Profiles</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {profiles.map((p) => (
+                <Card key={p.id} size="sm">
+                  <CardHeader>
+                    <CardTitle>{p.name}</CardTitle>
+                    <CardDescription className="text-xs">
+                      {p.target} &middot; {p.tier} &middot; {p.packages.length}{" "}
+                      packages
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => triggerExistingBuild(p.id)}
+                    >
+                      <Play className="size-3.5" /> Build
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteProfile(p.id)}
+                      aria-label={`Delete profile ${p.name}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
