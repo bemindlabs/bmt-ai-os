@@ -13,3 +13,4 @@ export * from "./workspace";
 export * from "./settings";
 export * from "./utils";
 export * from "./logs";
+export * from "./image";

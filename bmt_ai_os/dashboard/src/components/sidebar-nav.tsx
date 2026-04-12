@@ -12,6 +12,7 @@ import {
   Settings,
   ScrollText,
   LogOut,
+  HardDrive,
   Server,
   Terminal,
 } from "lucide-react";
@@ -30,6 +31,8 @@ const navItems = [
   { href: "/fleet", label: "Fleet", icon: Server },
   { href: "/training", label: "Training", icon: BrainCog },
   { href: "/knowledge", label: "Knowledge", icon: Database },
+  { href: "/agents", label: "Agents", icon: BrainCog },
+  { href: "/image-builder", label: "Image Builder", icon: HardDrive },
   { href: "/terminal", label: "Terminal", icon: Terminal },
   { href: "/logs", label: "Logs", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
