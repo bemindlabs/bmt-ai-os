@@ -76,6 +76,7 @@ COPY bmt_ai_os/memory/ /app/bmt_ai_os/memory/
 COPY bmt_ai_os/messaging/ /app/bmt_ai_os/messaging/
 COPY bmt_ai_os/training/ /app/bmt_ai_os/training/
 COPY bmt_ai_os/dlc/ /app/bmt_ai_os/dlc/
+COPY scripts/build.sh /app/scripts/build.sh
 COPY bmt_ai_os/ai-stack/docker-compose.yml /app/ai-stack/docker-compose.yml
 COPY pyproject.toml /app/pyproject.toml
 RUN pip install --no-cache-dir -e /app
