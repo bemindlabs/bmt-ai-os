@@ -10,6 +10,7 @@ from .auth_routes import router as auth_router
 from .conversation_routes import router as conversation_router
 from .file_routes import router as file_router
 from .git_routes import router as git_router
+from .image_routes import router as image_router
 from .metrics import get_collector
 from .middleware import apply_middleware
 from .openai_compat import router as openai_router
@@ -66,6 +67,7 @@ app.include_router(file_router, prefix="/api/v1")
 app.include_router(git_router)
 app.include_router(ssh_key_router)
 app.include_router(training_router)
+app.include_router(image_router)
 app.include_router(terminal_ws_router)
 app.include_router(ssh_ws_router)
 
