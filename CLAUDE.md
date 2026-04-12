@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 BMT AI OS is an open-source, AI-first operating system for ARM64 by Bemind Technology Co., Ltd. It uses a minimal Linux base (Buildroot) with containerized LLM inference, vector search, AI coding tools, and on-device model training. MIT licensed.
 
-Current release: **v2026.4.11**
+Current release: **v2026.4.12**
 
 ## Project Structure
 
