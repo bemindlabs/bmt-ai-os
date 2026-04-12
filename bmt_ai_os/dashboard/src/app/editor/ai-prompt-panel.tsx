@@ -1,43 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   streamChat,
   streamChatWithTools,
   fetchProviders,
   fetchProviderModels,
   fetchProviderKeys,
-  writeFile,
 } from "@/lib/api";
 import type { ChatMessage, Provider, ToolCallSummary } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sparkles,
   X,
-  Copy,
-  Check,
-  Replace,
   Loader2,
-  Settings2,
-  FilePlus,
-  AlertTriangle,
-  ChevronDown,
-  GitCompare,
-  Diff,
   FolderEdit,
+  GitCompare,
   Wrench,
-  ChevronRight,
 } from "lucide-react";
 import { ProviderKeySetup } from "./provider-key-setup";
-import { ModelCompare } from "./model-compare";
-import { DiffView } from "./diff-view";
-import {
-  SlashCommandPopup,
-  filterEditorCommands,
-  type EditorSlashCommand,
-} from "./slash-commands";
-import { MultiFileEdit, parseMultiFileResponse } from "./multi-file-edit";
+import { AiProviderSelector, isCloudProvider, providerLabel } from "./ai-provider-selector";
+import { AiOptionsPanel } from "./ai-options-panel";
+import { AiPromptInput } from "./ai-prompt-input";
+import { AiResponseArea } from "./ai-response-area";
+import { HealthDot } from "./ai-provider-selector";
+import { parseMultiFileResponse } from "./multi-file-edit";
+import type { EditorSlashCommand } from "./slash-commands";
 
 // ---------------------------------------------------------------------------
 // SSE parser
@@ -71,103 +59,7 @@ const STORAGE_TEMP = "bmt_ai_temperature";
 const STORAGE_TOKENS = "bmt_ai_max_tokens";
 
 // ---------------------------------------------------------------------------
-// Provider display helpers
-// ---------------------------------------------------------------------------
-
-const PROVIDER_LABELS: Record<string, string> = {
-  anthropic: "Claude",
-  openai: "OpenAI",
-  gemini: "Gemini",
-  groq: "Groq",
-  mistral: "Mistral",
-  ollama: "Ollama",
-  vllm: "vLLM",
-  llamacpp: "llama.cpp",
-};
-
-function providerLabel(name: string): string {
-  return PROVIDER_LABELS[name.toLowerCase()] ?? name;
-}
-
-/** Cloud providers that require a configured API key */
-const CLOUD_PROVIDER_NAMES = new Set([
-  "anthropic",
-  "claude",
-  "openai",
-  "gemini",
-  "google",
-  "groq",
-  "mistral",
-]);
-
-function isCloudProvider(name: string): boolean {
-  return CLOUD_PROVIDER_NAMES.has(name.toLowerCase());
-}
-
-// ---------------------------------------------------------------------------
-// HealthDot
-// ---------------------------------------------------------------------------
-
-function HealthDot({ healthy }: { healthy: boolean }) {
-  return (
-    <span
-      className={`inline-block size-1.5 rounded-full shrink-0 ${
-        healthy ? "bg-green-500" : "bg-red-500"
-      }`}
-      aria-label={healthy ? "healthy" : "unhealthy"}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ProviderPill
-// ---------------------------------------------------------------------------
-
-interface ProviderPillProps {
-  provider: Provider;
-  selected: boolean;
-  missingKey: boolean;
-  onSelect: () => void;
-  disabled: boolean;
-}
-
-function ProviderPill({
-  provider,
-  selected,
-  missingKey,
-  onSelect,
-  disabled,
-}: ProviderPillProps) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      title={
-        missingKey
-          ? `${providerLabel(provider.name)} — no API key configured`
-          : providerLabel(provider.name)
-      }
-      className={[
-        "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium",
-        "border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        selected
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-muted-foreground",
-        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-      ].join(" ")}
-    >
-      <HealthDot healthy={provider.healthy} />
-      <span>{providerLabel(provider.name)}</span>
-      {missingKey && (
-        <AlertTriangle className="size-2.5 text-yellow-500 ml-0.5" />
-      )}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// AI Prompt Panel
+// Props
 // ---------------------------------------------------------------------------
 
 interface AiPromptPanelProps {
@@ -186,6 +78,10 @@ interface AiPromptPanelProps {
   onFileCreated?: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// AiPromptPanel — orchestrator
+// ---------------------------------------------------------------------------
+
 export function AiPromptPanel({
   filePath,
   fileContent,
@@ -197,75 +93,44 @@ export function AiPromptPanel({
   currentDir = "",
   onFileCreated,
 }: AiPromptPanelProps) {
+  // Core prompt / response state
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showSaveAs, setShowSaveAs] = useState(false);
-  const [saveAsPath, setSaveAsPath] = useState("");
-  const [saveAsStatus, setSaveAsStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const abortRef = useRef<AbortController | null>(null);
 
-  // Diff preview state
+  // UI mode state
   const [showDiff, setShowDiff] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+  const [multiFileMode, setMultiFileMode] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [showKeySetup, setShowKeySetup] = useState(false);
 
-  // Tool-use mode (BMTOS-154)
-  const STORAGE_TOOLS = "bmt_ai_tools_enabled";
+  // Tool-use mode
   const [toolsEnabled, setToolsEnabled] = useState(
     () => typeof window !== "undefined" && localStorage.getItem("bmt_ai_tools_enabled") === "1",
   );
   const [toolCallLog, setToolCallLog] = useState<ToolCallSummary[]>([]);
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
 
-  // Multi-file edit mode
-  const [multiFileMode, setMultiFileMode] = useState(false);
-
-  // ---------------------------------------------------------------------------
-  // Slash command state
-  // ---------------------------------------------------------------------------
-
-  const [showCommands, setShowCommands] = useState(false);
-  const [commandQuery, setCommandQuery] = useState("");
-  const [commandIndex, setCommandIndex] = useState(0);
+  // Slash command active state
   const [activeCommand, setActiveCommand] = useState<EditorSlashCommand | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // ---------------------------------------------------------------------------
-  // Provider + model state
-  // ---------------------------------------------------------------------------
-
+  // Provider / model state
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
-
-  /** provider name → list of available model ids */
   const [providerModels, setProviderModels] = useState<Record<string, string[]>>({});
   const [loadingModels, setLoadingModels] = useState(false);
-
-  /** provider names that have at least one active API key */
   const [keyedProviders, setKeyedProviders] = useState<Set<string>>(new Set());
   const [loadingKeys, setLoadingKeys] = useState(false);
 
-  /** "default" = auto-route to active provider; otherwise explicit provider name */
   const [selectedProvider, setSelectedProvider] = useState<string>(
-    () =>
-      (typeof window !== "undefined" && localStorage.getItem(STORAGE_PROVIDER)) ||
-      "default",
+    () => (typeof window !== "undefined" && localStorage.getItem(STORAGE_PROVIDER)) || "default",
   );
-
   const [selectedModel, setSelectedModel] = useState<string>(
-    () =>
-      (typeof window !== "undefined" && localStorage.getItem(STORAGE_MODEL)) ||
-      "default",
+    () => (typeof window !== "undefined" && localStorage.getItem(STORAGE_MODEL)) || "default",
   );
-
-  /** Show the inline key-setup widget for the selected cloud provider */
-  const [showKeySetup, setShowKeySetup] = useState(false);
-
-  // Compare mode
-  const [compareMode, setCompareMode] = useState(false);
 
   // Options
-  const [showOptions, setShowOptions] = useState(false);
   const [temperature, setTemperature] = useState(() => {
     const stored = typeof window !== "undefined" && localStorage.getItem(STORAGE_TEMP);
     return stored ? parseFloat(stored) : 0.3;
@@ -279,18 +144,10 @@ export function AiPromptPanel({
   // Persist settings
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_PROVIDER, selectedProvider);
-  }, [selectedProvider]);
-  useEffect(() => {
-    localStorage.setItem(STORAGE_MODEL, selectedModel);
-  }, [selectedModel]);
-  useEffect(() => {
-    localStorage.setItem(STORAGE_TEMP, String(temperature));
-  }, [temperature]);
-  useEffect(() => {
-    localStorage.setItem(STORAGE_TOKENS, String(maxTokens));
-  }, [maxTokens]);
+  useEffect(() => { localStorage.setItem(STORAGE_PROVIDER, selectedProvider); }, [selectedProvider]);
+  useEffect(() => { localStorage.setItem(STORAGE_MODEL, selectedModel); }, [selectedModel]);
+  useEffect(() => { localStorage.setItem(STORAGE_TEMP, String(temperature)); }, [temperature]);
+  useEffect(() => { localStorage.setItem(STORAGE_TOKENS, String(maxTokens)); }, [maxTokens]);
 
   // ---------------------------------------------------------------------------
   // Fetch providers on mount
@@ -325,9 +182,7 @@ export function AiPromptPanel({
       .then((results) => {
         const keyed = new Set<string>();
         for (const r of results) {
-          if (r.status === "fulfilled" && r.value.hasKey) {
-            keyed.add(r.value.name);
-          }
+          if (r.status === "fulfilled" && r.value.hasKey) keyed.add(r.value.name);
         }
         setKeyedProviders(keyed);
       })
@@ -341,15 +196,11 @@ export function AiPromptPanel({
   useEffect(() => {
     if (providers.length === 0) return;
     setLoadingModels(true);
-
-    // /v1/models returns all available models across all providers. We assign
-    // them per provider by matching on the "provider/" prefix in the model id.
     fetchProviderModels("all")
       .then((res) => {
         const allIds = (res.models ?? [])
           .map((m) => m.id ?? (m as { name?: string }).name ?? "")
           .filter(Boolean);
-
         const byProvider: Record<string, string[]> = {};
         for (const p of providers) {
           const prefixed = allIds.filter((id) =>
@@ -377,7 +228,6 @@ export function AiPromptPanel({
       }
       const models = providerModels[name] ?? [];
       setSelectedModel(models[0] ?? "default");
-      // Show key setup when a cloud provider without a key is selected
       if (isCloudProvider(name) && !keyedProviders.has(name) && !loadingKeys) {
         setShowKeySetup(true);
       }
@@ -394,31 +244,36 @@ export function AiPromptPanel({
     fetchProviderKeys(selectedProvider)
       .then((res) => {
         const hasKey = (res.keys ?? []).some((k) => k.status === "active");
-        if (hasKey) {
-          setKeyedProviders((prev) => new Set([...prev, selectedProvider]));
-        }
+        if (hasKey) setKeyedProviders((prev) => new Set([...prev, selectedProvider]));
       })
       .catch(() => null)
       .finally(() => setShowKeySetup(false));
   }, [selectedProvider]);
 
   // ---------------------------------------------------------------------------
-  // Slash command selection
+  // Slash command selection — replaces trigger text + sets active command
   // ---------------------------------------------------------------------------
 
   const handleCommandSelect = useCallback((cmd: EditorSlashCommand) => {
     setActiveCommand(cmd);
-    setShowCommands(false);
-    // Replace the "/name" trigger text with the command description as a
-    // ready-to-use prompt so the user can edit or send immediately.
     setPrompt((prev) => {
-      // Remove the trailing "/<query>" that triggered the popup.
       const replaced = prev.replace(/(^|\n)\/([\w]*)$/, "$1");
       return replaced + cmd.description;
     });
-    // Return focus to the textarea.
-    setTimeout(() => textareaRef.current?.focus(), 0);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Code extraction helper (strip markdown fences)
+  // ---------------------------------------------------------------------------
+
+  const extractCode = useCallback((raw: string): string => {
+    const fenceMatch = raw.match(/^```[\w]*\n([\s\S]*?)\n```$/);
+    return fenceMatch ? fenceMatch[1] : raw;
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Submit handler
+  // ---------------------------------------------------------------------------
 
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || loading) return;
@@ -488,8 +343,6 @@ export function AiPromptPanel({
       { role: "user", content: userContent },
     ];
 
-    // Build the model string: "provider/model" format when a specific
-    // provider is selected, plain model otherwise (backward-compatible).
     let modelArg = selectedModel;
     if (selectedProvider !== "default") {
       if (!selectedModel || selectedModel === "default") {
@@ -500,21 +353,14 @@ export function AiPromptPanel({
     }
 
     try {
-      const chatReq = {
-        model: modelArg,
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-      };
+      const chatReq = { model: modelArg, messages, temperature, max_tokens: maxTokens };
 
       let reader: ReadableStreamDefaultReader<string>;
       if (toolsEnabled) {
         setToolCallLog([]);
         const result = await streamChatWithTools(chatReq, controller.signal);
         reader = result.reader;
-        if (result.toolCalls.length > 0) {
-          setToolCallLog(result.toolCalls);
-        }
+        if (result.toolCalls.length > 0) setToolCallLog(result.toolCalls);
       } else {
         reader = await streamChat(chatReq, controller.signal);
       }
@@ -529,12 +375,9 @@ export function AiPromptPanel({
           setResponse(accumulated);
         }
       }
-      // Auto-switch to multi-file view if response contains 2+ FILE blocks
       if (!multiFileMode) {
         const parsed = parseMultiFileResponse(accumulated);
-        if (parsed.length >= 2) {
-          setMultiFileMode(true);
-        }
+        if (parsed.length >= 2) setMultiFileMode(true);
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -542,65 +385,23 @@ export function AiPromptPanel({
       } else {
         setResponse(
           (prev) =>
-            prev +
-            `\n\n[Error: ${err instanceof Error ? err.message : "Request failed"}]`,
+            prev + `\n\n[Error: ${err instanceof Error ? err.message : "Request failed"}]`,
         );
       }
     } finally {
       setLoading(false);
       abortRef.current = null;
     }
-  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens, activeCommand, multiFileMode, toolsEnabled]);
+  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens, activeCommand, multiFileMode, toolsEnabled, onPromptSubmit, currentDir]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
     setLoading(false);
   }, []);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(response);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [response]);
-
-  /** Strip markdown fences from AI response, leaving raw code. */
-  const extractCode = useCallback(
-    (raw: string): string => {
-      const fenceMatch = raw.match(/^```[\w]*\n([\s\S]*?)\n```$/);
-      return fenceMatch ? fenceMatch[1] : raw;
-    },
-    [],
-  );
-
-  const handleApply = useCallback(() => {
-    onApply(extractCode(response));
-    setShowDiff(false);
-  }, [response, onApply, extractCode]);
-
-  const handleSaveAs = useCallback(async () => {
-    if (!saveAsPath.trim() || !response.trim()) return;
-    setSaveAsStatus("saving");
-    try {
-      const code = extractCode(response);
-
-      const fullPath = saveAsPath.startsWith("/")
-        ? saveAsPath
-        : currentDir
-          ? `${currentDir}/${saveAsPath}`
-          : saveAsPath;
-
-      await writeFile(fullPath, code);
-      setSaveAsStatus("done");
-      onFileCreated?.();
-      setTimeout(() => {
-        setSaveAsStatus("idle");
-        setShowSaveAs(false);
-      }, 1500);
-    } catch {
-      setSaveAsStatus("error");
-      setTimeout(() => setSaveAsStatus("idle"), 2000);
-    }
-  }, [saveAsPath, response, currentDir, onFileCreated, extractCode]);
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
@@ -619,151 +420,36 @@ export function AiPromptPanel({
         </button>
       </div>
 
-      {/* Provider + Model selector + options */}
-      <div className="border-b border-border px-3 py-2 space-y-2">
+      {/* Provider + Model selector */}
+      <AiProviderSelector
+        providers={providers}
+        selectedProvider={selectedProvider}
+        selectedModel={selectedModel}
+        onProviderChange={handleProviderSelect}
+        onModelChange={setSelectedModel}
+        providerModels={providerModels}
+        keyedProviders={keyedProviders}
+        loadingProviders={loadingProviders}
+        loadingModels={loadingModels}
+        loadingKeys={loadingKeys}
+        loading={loading}
+        showOptions={showOptions}
+        onToggleOptions={() => setShowOptions((v) => !v)}
+      />
 
-        {/* Provider pills */}
-        <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wide">
-            Provider
-          </label>
-          <div className="flex flex-wrap gap-1">
-            {/* "auto" pill — backward-compatible, routes to active provider */}
-            <button
-              type="button"
-              onClick={() => handleProviderSelect("default")}
-              disabled={loading}
-              className={[
-                "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium",
-                "border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                selectedProvider === "default"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-muted-foreground",
-                loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-              ].join(" ")}
-            >
-              <span className="inline-block size-1.5 rounded-full bg-blue-400 shrink-0" />
-              auto
-            </button>
-
-            {loadingProviders && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground px-1">
-                <Loader2 className="size-2.5 animate-spin" />
-                Loading...
-              </span>
-            )}
-
-            {providers.map((p) => (
-              <ProviderPill
-                key={p.name}
-                provider={p}
-                selected={selectedProvider === p.name}
-                missingKey={
-                  isCloudProvider(p.name) &&
-                  !loadingKeys &&
-                  !keyedProviders.has(p.name)
-                }
-                onSelect={() => handleProviderSelect(p.name)}
-                disabled={loading}
-              />
-            ))}
-          </div>
+      {/* Options panel */}
+      {showOptions && (
+        <div className="border-b border-border px-3 py-2">
+          <AiOptionsPanel
+            temperature={temperature}
+            maxTokens={maxTokens}
+            onTemperatureChange={setTemperature}
+            onMaxTokensChange={setMaxTokens}
+          />
         </div>
+      )}
 
-        {/* Model dropdown — shown only when a specific provider is selected */}
-        {selectedProvider !== "default" && (
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-muted-foreground shrink-0 uppercase tracking-wide">
-              Model
-            </label>
-            <div className="relative flex-1">
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full h-7 rounded border border-input bg-background pl-2 pr-6 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
-                disabled={loading || loadingModels}
-              >
-                <option value="default">
-                  default ({providerLabel(selectedProvider)})
-                </option>
-                {(providerModels[selectedProvider] ?? []).map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-                {loadingModels && <option disabled>Loading models...</option>}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
-            </div>
-            <button
-              onClick={() => setShowOptions(!showOptions)}
-              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
-              title="Model options"
-              aria-expanded={showOptions}
-            >
-              <Settings2 className="size-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Settings gear shown in auto mode (no model row) */}
-        {selectedProvider === "default" && (
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowOptions(!showOptions)}
-              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
-              title="Model options"
-              aria-expanded={showOptions}
-            >
-              <Settings2 className="size-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Options panel */}
-        {showOptions && (
-          <div className="space-y-2 rounded border border-border bg-muted/20 p-2">
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-[10px] text-muted-foreground">
-                Temperature
-              </label>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="range"
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={temperature}
-                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                  className="w-20 h-1 accent-primary"
-                />
-                <span className="text-xs font-mono w-7 text-right text-foreground">
-                  {temperature.toFixed(1)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-[10px] text-muted-foreground">
-                Max tokens
-              </label>
-              <Input
-                type="number"
-                min={256}
-                max={32768}
-                step={256}
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(parseInt(e.target.value, 10) || 4096)}
-                className="h-6 w-20 text-xs font-mono text-right"
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Low temperature (0.1-0.3) for precise code. Higher (0.7+) for creative suggestions.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Inline API key setup — shown when a cloud provider without a key is selected */}
+      {/* Inline API key setup */}
       {showKeySetup &&
         selectedProvider !== "default" &&
         isCloudProvider(selectedProvider) &&
@@ -778,118 +464,21 @@ export function AiPromptPanel({
 
       {/* Prompt input */}
       <div className="border-b border-border p-3">
-        {/* Active command badge */}
-        {activeCommand && (
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-              <activeCommand.Icon className="size-3" />
-              {activeCommand.label}
-            </span>
-            <button
-              type="button"
-              onClick={() => setActiveCommand(null)}
-              className="text-[10px] text-muted-foreground hover:text-foreground"
-              aria-label="Clear active command"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        )}
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={prompt}
-            onChange={(e) => {
-              const value = e.target.value;
-              setPrompt(value);
-
-              // Detect a "/" at the start of a line or the whole input.
-              const slashMatch = value.match(/(^|\n)\/([\w]*)$/);
-              if (slashMatch) {
-                const q = slashMatch[2];
-                setCommandQuery(q);
-                setCommandIndex(0);
-                setShowCommands(true);
-              } else {
-                setShowCommands(false);
-              }
-            }}
-            onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
-              if (showCommands) {
-                const filtered = filterEditorCommands(commandQuery);
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setCommandIndex((i) => (i + 1) % Math.max(filtered.length, 1));
-                  return;
-                }
-                if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setCommandIndex((i) =>
-                    (i - 1 + Math.max(filtered.length, 1)) % Math.max(filtered.length, 1),
-                  );
-                  return;
-                }
-                if (e.key === "Enter" || e.key === "Tab") {
-                  e.preventDefault();
-                  const cmd = filtered[commandIndex];
-                  if (cmd) handleCommandSelect(cmd);
-                  return;
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  setShowCommands(false);
-                  return;
-                }
-              }
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                void handleSubmit();
-              }
-            }}
-            onBlur={() => {
-              // Delay so mouseDown on popup items fires first.
-              setTimeout(() => setShowCommands(false), 150);
-            }}
-            placeholder={
-              fileContent.trim()
-                ? "Describe the change... (Ctrl+Enter to send, / for commands)"
-                : "Describe what to generate... (Ctrl+Enter to send, / for commands)"
-            }
-            className="w-full resize-none rounded border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            rows={3}
-            spellCheck={false}
-          />
-          {showCommands && (
-            <SlashCommandPopup
-              query={commandQuery}
-              activeIndex={commandIndex}
-              onSelect={handleCommandSelect}
-              onActiveIndexChange={setCommandIndex}
-            />
-          )}
-        </div>
-        {/* Prompt history */}
-        {promptHistory.length > 0 && (
-          <div className="mt-1.5">
-            <select
-              onChange={(e) => {
-                if (e.target.value) setPrompt(e.target.value);
-                e.target.value = "";
-              }}
-              className="w-full h-6 rounded border border-input bg-background px-1.5 text-[10px] text-muted-foreground focus:outline-none"
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Prompt history ({promptHistory.length})...
-              </option>
-              {promptHistory.map((p, i) => (
-                <option key={i} value={p}>
-                  {p.length > 60 ? p.slice(0, 60) + "..." : p}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <AiPromptInput
+          value={prompt}
+          onChange={setPrompt}
+          onSubmit={() => void handleSubmit()}
+          activeCommand={activeCommand}
+          onCommandSelect={handleCommandSelect}
+          onCommandClear={() => setActiveCommand(null)}
+          promptHistory={promptHistory}
+          disabled={loading}
+          placeholder={
+            fileContent.trim()
+              ? "Describe the change... (Ctrl+Enter to send, / for commands)"
+              : "Describe what to generate... (Ctrl+Enter to send, / for commands)"
+          }
+        />
 
         <div className="mt-2 flex items-center gap-2">
           <Button
@@ -964,10 +553,7 @@ export function AiPromptPanel({
             {selectedProvider !== "default" && (
               <>
                 <HealthDot
-                  healthy={
-                    providers.find((p) => p.name === selectedProvider)
-                      ?.healthy ?? false
-                  }
+                  healthy={providers.find((p) => p.name === selectedProvider)?.healthy ?? false}
                 />
                 <span className="shrink-0">{providerLabel(selectedProvider)}</span>
                 {selectedModel !== "default" && (
@@ -994,200 +580,27 @@ export function AiPromptPanel({
         </div>
       </div>
 
-      {/* Response area — compare mode, multi-file view, diff preview, or normal */}
-      {compareMode ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ModelCompare
-            prompt={prompt}
-            fileContent={fileContent}
-            filePath={filePath}
-            language={language}
-            temperature={temperature}
-            maxTokens={maxTokens}
-            onApply={onApply}
-            onClose={() => setCompareMode(false)}
-          />
-        </div>
-      ) : multiFileMode && response && parseMultiFileResponse(response).length > 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <MultiFileEdit
-            response={response}
-            currentDir={currentDir}
-            onApplyFile={(_path, _content) => {
-              onFileCreated?.();
-            }}
-            onApplyAll={() => {
-              onFileCreated?.();
-            }}
-            onClose={() => setMultiFileMode(false)}
-          />
-        </div>
-      ) : showDiff && response ? (
-        /* Diff preview — replaces the raw response area */
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <DiffView
-            original={fileContent}
-            modified={extractCode(response)}
-            language={language}
-            fileName={filePath ? filePath.split("/").pop() : undefined}
-            onApply={handleApply}
-            onReject={() => setShowDiff(false)}
-          />
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {response ? (
-            <>
-              <div className="flex-1 overflow-auto p-3 space-y-2">
-                {/* Tool call log — shown when tools mode is active */}
-                {toolCallLog.length > 0 && (
-                  <div className="space-y-1">
-                    {toolCallLog.map((tc) => {
-                      const key = tc.id;
-                      const expanded = expandedTools.has(key);
-                      return (
-                        <div
-                          key={key}
-                          className="rounded border border-border bg-muted/20 text-[10px]"
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedTools((prev) => {
-                                const next = new Set(prev);
-                                if (expanded) next.delete(key);
-                                else next.add(key);
-                                return next;
-                              })
-                            }
-                            className="flex w-full items-center gap-1.5 px-2 py-1 text-left hover:bg-muted/40"
-                          >
-                            <Wrench className="size-2.5 text-orange-400 shrink-0" />
-                            <span className="font-mono text-orange-400">{tc.name}</span>
-                            <span className="text-muted-foreground truncate">
-                              ({Object.entries(tc.arguments)
-                                .map(([k, v]) => `${k}="${String(v)}"`)
-                                .join(", ")})
-                            </span>
-                            <ChevronRight
-                              className={[
-                                "ml-auto size-2.5 text-muted-foreground shrink-0 transition-transform",
-                                expanded ? "rotate-90" : "",
-                              ].join(" ")}
-                            />
-                          </button>
-                          {expanded && (
-                            <pre className="border-t border-border px-2 py-1 whitespace-pre-wrap font-mono text-[10px] text-muted-foreground max-h-32 overflow-auto">
-                              {tc.result_preview}
-                            </pre>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <pre className="whitespace-pre-wrap font-mono text-xs text-foreground">
-                  {response}
-                </pre>
-              </div>
-              <div className="shrink-0 border-t border-border px-3 py-2 space-y-2">
-                <div className="flex items-center gap-2">
-                  {/* Preview Diff — opens the diff view (only when a file is open) */}
-                  {fileContent.trim() && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowDiff(true)}
-                      disabled={loading}
-                      className="h-7 gap-1.5 text-xs"
-                      title="Preview changes before applying"
-                    >
-                      <Diff className="size-3" />
-                      Preview Diff
-                    </Button>
-                  )}
-                  {/* Apply directly (skip diff review) */}
-                  <Button
-                    size="sm"
-                    onClick={handleApply}
-                    disabled={loading}
-                    className="h-7 gap-1.5 text-xs"
-                    title="Apply to editor without reviewing diff"
-                  >
-                    <Replace className="size-3" />
-                    Apply
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setShowSaveAs(!showSaveAs);
-                      setSaveAsPath(
-                        currentDir ? `${currentDir}/new-file.${language === "plaintext" ? "txt" : language}` : "",
-                      );
-                    }}
-                    className="h-7 gap-1.5 text-xs"
-                  >
-                    <FilePlus className="size-3" />
-                    Save As
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCopy}
-                    className="h-7 gap-1.5 text-xs"
-                  >
-                    {copied ? (
-                      <Check className="size-3" />
-                    ) : (
-                      <Copy className="size-3" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Save As file path input */}
-                {showSaveAs && (
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      value={saveAsPath}
-                      onChange={(e) => setSaveAsPath(e.target.value)}
-                      placeholder="path/to/new-file.py"
-                      className="flex-1 h-7 text-xs font-mono"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") void handleSaveAs();
-                        if (e.key === "Escape") setShowSaveAs(false);
-                      }}
-                      autoFocus
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => void handleSaveAs()}
-                      disabled={!saveAsPath.trim() || saveAsStatus === "saving"}
-                      className="h-7 text-xs shrink-0"
-                    >
-                      {saveAsStatus === "saving"
-                        ? "Saving..."
-                        : saveAsStatus === "done"
-                          ? "Created!"
-                          : saveAsStatus === "error"
-                            ? "Failed"
-                            : "Create"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 items-center justify-center p-4">
-              <p className="text-center text-xs text-muted-foreground whitespace-pre-line">
-                {loading
-                  ? "Generating code..."
-                  : "Describe what you want to code.\nThe AI will use the current file as context."}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Response area */}
+      <AiResponseArea
+        response={response}
+        loading={loading}
+        toolCalls={toolCallLog}
+        showDiff={showDiff}
+        onShowDiff={setShowDiff}
+        compareMode={compareMode}
+        onCloseCompare={() => setCompareMode(false)}
+        multiFileMode={multiFileMode}
+        onCloseMultiFile={() => setMultiFileMode(false)}
+        fileContent={fileContent}
+        language={language}
+        filePath={filePath}
+        currentDir={currentDir}
+        temperature={temperature}
+        maxTokens={maxTokens}
+        onApply={onApply}
+        onFileCreated={onFileCreated}
+        extractCode={extractCode}
+      />
     </div>
   );
 }
