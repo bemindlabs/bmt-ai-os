@@ -1,8 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { streamChat, fetchModels, writeFile, createDirectory } from "@/lib/api";
-import type { ChatMessage, OllamaModel } from "@/lib/api";
+import {
+  streamChat,
+  fetchProviders,
+  fetchProviderModels,
+  fetchProviderKeys,
+  writeFile,
+} from "@/lib/api";
+import type { ChatMessage, Provider } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +20,10 @@ import {
   Loader2,
   Settings2,
   FilePlus,
+  AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
+import { ProviderKeySetup } from "./provider-key-setup";
 
 // ---------------------------------------------------------------------------
 // SSE parser
@@ -43,8 +52,105 @@ function parseSSEChunk(chunk: string): string {
 // ---------------------------------------------------------------------------
 
 const STORAGE_MODEL = "bmt_ai_model";
+const STORAGE_PROVIDER = "bmt_ai_provider";
 const STORAGE_TEMP = "bmt_ai_temperature";
 const STORAGE_TOKENS = "bmt_ai_max_tokens";
+
+// ---------------------------------------------------------------------------
+// Provider display helpers
+// ---------------------------------------------------------------------------
+
+const PROVIDER_LABELS: Record<string, string> = {
+  anthropic: "Claude",
+  openai: "OpenAI",
+  gemini: "Gemini",
+  groq: "Groq",
+  mistral: "Mistral",
+  ollama: "Ollama",
+  vllm: "vLLM",
+  llamacpp: "llama.cpp",
+};
+
+function providerLabel(name: string): string {
+  return PROVIDER_LABELS[name.toLowerCase()] ?? name;
+}
+
+/** Cloud providers that require a configured API key */
+const CLOUD_PROVIDER_NAMES = new Set([
+  "anthropic",
+  "claude",
+  "openai",
+  "gemini",
+  "google",
+  "groq",
+  "mistral",
+]);
+
+function isCloudProvider(name: string): boolean {
+  return CLOUD_PROVIDER_NAMES.has(name.toLowerCase());
+}
+
+// ---------------------------------------------------------------------------
+// HealthDot
+// ---------------------------------------------------------------------------
+
+function HealthDot({ healthy }: { healthy: boolean }) {
+  return (
+    <span
+      className={`inline-block size-1.5 rounded-full shrink-0 ${
+        healthy ? "bg-green-500" : "bg-red-500"
+      }`}
+      aria-label={healthy ? "healthy" : "unhealthy"}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProviderPill
+// ---------------------------------------------------------------------------
+
+interface ProviderPillProps {
+  provider: Provider;
+  selected: boolean;
+  missingKey: boolean;
+  onSelect: () => void;
+  disabled: boolean;
+}
+
+function ProviderPill({
+  provider,
+  selected,
+  missingKey,
+  onSelect,
+  disabled,
+}: ProviderPillProps) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      title={
+        missingKey
+          ? `${providerLabel(provider.name)} — no API key configured`
+          : providerLabel(provider.name)
+      }
+      className={[
+        "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium",
+        "border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        selected
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-muted-foreground",
+        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+      ].join(" ")}
+    >
+      <HealthDot healthy={provider.healthy} />
+      <span>{providerLabel(provider.name)}</span>
+      {missingKey && (
+        <AlertTriangle className="size-2.5 text-yellow-500 ml-0.5" />
+      )}
+    </button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // AI Prompt Panel
@@ -86,12 +192,36 @@ export function AiPromptPanel({
   const [saveAsStatus, setSaveAsStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const abortRef = useRef<AbortController | null>(null);
 
-  // Model selection
-  const [models, setModels] = useState<OllamaModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState(() =>
-    (typeof window !== "undefined" && localStorage.getItem(STORAGE_MODEL)) || "default",
-  );
+  // ---------------------------------------------------------------------------
+  // Provider + model state
+  // ---------------------------------------------------------------------------
+
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(false);
+
+  /** provider name → list of available model ids */
+  const [providerModels, setProviderModels] = useState<Record<string, string[]>>({});
   const [loadingModels, setLoadingModels] = useState(false);
+
+  /** provider names that have at least one active API key */
+  const [keyedProviders, setKeyedProviders] = useState<Set<string>>(new Set());
+  const [loadingKeys, setLoadingKeys] = useState(false);
+
+  /** "default" = auto-route to active provider; otherwise explicit provider name */
+  const [selectedProvider, setSelectedProvider] = useState<string>(
+    () =>
+      (typeof window !== "undefined" && localStorage.getItem(STORAGE_PROVIDER)) ||
+      "default",
+  );
+
+  const [selectedModel, setSelectedModel] = useState<string>(
+    () =>
+      (typeof window !== "undefined" && localStorage.getItem(STORAGE_MODEL)) ||
+      "default",
+  );
+
+  /** Show the inline key-setup widget for the selected cloud provider */
+  const [showKeySetup, setShowKeySetup] = useState(false);
 
   // Options
   const [showOptions, setShowOptions] = useState(false);
@@ -104,7 +234,13 @@ export function AiPromptPanel({
     return stored ? parseInt(stored, 10) : 4096;
   });
 
+  // ---------------------------------------------------------------------------
   // Persist settings
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_PROVIDER, selectedProvider);
+  }, [selectedProvider]);
   useEffect(() => {
     localStorage.setItem(STORAGE_MODEL, selectedModel);
   }, [selectedModel]);
@@ -115,14 +251,115 @@ export function AiPromptPanel({
     localStorage.setItem(STORAGE_TOKENS, String(maxTokens));
   }, [maxTokens]);
 
-  // Fetch models on mount
+  // ---------------------------------------------------------------------------
+  // Fetch providers on mount
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
-    setLoadingModels(true);
-    fetchModels()
-      .then((res) => setModels(res.models ?? []))
-      .catch(() => setModels([]))
-      .finally(() => setLoadingModels(false));
+    setLoadingProviders(true);
+    fetchProviders()
+      .then((res) => setProviders(res.providers ?? []))
+      .catch(() => setProviders([]))
+      .finally(() => setLoadingProviders(false));
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Fetch API key status for all cloud providers once providers load
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (providers.length === 0) return;
+    const cloudProviders = providers.filter((p) => isCloudProvider(p.name));
+    if (cloudProviders.length === 0) return;
+
+    setLoadingKeys(true);
+    Promise.allSettled(
+      cloudProviders.map((p) =>
+        fetchProviderKeys(p.name).then((res) => ({
+          name: p.name,
+          hasKey: (res.keys ?? []).some((k) => k.status === "active"),
+        })),
+      ),
+    )
+      .then((results) => {
+        const keyed = new Set<string>();
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value.hasKey) {
+            keyed.add(r.value.name);
+          }
+        }
+        setKeyedProviders(keyed);
+      })
+      .finally(() => setLoadingKeys(false));
+  }, [providers]);
+
+  // ---------------------------------------------------------------------------
+  // Fetch models for all providers once provider list loads
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (providers.length === 0) return;
+    setLoadingModels(true);
+
+    // /v1/models returns all available models across all providers. We assign
+    // them per provider by matching on the "provider/" prefix in the model id.
+    fetchProviderModels("all")
+      .then((res) => {
+        const allIds = (res.models ?? [])
+          .map((m) => m.id ?? (m as { name?: string }).name ?? "")
+          .filter(Boolean);
+
+        const byProvider: Record<string, string[]> = {};
+        for (const p of providers) {
+          const prefixed = allIds.filter((id) =>
+            id.toLowerCase().startsWith(p.name.toLowerCase() + "/"),
+          );
+          byProvider[p.name] = prefixed.length > 0 ? prefixed : allIds;
+        }
+        setProviderModels(byProvider);
+      })
+      .catch(() => setProviderModels({}))
+      .finally(() => setLoadingModels(false));
+  }, [providers]);
+
+  // ---------------------------------------------------------------------------
+  // Provider selection handler
+  // ---------------------------------------------------------------------------
+
+  const handleProviderSelect = useCallback(
+    (name: string) => {
+      setSelectedProvider(name);
+      setShowKeySetup(false);
+      if (name === "default") {
+        setSelectedModel("default");
+        return;
+      }
+      const models = providerModels[name] ?? [];
+      setSelectedModel(models[0] ?? "default");
+      // Show key setup when a cloud provider without a key is selected
+      if (isCloudProvider(name) && !keyedProviders.has(name) && !loadingKeys) {
+        setShowKeySetup(true);
+      }
+    },
+    [providerModels, keyedProviders, loadingKeys],
+  );
+
+  // ---------------------------------------------------------------------------
+  // After successful key save: refresh key status
+  // ---------------------------------------------------------------------------
+
+  const handleProviderKeySaved = useCallback(() => {
+    if (!selectedProvider || selectedProvider === "default") return;
+    fetchProviderKeys(selectedProvider)
+      .then((res) => {
+        const hasKey = (res.keys ?? []).some((k) => k.status === "active");
+        if (hasKey) {
+          setKeyedProviders((prev) => new Set([...prev, selectedProvider]));
+        }
+      })
+      .catch(() => null)
+      .finally(() => setShowKeySetup(false));
+  }, [selectedProvider]);
 
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || loading) return;
@@ -159,10 +396,21 @@ export function AiPromptPanel({
       { role: "user", content: userContent },
     ];
 
+    // Build the model string: "provider/model" format when a specific
+    // provider is selected, plain model otherwise (backward-compatible).
+    let modelArg = selectedModel;
+    if (selectedProvider !== "default") {
+      if (!selectedModel || selectedModel === "default") {
+        modelArg = selectedProvider;
+      } else if (!selectedModel.toLowerCase().startsWith(selectedProvider.toLowerCase() + "/")) {
+        modelArg = `${selectedProvider}/${selectedModel}`;
+      }
+    }
+
     try {
       const reader = await streamChat(
         {
-          model: selectedModel,
+          model: modelArg,
           messages,
           temperature,
           max_tokens: maxTokens,
@@ -194,7 +442,7 @@ export function AiPromptPanel({
       setLoading(false);
       abortRef.current = null;
     }
-  }, [prompt, fileContent, filePath, language, loading, selectedModel, temperature, maxTokens]);
+  }, [prompt, fileContent, filePath, language, loading, selectedProvider, selectedModel, temperature, maxTokens]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -258,36 +506,106 @@ export function AiPromptPanel({
         </button>
       </div>
 
-      {/* Model selector + options */}
+      {/* Provider + Model selector + options */}
       <div className="border-b border-border px-3 py-2 space-y-2">
-        {/* Model dropdown */}
-        <div className="flex items-center gap-2">
-          <label className="text-[10px] text-muted-foreground shrink-0 uppercase tracking-wide">
-            Model
+
+        {/* Provider pills */}
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground uppercase tracking-wide">
+            Provider
           </label>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            disabled={loading}
-          >
-            <option value="default">default (auto)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.name}
-              </option>
+          <div className="flex flex-wrap gap-1">
+            {/* "auto" pill — backward-compatible, routes to active provider */}
+            <button
+              type="button"
+              onClick={() => handleProviderSelect("default")}
+              disabled={loading}
+              className={[
+                "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium",
+                "border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                selectedProvider === "default"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-muted-foreground",
+                loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              ].join(" ")}
+            >
+              <span className="inline-block size-1.5 rounded-full bg-blue-400 shrink-0" />
+              auto
+            </button>
+
+            {loadingProviders && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground px-1">
+                <Loader2 className="size-2.5 animate-spin" />
+                Loading...
+              </span>
+            )}
+
+            {providers.map((p) => (
+              <ProviderPill
+                key={p.name}
+                provider={p}
+                selected={selectedProvider === p.name}
+                missingKey={
+                  isCloudProvider(p.name) &&
+                  !loadingKeys &&
+                  !keyedProviders.has(p.name)
+                }
+                onSelect={() => handleProviderSelect(p.name)}
+                disabled={loading}
+              />
             ))}
-            {loadingModels && <option disabled>Loading models...</option>}
-          </select>
-          <button
-            onClick={() => setShowOptions(!showOptions)}
-            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
-            title="Model options"
-            aria-expanded={showOptions}
-          >
-            <Settings2 className="size-3.5" />
-          </button>
+          </div>
         </div>
+
+        {/* Model dropdown — shown only when a specific provider is selected */}
+        {selectedProvider !== "default" && (
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-muted-foreground shrink-0 uppercase tracking-wide">
+              Model
+            </label>
+            <div className="relative flex-1">
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full h-7 rounded border border-input bg-background pl-2 pr-6 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
+                disabled={loading || loadingModels}
+              >
+                <option value="default">
+                  default ({providerLabel(selectedProvider)})
+                </option>
+                {(providerModels[selectedProvider] ?? []).map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+                {loadingModels && <option disabled>Loading models...</option>}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+            </div>
+            <button
+              onClick={() => setShowOptions(!showOptions)}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="Model options"
+              aria-expanded={showOptions}
+            >
+              <Settings2 className="size-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Settings gear shown in auto mode (no model row) */}
+        {selectedProvider === "default" && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowOptions(!showOptions)}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="Model options"
+              aria-expanded={showOptions}
+            >
+              <Settings2 className="size-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Options panel */}
         {showOptions && (
@@ -331,6 +649,19 @@ export function AiPromptPanel({
           </div>
         )}
       </div>
+
+      {/* Inline API key setup — shown when a cloud provider without a key is selected */}
+      {showKeySetup &&
+        selectedProvider !== "default" &&
+        isCloudProvider(selectedProvider) &&
+        !loadingKeys &&
+        !keyedProviders.has(selectedProvider) && (
+          <ProviderKeySetup
+            providerName={selectedProvider}
+            onKeySaved={handleProviderKeySaved}
+            onDismiss={() => setShowKeySetup(false)}
+          />
+        )}
 
       {/* Prompt input */}
       <div className="border-b border-border p-3">
@@ -404,11 +735,38 @@ export function AiPromptPanel({
               Cancel
             </Button>
           )}
-          {filePath && fileContent.trim() && (
-            <span className="ml-auto text-[10px] text-muted-foreground">
-              {filePath.split("/").pop()}
-            </span>
-          )}
+          {/* Status bar: provider · model · filename */}
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
+            {selectedProvider !== "default" && (
+              <>
+                <HealthDot
+                  healthy={
+                    providers.find((p) => p.name === selectedProvider)
+                      ?.healthy ?? false
+                  }
+                />
+                <span className="shrink-0">{providerLabel(selectedProvider)}</span>
+                {selectedModel !== "default" && (
+                  <span className="opacity-60 truncate">
+                    &middot;{" "}
+                    {selectedModel.includes("/")
+                      ? selectedModel.split("/").slice(1).join("/")
+                      : selectedModel}
+                  </span>
+                )}
+              </>
+            )}
+            {filePath && fileContent.trim() && (
+              <span
+                className={[
+                  "truncate",
+                  selectedProvider !== "default" ? "ml-1 opacity-60" : "",
+                ].join(" ")}
+              >
+                {filePath.split("/").pop()}
+              </span>
+            )}
+          </span>
         </div>
       </div>
 

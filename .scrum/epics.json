@@ -439,6 +439,20 @@
         "Panel is resizable with drag handle",
         "Ctrl+backtick toggles terminal visibility"
       ]
+    },
+    {
+      "id": "BMTOS-EPIC-20",
+      "title": "Multi-Provider AI Coding & Model Manager",
+      "description": "Integrate Claude, Codex, Gemini into the Code Editor. Enhanced model catalog with probing, comparison, and provider key management.",
+      "status": "planned",
+      "priority": "critical",
+      "total_points": 21,
+      "stories": [
+        "BMTOS-148",
+        "BMTOS-149",
+        "BMTOS-150",
+        "BMTOS-151"
+      ]
     }
   ],
   "next_id": 18

@@ -3379,6 +3379,90 @@
         "Settings page shows workspace layout with descriptions",
         "Tests: unit test for scaffold idempotency"
       ]
+    },
+    {
+      "id": "BMTOS-148",
+      "title": "Multi-provider AI coding integration (Claude, Codex, Gemini)",
+      "description": "Extend the Code Editor AI panel to support multiple AI providers beyond the default Ollama. Add provider selector (Claude/Anthropic, OpenAI/Codex, Gemini, local Ollama). Each provider uses existing provider registry. Route AI requests through the selected provider.",
+      "type": "story",
+      "priority": "critical",
+      "points": 8,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor",
+        "providers"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "AI panel shows provider selector (Claude, OpenAI, Gemini, Ollama)",
+        "Each provider lists its available models",
+        "Selected provider+model persisted in localStorage",
+        "Streaming works with all providers via /v1/chat/completions",
+        "Provider with no API key shows setup prompt"
+      ]
+    },
+    {
+      "id": "BMTOS-149",
+      "title": "Enhanced Model Manager with provider catalog and probing",
+      "description": "Clone OpenClaw model catalog pattern: rich model cards with context window, pricing, capabilities. Add model probe (test connectivity with simple prompt). Group models by provider. Show model status (available/unavailable).",
+      "type": "story",
+      "priority": "high",
+      "points": 5,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "models"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "Model catalog shows cards with context window, pricing tier, capabilities",
+        "Models grouped by provider (Local, Cloud)",
+        "Probe button tests model connectivity",
+        "Model status: available (green), unavailable (red), untested (gray)",
+        "Search/filter by provider, capability, name"
+      ]
+    },
+    {
+      "id": "BMTOS-150",
+      "title": "Provider API key management in Code Editor",
+      "description": "Quick-setup flow when user selects a provider without API key. Inline key input in the AI panel. Link to Settings for full key management. Show key status (valid/invalid/missing) per provider.",
+      "type": "story",
+      "priority": "high",
+      "points": 3,
+      "status": "done",
+      "labels": [
+        "frontend",
+        "editor",
+        "auth"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "Provider without key shows inline setup prompt",
+        "API key input saves to provider config API",
+        "Key validation on save (test with probe)",
+        "Link to Settings page for advanced key management"
+      ]
+    },
+    {
+      "id": "BMTOS-151",
+      "title": "Model comparison and A/B prompt testing",
+      "description": "Send the same prompt to 2+ models side by side. Show responses in split columns. Compare speed, token count, output quality. Useful for evaluating which model works best for a coding task.",
+      "type": "story",
+      "priority": "medium",
+      "points": 5,
+      "status": "backlog",
+      "labels": [
+        "frontend",
+        "editor"
+      ],
+      "epic": "BMTOS-EPIC-20",
+      "acceptance_criteria": [
+        "Compare button sends prompt to 2 selected models simultaneously",
+        "Split view shows both responses side by side",
+        "Shows latency, token count per response",
+        "User can apply either response to editor"
+      ]
     }
   ],
   "next_id": 136

@@ -520,3 +520,15 @@ export async function fetchProviderModels(name: string): Promise<{ models: { id:
   const res = await apiFetch<{ object: string; data: { id: string; name?: string }[] }>(`/v1/models`);
   return { models: res.data ?? [] };
 }
+
+// ---------------------------------------------------------------------------
+// Provider Key Setup (BMTOS-150) — compact alias used by editor AI panel
+// ---------------------------------------------------------------------------
+
+export async function saveProviderKey(
+  provider: string,
+  key: string,
+): Promise<{ status: string }> {
+  const res = await addProviderKey(provider, key);
+  return { status: res.key.status };
+}
